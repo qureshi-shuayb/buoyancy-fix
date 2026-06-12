@@ -6,106 +6,88 @@
 <title>Star Deli — Polish Bakery</title>
 <style>
 /* =====================================================================
-   "BEFORE" STATE — DO NOT IMITATE.
-   The same page is hand-duplicated FOUR times (one block per breakpoint:
-   mobile / tablet / laptop / desktop), each with its own class set, and
-   CSS toggles which copy is visible with display:none + media queries.
-   This is the anti-pattern the agent must refactor into ONE responsive block.
+   "BEFORE" STATE — DO NOT IMITATE. Page hand-duplicated FOUR times
+   (mobile/tablet/laptop/desktop), toggled with display:none.
+   Per-breakpoint differences the refactor must preserve:
+     - ORDER: mobile shows products ABOVE hero; larger shows hero first
+     - mobile-only "call bar"; desktop-only "promo" banner
+     - hero image hidden on mobile
+     - NON-MONOTONIC card padding: 12 / 20 / 14 / 26
    ===================================================================== */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: Georgia, 'Times New Roman', serif; color: #3b2415; background: #fdf6ec; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#fdf6ec; }
 
-/* ---- breakpoint toggling: hide every variant, then reveal one per range ---- */
-.v-mobile, .v-tablet, .v-laptop, .v-desktop { display: none; }
-@media (max-width: 480px)                        { .v-mobile  { display: block; } }
-@media (min-width: 481px) and (max-width: 768px) { .v-tablet  { display: block; } }
-@media (min-width: 769px) and (max-width: 1024px){ .v-laptop  { display: block; } }
-@media (min-width: 1025px)                       { .v-desktop { display: block; } }
+.v-mobile,.v-tablet,.v-laptop,.v-desktop { display:none; }
+@media (max-width:480px)                        { .v-mobile  { display:block; } }
+@media (min-width:481px) and (max-width:768px)  { .v-tablet  { display:block; } }
+@media (min-width:769px) and (max-width:1024px) { .v-laptop  { display:block; } }
+@media (min-width:1025px)                        { .v-desktop { display:block; } }
 
-/* ============================ MOBILE COPY ============================ */
-.v-mobile .hdr        { background:#7b2d26; color:#fff; padding:14px; text-align:center; }
-.v-mobile .hdr h1     { font-size:22px; }
-.v-mobile .hdr p      { font-size:12px; color:#f3d9c0; }
-.v-mobile .hero       { padding:14px; text-align:center; }
-.v-mobile .hero h2    { font-size:18px; margin-bottom:6px; }
-.v-mobile .hero p     { font-size:13px; }
-.v-mobile .hero-img   { display:none; }                 /* mobile hides the decorative banner */
-.v-mobile .products   { padding:10px; }
-.v-mobile .card       { background:#fff; border:1px solid #e3cdb5; border-radius:6px; padding:12px; margin-bottom:12px; }
-.v-mobile .card h3    { font-size:16px; color:#7b2d26; margin-bottom:6px; }
-.v-mobile .card p     { font-size:13px; line-height:1.4; }
-.v-mobile .ft         { background:#3b2415; color:#f3d9c0; padding:12px; text-align:center; font-size:11px; }
+/* shared cosmetics */
+.hdr   { background:#7b2d26; color:#fff; text-align:center; }
+.hdr p { color:#f3d9c0; }
+.hero  { text-align:center; }
+.hero-img { background:#c98a3b; }
+.card  { background:#fff; border:1px solid #e3cdb5; }
+.card h3 { color:#7b2d26; }
+.ft    { background:#3b2415; color:#f3d9c0; text-align:center; }
+.call-bar { background:#27632a; color:#fff; text-align:center; font-weight:bold; }
+.promo    { background:#e0a23b; color:#3b2415; text-align:center; font-weight:bold; }
 
-/* ============================ TABLET COPY ============================ */
-.v-tablet .hdr        { background:#7b2d26; color:#fff; padding:20px; text-align:center; }
-.v-tablet .hdr h1     { font-size:30px; }
-.v-tablet .hdr p      { font-size:14px; color:#f3d9c0; }
-.v-tablet .hero       { padding:20px; text-align:center; }
-.v-tablet .hero h2    { font-size:24px; margin-bottom:8px; }
-.v-tablet .hero p     { font-size:15px; }
-.v-tablet .hero-img   { display:block; height:120px; background:#c98a3b; border-radius:8px; margin:12px auto; }
-.v-tablet .products   { padding:16px; display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }  /* 2 cols */
-.v-tablet .card       { background:#fff; border:1px solid #e3cdb5; border-radius:8px; padding:16px; }
-.v-tablet .card h3    { font-size:19px; color:#7b2d26; margin-bottom:8px; }
-.v-tablet .card p     { font-size:14px; line-height:1.5; }
-.v-tablet .ft         { background:#3b2415; color:#f3d9c0; padding:16px; text-align:center; font-size:13px; }
+/* ===== MOBILE: products above hero, call-bar shown, no hero-img, pad 12 ===== */
+.v-mobile .hdr{padding:14px;} .v-mobile .hdr h1{font-size:22px;} .v-mobile .hdr p{font-size:12px;}
+.v-mobile .call-bar{padding:10px; font-size:14px;}
+.v-mobile .products{padding:10px; display:grid; grid-template-columns:1fr; gap:12px;}
+.v-mobile .card{border-radius:6px; padding:12px;} .v-mobile .card h3{font-size:16px; margin-bottom:6px;} .v-mobile .card p{font-size:13px; line-height:1.4;}
+.v-mobile .hero{padding:14px;} .v-mobile .hero h2{font-size:18px; margin-bottom:6px;} .v-mobile .hero p{font-size:13px;}
+.v-mobile .ft{padding:12px; font-size:11px;}
 
-/* ============================ LAPTOP COPY ============================ */
-.v-laptop .hdr        { background:#7b2d26; color:#fff; padding:26px; text-align:center; }
-.v-laptop .hdr h1     { font-size:36px; }
-.v-laptop .hdr p      { font-size:15px; color:#f3d9c0; }
-.v-laptop .hero       { padding:26px; text-align:center; }
-.v-laptop .hero h2    { font-size:28px; margin-bottom:10px; }
-.v-laptop .hero p     { font-size:16px; }
-.v-laptop .hero-img   { display:block; height:160px; background:#c98a3b; border-radius:10px; margin:16px auto; max-width:700px; }
-.v-laptop .products   { padding:24px; display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }  /* 3 cols */
-.v-laptop .card       { background:#fff; border:1px solid #e3cdb5; border-radius:10px; padding:20px; }
-.v-laptop .card h3    { font-size:21px; color:#7b2d26; margin-bottom:10px; }
-.v-laptop .card p     { font-size:15px; line-height:1.6; }
-.v-laptop .ft         { background:#3b2415; color:#f3d9c0; padding:20px; text-align:center; font-size:14px; }
+/* ===== TABLET: hero first, 2 cols, hero-img, pad 20 ===== */
+.v-tablet .hdr{padding:20px;} .v-tablet .hdr h1{font-size:30px;} .v-tablet .hdr p{font-size:14px;}
+.v-tablet .hero{padding:20px;} .v-tablet .hero h2{font-size:24px; margin-bottom:8px;} .v-tablet .hero p{font-size:15px;}
+.v-tablet .hero-img{height:120px; border-radius:8px; margin:12px auto; display:block;}
+.v-tablet .products{padding:16px; display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
+.v-tablet .card{border-radius:8px; padding:20px;} .v-tablet .card h3{font-size:19px; margin-bottom:8px;} .v-tablet .card p{font-size:14px; line-height:1.5;}
+.v-tablet .ft{padding:16px; font-size:13px;}
 
-/* =========================== DESKTOP COPY =========================== */
-.v-desktop .wrap      { max-width:1200px; margin:0 auto; }
-.v-desktop .hdr       { background:#7b2d26; color:#fff; padding:34px; text-align:center; }
-.v-desktop .hdr h1    { font-size:46px; }
-.v-desktop .hdr p     { font-size:17px; color:#f3d9c0; }
-.v-desktop .hero      { padding:34px; text-align:center; }
-.v-desktop .hero h2   { font-size:34px; margin-bottom:12px; }
-.v-desktop .hero p    { font-size:18px; }
-.v-desktop .hero-img  { display:block; height:220px; background:#c98a3b; border-radius:12px; margin:20px auto; max-width:900px; }
-.v-desktop .products  { padding:32px; display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }  /* 3 cols, wide */
-.v-desktop .card      { background:#fff; border:1px solid #e3cdb5; border-radius:12px; padding:26px; }
-.v-desktop .card h3   { font-size:24px; color:#7b2d26; margin-bottom:12px; }
-.v-desktop .card p    { font-size:16px; line-height:1.7; }
-.v-desktop .ft        { background:#3b2415; color:#f3d9c0; padding:24px; text-align:center; font-size:15px; }
+/* ===== LAPTOP: hero first, 3 cols, pad 14 (NON-MONOTONIC dip) ===== */
+.v-laptop .hdr{padding:26px;} .v-laptop .hdr h1{font-size:36px;} .v-laptop .hdr p{font-size:15px;}
+.v-laptop .hero{padding:26px;} .v-laptop .hero h2{font-size:28px; margin-bottom:10px;} .v-laptop .hero p{font-size:16px;}
+.v-laptop .hero-img{height:160px; border-radius:10px; margin:16px auto; max-width:700px; display:block;}
+.v-laptop .products{padding:24px; display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+.v-laptop .card{border-radius:10px; padding:14px;} .v-laptop .card h3{font-size:21px; margin-bottom:10px;} .v-laptop .card p{font-size:15px; line-height:1.6;}
+.v-laptop .ft{padding:20px; font-size:14px;}
+
+/* ===== DESKTOP: hero first, promo shown, 3 cols, pad 26, centered ===== */
+.v-desktop .wrap{max-width:1200px; margin:0 auto;}
+.v-desktop .promo{padding:12px; font-size:16px;}
+.v-desktop .hdr{padding:34px;} .v-desktop .hdr h1{font-size:46px;} .v-desktop .hdr p{font-size:17px;}
+.v-desktop .hero{padding:34px;} .v-desktop .hero h2{font-size:34px; margin-bottom:12px;} .v-desktop .hero p{font-size:18px;}
+.v-desktop .hero-img{height:220px; border-radius:12px; margin:20px auto; max-width:900px; display:block;}
+.v-desktop .products{padding:32px; display:grid; grid-template-columns:repeat(3,1fr); gap:28px;}
+.v-desktop .card{border-radius:12px; padding:26px;} .v-desktop .card h3{font-size:24px; margin-bottom:12px;} .v-desktop .card p{font-size:16px; line-height:1.7;}
+.v-desktop .ft{padding:24px; font-size:15px;}
 </style>
 </head>
 <body>
 
-<!-- ===================== COPY 1 of 4: MOBILE ===================== -->
+<!-- ============ COPY 1/4: MOBILE (products above hero, call-bar, no img) ============ -->
 <div class="v-mobile">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
-  <section class="hero">
-    <h2>Baked Fresh Every Morning</h2>
-    <p>Traditional recipes from Kraków, made by hand in Brooklyn.</p>
-    <div class="hero-img"></div>
-  </section>
+  <div class="call-bar">📞 Call to order: (718) 555-0199</div>
   <main class="products">
     <article class="card"><h3>Sernik</h3><p>Polish cheesecake made with twaróg (farmer's cheese) for a denser, grainier texture. Flavored with vanilla and lemon zest, topped with glazed fruit.</p></article>
     <article class="card"><h3>Pączki</h3><p>Deep-fried doughnuts filled with rose hip jam or custard, glazed with icing and topped with candied orange peel. A Fat Thursday favorite.</p></article>
     <article class="card"><h3>Makowiec</h3><p>A sweet rolled pastry with dense poppy seed filling mixed with honey, nuts, and raisins. A staple of Christmas and Easter tables.</p></article>
   </main>
+  <section class="hero"><h2>Baked Fresh Every Morning</h2><p>Traditional recipes from Kraków, made by hand in Brooklyn.</p></section>
   <footer class="ft">© Star Deli · 142 Greenpoint Ave, Brooklyn · Open 7am–6pm</footer>
 </div>
 
-<!-- ===================== COPY 2 of 4: TABLET ===================== -->
+<!-- ============ COPY 2/4: TABLET (hero first, 2 cols) ============ -->
 <div class="v-tablet">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
-  <section class="hero">
-    <h2>Baked Fresh Every Morning</h2>
-    <p>Traditional recipes from Kraków, made by hand in Brooklyn.</p>
-    <div class="hero-img"></div>
-  </section>
+  <section class="hero"><h2>Baked Fresh Every Morning</h2><p>Traditional recipes from Kraków, made by hand in Brooklyn.</p><div class="hero-img"></div></section>
   <main class="products">
     <article class="card"><h3>Sernik</h3><p>Polish cheesecake made with twaróg (farmer's cheese) for a denser, grainier texture. Flavored with vanilla and lemon zest, topped with glazed fruit.</p></article>
     <article class="card"><h3>Pączki</h3><p>Deep-fried doughnuts filled with rose hip jam or custard, glazed with icing and topped with candied orange peel. A Fat Thursday favorite.</p></article>
@@ -114,14 +96,10 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #3b2415; backgroun
   <footer class="ft">© Star Deli · 142 Greenpoint Ave, Brooklyn · Open 7am–6pm</footer>
 </div>
 
-<!-- ===================== COPY 3 of 4: LAPTOP ===================== -->
+<!-- ============ COPY 3/4: LAPTOP (hero first, 3 cols, pad 14) ============ -->
 <div class="v-laptop">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
-  <section class="hero">
-    <h2>Baked Fresh Every Morning</h2>
-    <p>Traditional recipes from Kraków, made by hand in Brooklyn.</p>
-    <div class="hero-img"></div>
-  </section>
+  <section class="hero"><h2>Baked Fresh Every Morning</h2><p>Traditional recipes from Kraków, made by hand in Brooklyn.</p><div class="hero-img"></div></section>
   <main class="products">
     <article class="card"><h3>Sernik</h3><p>Polish cheesecake made with twaróg (farmer's cheese) for a denser, grainier texture. Flavored with vanilla and lemon zest, topped with glazed fruit.</p></article>
     <article class="card"><h3>Pączki</h3><p>Deep-fried doughnuts filled with rose hip jam or custard, glazed with icing and topped with candied orange peel. A Fat Thursday favorite.</p></article>
@@ -130,15 +108,12 @@ body { font-family: Georgia, 'Times New Roman', serif; color: #3b2415; backgroun
   <footer class="ft">© Star Deli · 142 Greenpoint Ave, Brooklyn · Open 7am–6pm</footer>
 </div>
 
-<!-- ===================== COPY 4 of 4: DESKTOP ===================== -->
+<!-- ============ COPY 4/4: DESKTOP (hero first, promo banner, 3 cols, centered) ============ -->
 <div class="v-desktop">
  <div class="wrap">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
-  <section class="hero">
-    <h2>Baked Fresh Every Morning</h2>
-    <p>Traditional recipes from Kraków, made by hand in Brooklyn.</p>
-    <div class="hero-img"></div>
-  </section>
+  <div class="promo">🚚 Free delivery on orders over $40</div>
+  <section class="hero"><h2>Baked Fresh Every Morning</h2><p>Traditional recipes from Kraków, made by hand in Brooklyn.</p><div class="hero-img"></div></section>
   <main class="products">
     <article class="card"><h3>Sernik</h3><p>Polish cheesecake made with twaróg (farmer's cheese) for a denser, grainier texture. Flavored with vanilla and lemon zest, topped with glazed fruit.</p></article>
     <article class="card"><h3>Pączki</h3><p>Deep-fried doughnuts filled with rose hip jam or custard, glazed with icing and topped with candied orange peel. A Fat Thursday favorite.</p></article>

@@ -5,63 +5,71 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Star Deli — Polish Bakery</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: Georgia, 'Times New Roman', serif; color: #3b2415; background: #fdf6ec; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#fdf6ec; }
 
-/* ---- base = MOBILE (<=480) ---- */
-.hdr      { background:#7b2d26; color:#fff; padding:14px; text-align:center; }
-.hdr h1   { font-size:22px; }
-.hdr p    { font-size:12px; color:#f3d9c0; }
-.hero     { padding:14px; text-align:center; }
-.hero h2  { font-size:18px; margin-bottom:6px; }
-.hero p   { font-size:13px; }
+.page { display:flex; flex-direction:column; }
+.hdr   { background:#7b2d26; color:#fff; text-align:center; }
+.hdr p { color:#f3d9c0; }
+.hero  { text-align:center; }
+.hero-img { background:#c98a3b; }
+.card  { background:#fff; border:1px solid #e3cdb5; }
+.card h3 { color:#7b2d26; }
+.ft    { background:#3b2415; color:#f3d9c0; text-align:center; }
+.call-bar { background:#27632a; color:#fff; text-align:center; font-weight:bold; }
+.promo    { background:#e0a23b; color:#3b2415; text-align:center; font-weight:bold; }
+
+/* ===== base = MOBILE: products above hero, call-bar shown, no img, pad 12 ===== */
+.promo    { display:none; }
 .hero-img { display:none; }
-.products { padding:10px; display:grid; grid-template-columns:1fr; gap:12px; }
-.card     { background:#fff; border:1px solid #e3cdb5; border-radius:6px; padding:12px; }
-.card h3  { font-size:16px; color:#7b2d26; margin-bottom:6px; }
-.card p   { font-size:13px; line-height:1.4; }
-.ft       { background:#3b2415; color:#f3d9c0; padding:12px; text-align:center; font-size:11px; }
+.hdr  { order:1; padding:14px; }
+.hdr h1 { font-size:22px; } .hdr p { font-size:12px; }
+.call-bar { order:2; display:block; padding:10px; font-size:14px; }
+.products { order:3; padding:10px; display:grid; grid-template-columns:1fr; gap:12px; }
+.card { border-radius:6px; padding:12px; } .card h3 { font-size:16px; margin-bottom:6px; } .card p { font-size:13px; line-height:1.4; }
+.hero { order:4; padding:14px; } .hero h2 { font-size:18px; margin-bottom:6px; } .hero p { font-size:13px; }
+.ft   { order:5; padding:12px; font-size:11px; }
 
-/* ---- TABLET (481–768): 2 columns ---- */
+/* ===== TABLET (>=481): hero first, 2 cols, hero-img, pad 20 ===== */
 @media (min-width:481px) {
-  .hdr{padding:20px;} .hdr h1{font-size:30px;} .hdr p{font-size:14px;}
-  .hero{padding:20px;} .hero h2{font-size:24px;margin-bottom:8px;} .hero p{font-size:15px;}
-  .hero-img{display:block; height:120px; background:#c98a3b; border-radius:8px; margin:12px auto;}
-  .products{padding:16px; grid-template-columns:repeat(2,1fr); gap:16px;}
-  .card{border-radius:8px; padding:16px;} .card h3{font-size:19px;margin-bottom:8px;} .card p{font-size:14px;line-height:1.5;}
-  .ft{padding:16px; font-size:13px;}
+  .call-bar { display:none; }
+  .hdr { order:1; padding:20px; } .hdr h1 { font-size:30px; } .hdr p { font-size:14px; }
+  .hero { order:2; padding:20px; } .hero h2 { font-size:24px; margin-bottom:8px; } .hero p { font-size:15px; }
+  .hero-img { display:block; height:120px; border-radius:8px; margin:12px auto; }
+  .products { order:3; padding:16px; grid-template-columns:repeat(2,1fr); gap:16px; }
+  .card { border-radius:8px; padding:20px; } .card h3 { font-size:19px; margin-bottom:8px; } .card p { font-size:14px; line-height:1.5; }
+  .ft { order:4; padding:16px; font-size:13px; }
 }
 
-/* ---- LAPTOP (769–1024): 3 columns ---- */
+/* ===== LAPTOP (>=769): 3 cols, pad 14 (non-monotonic dip) ===== */
 @media (min-width:769px) {
-  .hdr{padding:26px;} .hdr h1{font-size:36px;} .hdr p{font-size:15px;}
-  .hero{padding:26px;} .hero h2{font-size:28px;margin-bottom:10px;} .hero p{font-size:16px;}
-  .hero-img{height:160px; border-radius:10px; margin:16px auto; max-width:700px;}
-  .products{padding:24px; grid-template-columns:repeat(3,1fr); gap:20px;}
-  .card{border-radius:10px; padding:20px;} .card h3{font-size:21px;margin-bottom:10px;} .card p{font-size:15px;line-height:1.6;}
-  .ft{padding:20px; font-size:14px;}
+  .hdr { padding:26px; } .hdr h1 { font-size:36px; } .hdr p { font-size:15px; }
+  .hero { padding:26px; } .hero h2 { font-size:28px; margin-bottom:10px; } .hero p { font-size:16px; }
+  .hero-img { height:160px; border-radius:10px; margin:16px auto; max-width:700px; }
+  .products { padding:24px; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .card { border-radius:10px; padding:14px; } .card h3 { font-size:21px; margin-bottom:10px; } .card p { font-size:15px; line-height:1.6; }
+  .ft { padding:20px; font-size:14px; }
 }
 
-/* ---- LARGE DESKTOP (>=1025): centered max-width, wider ---- */
+/* ===== DESKTOP (>=1025): promo shown, centered, pad 26 ===== */
 @media (min-width:1025px) {
-  .page{max-width:1200px; margin:0 auto;}
-  .hdr{padding:34px;} .hdr h1{font-size:46px;} .hdr p{font-size:17px;}
-  .hero{padding:34px;} .hero h2{font-size:34px;margin-bottom:12px;} .hero p{font-size:18px;}
-  .hero-img{height:220px; border-radius:12px; margin:20px auto; max-width:900px;}
-  .products{padding:32px; grid-template-columns:repeat(3,1fr); gap:28px;}
-  .card{border-radius:12px; padding:26px;} .card h3{font-size:24px;margin-bottom:12px;} .card p{font-size:16px;line-height:1.7;}
-  .ft{padding:24px; font-size:15px;}
+  .page { max-width:1200px; margin:0 auto; }
+  .promo { display:block; order:2; padding:12px; font-size:16px; }
+  .hdr { order:1; padding:34px; } .hdr h1 { font-size:46px; } .hdr p { font-size:17px; }
+  .hero { order:3; padding:34px; } .hero h2 { font-size:34px; margin-bottom:12px; } .hero p { font-size:18px; }
+  .hero-img { height:220px; border-radius:12px; margin:20px auto; max-width:900px; }
+  .products { order:4; padding:32px; grid-template-columns:repeat(3,1fr); gap:28px; }
+  .card { border-radius:12px; padding:26px; } .card h3 { font-size:24px; margin-bottom:12px; } .card p { font-size:16px; line-height:1.7; }
+  .ft { order:5; padding:24px; font-size:15px; }
 }
 </style>
 </head>
 <body>
 <div class="page">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
-  <section class="hero">
-    <h2>Baked Fresh Every Morning</h2>
-    <p>Traditional recipes from Kraków, made by hand in Brooklyn.</p>
-    <div class="hero-img"></div>
-  </section>
+  <div class="promo">🚚 Free delivery on orders over $40</div>
+  <div class="call-bar">📞 Call to order: (718) 555-0199</div>
+  <section class="hero"><h2>Baked Fresh Every Morning</h2><p>Traditional recipes from Kraków, made by hand in Brooklyn.</p><div class="hero-img"></div></section>
   <main class="products">
     <article class="card"><h3>Sernik</h3><p>Polish cheesecake made with twaróg (farmer's cheese) for a denser, grainier texture. Flavored with vanilla and lemon zest, topped with glazed fruit.</p></article>
     <article class="card"><h3>Pączki</h3><p>Deep-fried doughnuts filled with rose hip jam or custard, glazed with icing and topped with candied orange peel. A Fat Thursday favorite.</p></article>
