@@ -9,13 +9,12 @@
 * { box-sizing:border-box; margin:0; padding:0; }
 body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#fdf6ec; }
 
-.v-mobile,.v-tablet,.v-laptop,.v-desktop { display:none; }
-@media (max-width:480px)                        { .v-mobile  { display:block; } }
-@media (min-width:481px) and (max-width:768px)  { .v-tablet  { display:block; } }
-@media (min-width:769px) and (max-width:1024px) { .v-laptop  { display:block; } }
-@media (min-width:1025px)                        { .v-desktop { display:block; } }
+/* NOTE: only three breakpoints are defined; the 769-1024 range falls back to .v-tablet */
+.v-mobile,.v-tablet,.v-desktop { display:none; }
+@media (max-width:480px)                         { .v-mobile  { display:block; } }
+@media (min-width:481px) and (max-width:1024px)  { .v-tablet  { display:block; } }
+@media (min-width:1025px)                         { .v-desktop { display:block; } }
 
-/* shared cosmetics */
 .hdr   { background:#7b2d26; color:#fff; text-align:center; }
 .hdr p { color:#f3d9c0; }
 .hero  { text-align:center; }
@@ -34,21 +33,13 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
 .v-mobile .hero{padding:14px;} .v-mobile .hero h2{font-size:18px; margin-bottom:6px;} .v-mobile .hero p{font-size:13px;}
 .v-mobile .ft{padding:12px; font-size:11px;}
 
-/* tablet */
+/* tablet (also serves 769-1024) */
 .v-tablet .hdr{padding:20px;} .v-tablet .hdr h1{font-size:30px;} .v-tablet .hdr p{font-size:14px;}
 .v-tablet .hero{padding:20px;} .v-tablet .hero h2{font-size:24px; margin-bottom:8px;} .v-tablet .hero p{font-size:15px;}
-.v-tablet .hero-img{height:120px; border-radius:8px; margin:12px auto; display:block;}
+.v-tablet .hero-img{height:120px; border-radius:8px; margin:12px auto; display:block; max-width:560px;}
 .v-tablet .products{padding:16px; display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
 .v-tablet .card{border-radius:8px; padding:20px;} .v-tablet .card h3{font-size:19px; margin-bottom:8px;} .v-tablet .card p{font-size:14px; line-height:1.5;}
 .v-tablet .ft{padding:16px; font-size:13px;}
-
-/* laptop */
-.v-laptop .hdr{padding:26px;} .v-laptop .hdr h1{font-size:36px;} .v-laptop .hdr p{font-size:15px;}
-.v-laptop .hero{padding:26px;} .v-laptop .hero h2{font-size:28px; margin-bottom:10px;} .v-laptop .hero p{font-size:16px;}
-.v-laptop .hero-img{height:160px; border-radius:10px; margin:16px auto; max-width:700px; display:block;}
-.v-laptop .products{padding:24px; display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
-.v-laptop .card{border-radius:10px; padding:14px;} .v-laptop .card h3{font-size:21px; margin-bottom:10px;} .v-laptop .card p{font-size:15px; line-height:1.6;}
-.v-laptop .ft{padding:20px; font-size:14px;}
 
 /* desktop */
 .v-desktop .wrap{max-width:1200px; margin:0 auto;}
@@ -89,18 +80,6 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
 </div>
 
 <!-- variant 3 -->
-<div class="v-laptop">
-  <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
-  <section class="hero"><h2>Baked Fresh Every Morning</h2><p>Traditional recipes from Kraków, made by hand in Brooklyn.</p><div class="hero-img"></div></section>
-  <main class="products">
-    <article class="card"><h3>Sernik</h3><p>Polish cheesecake made with twaróg (farmer's cheese) for a denser, grainier texture. Flavored with vanilla and lemon zest, topped with glazed fruit.</p></article>
-    <article class="card"><h3>Pączki</h3><p>Deep-fried doughnuts filled with rose hip jam or custard, glazed with icing and topped with candied orange peel. A Fat Thursday favorite.</p></article>
-    <article class="card"><h3>Makowiec</h3><p>A sweet rolled pastry with dense poppy seed filling mixed with honey, nuts, and raisins. A staple of Christmas and Easter tables.</p></article>
-  </main>
-  <footer class="ft">© Star Deli · 142 Greenpoint Ave, Brooklyn · Open 7am–6pm</footer>
-</div>
-
-<!-- variant 4 -->
 <div class="v-desktop">
  <div class="wrap">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>

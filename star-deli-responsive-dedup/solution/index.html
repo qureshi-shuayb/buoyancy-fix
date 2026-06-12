@@ -19,39 +19,33 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
 .call-bar { background:#27632a; color:#fff; text-align:center; font-weight:bold; }
 .promo    { background:#e0a23b; color:#3b2415; text-align:center; font-weight:bold; }
 
-/* ===== base = MOBILE: products above hero, call-bar shown, no img, pad 12 ===== */
+/* base = MOBILE: products above hero, call-bar, no img */
 .promo    { display:none; }
 .hero-img { display:none; }
-.hdr  { order:1; padding:14px; }
-.hdr h1 { font-size:22px; } .hdr p { font-size:12px; }
+.hdr  { order:1; padding:14px; } .hdr h1 { font-size:22px; } .hdr p { font-size:12px; }
 .call-bar { order:2; display:block; padding:10px; font-size:14px; }
 .products { order:3; padding:10px; display:grid; grid-template-columns:1fr; gap:12px; }
 .card { border-radius:6px; padding:12px; } .card h3 { font-size:16px; margin-bottom:6px; } .card p { font-size:13px; line-height:1.4; }
 .hero { order:4; padding:14px; } .hero h2 { font-size:18px; margin-bottom:6px; } .hero p { font-size:13px; }
 .ft   { order:5; padding:12px; font-size:11px; }
 
-/* ===== TABLET (>=481): hero first, 2 cols, hero-img, pad 20 ===== */
+/* TABLET (>=481): hero first, 2 cols, hero-img */
 @media (min-width:481px) {
   .call-bar { display:none; }
   .hdr { order:1; padding:20px; } .hdr h1 { font-size:30px; } .hdr p { font-size:14px; }
   .hero { order:2; padding:20px; } .hero h2 { font-size:24px; margin-bottom:8px; } .hero p { font-size:15px; }
-  .hero-img { display:block; height:120px; border-radius:8px; margin:12px auto; }
+  .hero-img { display:block; height:120px; border-radius:8px; margin:12px auto; max-width:560px; }
   .products { order:3; padding:16px; grid-template-columns:repeat(2,1fr); gap:16px; }
   .card { border-radius:8px; padding:20px; } .card h3 { font-size:19px; margin-bottom:8px; } .card p { font-size:14px; line-height:1.5; }
   .ft { order:4; padding:16px; font-size:13px; }
 }
 
-/* ===== LAPTOP (>=769): 3 cols, pad 14 (non-monotonic dip) ===== */
+/* LAPTOP (>=769): the missing tier — 3 columns, inheriting tablet sizing */
 @media (min-width:769px) {
-  .hdr { padding:26px; } .hdr h1 { font-size:36px; } .hdr p { font-size:15px; }
-  .hero { padding:26px; } .hero h2 { font-size:28px; margin-bottom:10px; } .hero p { font-size:16px; }
-  .hero-img { height:160px; border-radius:10px; margin:16px auto; max-width:700px; }
-  .products { padding:24px; grid-template-columns:repeat(3,1fr); gap:20px; }
-  .card { border-radius:10px; padding:14px; } .card h3 { font-size:21px; margin-bottom:10px; } .card p { font-size:15px; line-height:1.6; }
-  .ft { padding:20px; font-size:14px; }
+  .products { grid-template-columns:repeat(3,1fr); }
 }
 
-/* ===== DESKTOP (>=1025): promo shown, centered, pad 26 ===== */
+/* DESKTOP (>=1025): promo shown, centered, larger */
 @media (min-width:1025px) {
   .page { max-width:1200px; margin:0 auto; }
   .promo { display:block; order:2; padding:12px; font-size:16px; }
