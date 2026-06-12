@@ -1,0 +1,11 @@
+services:
+  main:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+      args:
+        - http_proxy=${http_proxy:-}
+        - https_proxy=${https_proxy:-}
+    network_mode: host
+    userns_mode: keep-id
