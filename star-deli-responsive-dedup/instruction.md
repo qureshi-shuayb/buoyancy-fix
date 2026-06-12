@@ -15,7 +15,15 @@ Refactor the Star Deli website as it has duplicated code for 4 different screen 
 - mobile-first CSS
 - Use media queries
 
+- call to order should only appear in mobile
+- In Mobile products are above hero section, hide hero image, make the call to order bar visible
+- In Tablet and Laptop hero section above products, hero image visible
+- Desktop "Free delivery"  banner visible, hero above products
+- All sizes, header, 3 cards (Sernik/Pączki/Makowiec), and footer should be there
+
+
+
 
 ## Tests Verify
 - remove duplicate HTML copy
-- the page should look the same as it break points when it compared to the original
+- the page should look the same at each breakpoint as the original

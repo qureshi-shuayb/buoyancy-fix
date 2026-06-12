@@ -5,15 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Star Deli — Polish Bakery</title>
 <style>
-/* =====================================================================
-   "BEFORE" STATE — DO NOT IMITATE. Page hand-duplicated FOUR times
-   (mobile/tablet/laptop/desktop), toggled with display:none.
-   Per-breakpoint differences the refactor must preserve:
-     - ORDER: mobile shows products ABOVE hero; larger shows hero first
-     - mobile-only "call bar"; desktop-only "promo" banner
-     - hero image hidden on mobile
-     - NON-MONOTONIC card padding: 12 / 20 / 14 / 26
-   ===================================================================== */
+/* Star Deli landing page. */
 * { box-sizing:border-box; margin:0; padding:0; }
 body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#fdf6ec; }
 
@@ -34,7 +26,7 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
 .call-bar { background:#27632a; color:#fff; text-align:center; font-weight:bold; }
 .promo    { background:#e0a23b; color:#3b2415; text-align:center; font-weight:bold; }
 
-/* ===== MOBILE: products above hero, call-bar shown, no hero-img, pad 12 ===== */
+/* mobile */
 .v-mobile .hdr{padding:14px;} .v-mobile .hdr h1{font-size:22px;} .v-mobile .hdr p{font-size:12px;}
 .v-mobile .call-bar{padding:10px; font-size:14px;}
 .v-mobile .products{padding:10px; display:grid; grid-template-columns:1fr; gap:12px;}
@@ -42,7 +34,7 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
 .v-mobile .hero{padding:14px;} .v-mobile .hero h2{font-size:18px; margin-bottom:6px;} .v-mobile .hero p{font-size:13px;}
 .v-mobile .ft{padding:12px; font-size:11px;}
 
-/* ===== TABLET: hero first, 2 cols, hero-img, pad 20 ===== */
+/* tablet */
 .v-tablet .hdr{padding:20px;} .v-tablet .hdr h1{font-size:30px;} .v-tablet .hdr p{font-size:14px;}
 .v-tablet .hero{padding:20px;} .v-tablet .hero h2{font-size:24px; margin-bottom:8px;} .v-tablet .hero p{font-size:15px;}
 .v-tablet .hero-img{height:120px; border-radius:8px; margin:12px auto; display:block;}
@@ -50,7 +42,7 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
 .v-tablet .card{border-radius:8px; padding:20px;} .v-tablet .card h3{font-size:19px; margin-bottom:8px;} .v-tablet .card p{font-size:14px; line-height:1.5;}
 .v-tablet .ft{padding:16px; font-size:13px;}
 
-/* ===== LAPTOP: hero first, 3 cols, pad 14 (NON-MONOTONIC dip) ===== */
+/* laptop */
 .v-laptop .hdr{padding:26px;} .v-laptop .hdr h1{font-size:36px;} .v-laptop .hdr p{font-size:15px;}
 .v-laptop .hero{padding:26px;} .v-laptop .hero h2{font-size:28px; margin-bottom:10px;} .v-laptop .hero p{font-size:16px;}
 .v-laptop .hero-img{height:160px; border-radius:10px; margin:16px auto; max-width:700px; display:block;}
@@ -58,7 +50,7 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
 .v-laptop .card{border-radius:10px; padding:14px;} .v-laptop .card h3{font-size:21px; margin-bottom:10px;} .v-laptop .card p{font-size:15px; line-height:1.6;}
 .v-laptop .ft{padding:20px; font-size:14px;}
 
-/* ===== DESKTOP: hero first, promo shown, 3 cols, pad 26, centered ===== */
+/* desktop */
 .v-desktop .wrap{max-width:1200px; margin:0 auto;}
 .v-desktop .promo{padding:12px; font-size:16px;}
 .v-desktop .hdr{padding:34px;} .v-desktop .hdr h1{font-size:46px;} .v-desktop .hdr p{font-size:17px;}
@@ -71,7 +63,7 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
 </head>
 <body>
 
-<!-- ============ COPY 1/4: MOBILE (products above hero, call-bar, no img) ============ -->
+<!-- variant 1 -->
 <div class="v-mobile">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
   <div class="call-bar">📞 Call to order: (718) 555-0199</div>
@@ -84,7 +76,7 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
   <footer class="ft">© Star Deli · 142 Greenpoint Ave, Brooklyn · Open 7am–6pm</footer>
 </div>
 
-<!-- ============ COPY 2/4: TABLET (hero first, 2 cols) ============ -->
+<!-- variant 2 -->
 <div class="v-tablet">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
   <section class="hero"><h2>Baked Fresh Every Morning</h2><p>Traditional recipes from Kraków, made by hand in Brooklyn.</p><div class="hero-img"></div></section>
@@ -96,7 +88,7 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
   <footer class="ft">© Star Deli · 142 Greenpoint Ave, Brooklyn · Open 7am–6pm</footer>
 </div>
 
-<!-- ============ COPY 3/4: LAPTOP (hero first, 3 cols, pad 14) ============ -->
+<!-- variant 3 -->
 <div class="v-laptop">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
   <section class="hero"><h2>Baked Fresh Every Morning</h2><p>Traditional recipes from Kraków, made by hand in Brooklyn.</p><div class="hero-img"></div></section>
@@ -108,7 +100,7 @@ body { font-family:Georgia,'Times New Roman',serif; color:#3b2415; background:#f
   <footer class="ft">© Star Deli · 142 Greenpoint Ave, Brooklyn · Open 7am–6pm</footer>
 </div>
 
-<!-- ============ COPY 4/4: DESKTOP (hero first, promo banner, 3 cols, centered) ============ -->
+<!-- variant 4 -->
 <div class="v-desktop">
  <div class="wrap">
   <header class="hdr"><h1>Star Deli</h1><p>Authentic Polish Bakery</p></header>
