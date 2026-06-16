@@ -280,6 +280,7 @@ return the new offer
 **Response (200 OK):**
 - return the offer details
 - if expiration is in the past, and the status is PENDING, the status becomes EXPIRED (before returning the offer details)
+- if expiration is in the past, and the status is PENDING, and the offer is made by SELLER, the listing status becomes AVAILABLE (before returning the offer details)
 
 **Errors:**
 - 404 : if offer does not exist
