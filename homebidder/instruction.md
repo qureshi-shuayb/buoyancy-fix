@@ -120,7 +120,7 @@ the updated Listing (status `ARCHIVED`)
 
 **Errors:**
 - 404 if no listing exists with that id
-- 409 if the listing is not in DRAFT or AVAILABLE status
+- 409 if the listing is not in DRAFT or AVAILABLE status (i.e., cannot archive a locked listing)
 
 
 ### GET /listings/:id
@@ -222,7 +222,7 @@ User can be buyer or seller
 
 **On success (200 OK):**
 - successfully REJECTED the offer
-- if the offer is made by SELLER, the listing status becomes PENDING -> AVAILABLE
+- if the offer was made by SELLER, the listing unlocks
 - if the offer is made by BUYER, the listing status remains the same
 
 

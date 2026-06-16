@@ -191,10 +191,14 @@ def test_seller_counter_expiry_unlocks():
     set_clock(T0); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b).json()["offer_id"]
     n = counter(o1, s, expiration=FUTURE).json()["offer_id"]
-    assert listing_status(lid) == "PENDING"
+    # Listing is now locked - verify by attempting a new offer (should fail)
+    b2 = mk_user()
+    assert mk_offer(lid, b2).status_code == 409  # locked, no new offers
     set_clock(LATER)                               # seller counter expires
     assert offer_status(n) == "EXPIRED"
-    assert listing_status(lid) == "AVAILABLE"      # auto-unlocked
+    # Listing should now be unlocked - verify by making a new offer (should succeed)
+    b3 = mk_user()
+    assert mk_offer(lid, b3).status_code == 201  # unlocked, new offers allowed
 
 def test_cannot_accept_expired_409():
     set_clock(T0); s, lid = available(); b = mk_user()
