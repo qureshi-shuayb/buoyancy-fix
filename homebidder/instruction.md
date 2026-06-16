@@ -18,8 +18,7 @@ interface Listing {
   address: string;      // required, non-empty
   price: number;        // required, positive number
   seller_id: string;    // user_id of the owner; must reference an existing user
-  status: 'DRAFT' | 'AVAILABLE' | 'SOLD' | 'ARCHIVED';  // server-managed lifecycle
-  locked_until: string | null;  // ISO 8601 datetime or null; when set to a future time, the listing is locked (no new offers, seller cannot accept other offers)
+  status: 'DRAFT' | 'AVAILABLE' | 'PENDING' | 'SOLD' | 'ARCHIVED';  // server-managed lifecycle
   created_at: string;   // ISO 8601 datetime, server-generated
 }
 
@@ -120,7 +119,7 @@ the updated Listing (status `ARCHIVED`)
 
 **Errors:**
 - 404 if no listing exists with that id
-- 409 if the listing is not in DRAFT or AVAILABLE status (i.e., cannot archive a locked listing)
+- 409 if the listing is not in DRAFT or AVAILABLE status
 
 
 ### GET /listings/:id
@@ -168,7 +167,7 @@ return
 - 400 if offer value is a negative number
 - 404 if listing does not exist
 - 409 if buyer id === seller
-- 409 if the listing is not AVAILABLE or is locked
+- 409 if listing is not in AVAILABLE status
 - 409 if buyer already made an offer on listing
 
 
@@ -201,8 +200,8 @@ User can be buyer or seller
 **Errors:**
 - 400 if actor_id or offer_id is missing
 - 404 if offer or list does not exist
-- 409 if offer is made_by BUYER and the listing is not AVAILABLE or is locked
-- 409 if offer is made_by SELLER and the listing is locked by a different offer (only the specific counter that locked the listing may be acted upon)
+- 409 if offer is made_by BUYER and listing is not in AVAILABLE status
+- 409 if offer is made_by SELLER and listing is not in PENDING status
 - 409 if offer expiration is in the past
 - 409 if offer is not PENDING status
 - 409 if offer is made_by BUYER and actor_id is not the seller
@@ -222,15 +221,15 @@ User can be buyer or seller
 
 **On success (200 OK):**
 - successfully REJECTED the offer
-- if the offer was made by SELLER, the listing unlocks
+- if the offer is made by SELLER, the listing status becomes PENDING -> AVAILABLE
 - if the offer is made by BUYER, the listing status remains the same
 
 
 **Errors:**
 - 400 if actor_id or offer_id is missing
 - 404 if offer or list does not exist
-- 409 if offer is made_by BUYER and the listing is not AVAILABLE or is locked
-- 409 if offer is made_by SELLER and the listing is locked by a different offer (only the specific counter that locked the listing may be acted upon)
+- 409 if offer is made_by BUYER and listing is not in AVAILABLE status
+- 409 if offer is made_by SELLER and listing is not in PENDING status
 - 409 if offer expiration is in the past
 - 409 if offer is not PENDING status
 - 409 if offer is made_by BUYER and actor_id is not the seller
@@ -255,8 +254,8 @@ return the new offer
 - orginal offer → REJECTED
 - status → PENDING
 - made_by → SELLER (if buyer counter) or BUYER (if seller counter)
-- if the new offer is made by SELLER, the listing becomes locked (set `locked_until` to the new offer's expiration)
-- if the new offer is made by BUYER, the listing becomes unlocked (set `locked_until` to null)
+- if offer is made by SELLER, the listing status becomes AVAILABLE -> PENDING (locked)
+- if offer is made by BUYER, the listing status becomes PENDING -> AVAILABLE (unlocked)
 
 **Errors:**
 
@@ -265,8 +264,8 @@ return the new offer
 - 400 if offer value is a negative number
 - 404 if listing does not exist
 - 404 if offer does not exist
-- 409 if offer is made_by BUYER and the listing is not AVAILABLE or is locked
-- 409 if offer is made_by SELLER and the listing is locked by a different offer (only the specific counter that locked the listing may be acted upon)
+- 409 if offer is made_by BUYER and listing is not in AVAILABLE status
+- 409 if offer is made_by SELLER and listing is not in PENDING status
 - 409 if offer expiration is in the past
 - 409 if offer is not PENDING status
 - 409 if offer is made_by BUYER and actor_id is not the seller
@@ -281,7 +280,7 @@ return the new offer
 **Response (200 OK):**
 - return the offer details
 - if expiration is in the past, and the status is PENDING, the status becomes EXPIRED (before returning the offer details)
-- if the now-EXPIRED offer was made by SELLER, the listing also unlocks (set `locked_until` to null)
+- if expiration is in the past, and the status is PENDING, and the offer is made by SELLER, the listing status becomes AVAILABLE (before returning the offer details)
 
 **Errors:**
 - 404 : if offer does not exist

@@ -139,7 +139,7 @@ def test_seller_counter_locks_listing():
     n = r.json()
     assert offer_status(o1) == "REJECTED"
     assert n["made_by"] == "SELLER" and n["status"] == "PENDING"
-    # Listing is now locked (verified by 409 on new offers below)
+    assert listing_status(lid) == "PENDING"     # locked
 
 def test_lock_blocks_new_offers_and_other_accepts():
     set_clock(); s, lid = available()
@@ -165,7 +165,7 @@ def test_buyer_rejects_counter_unlocks():
     n = counter(o1, s).json()["offer_id"]
     assert reject(n, b).status_code == 200
     assert offer_status(n) == "REJECTED"
-    # Listing is now unlocked (verified by successful offer below)
+    assert listing_status(lid) == "AVAILABLE"     # unlocked
 
 def test_buyer_counters_back_unlocks():
     set_clock(); s, lid = available(); b = mk_user()
@@ -176,7 +176,7 @@ def test_buyer_counters_back_unlocks():
     n2 = r.json()
     assert offer_status(n) == "REJECTED"
     assert n2["made_by"] == "BUYER" and n2["status"] == "PENDING"
-    # Listing is now unlocked (verified by successful offer below), seller free again
+    assert listing_status(lid) == "AVAILABLE"     # unlocked, seller free again
 
 
 # ---------- expiry (virtual clock) ----------
@@ -191,14 +191,10 @@ def test_seller_counter_expiry_unlocks():
     set_clock(T0); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b).json()["offer_id"]
     n = counter(o1, s, expiration=FUTURE).json()["offer_id"]
-    # Listing is now locked - verify by attempting a new offer (should fail)
-    b2 = mk_user()
-    assert mk_offer(lid, b2).status_code == 409  # locked, no new offers
+    assert listing_status(lid) == "PENDING"
     set_clock(LATER)                               # seller counter expires
     assert offer_status(n) == "EXPIRED"
-    # Listing should now be unlocked - verify by making a new offer (should succeed)
-    b3 = mk_user()
-    assert mk_offer(lid, b3).status_code == 201  # unlocked, new offers allowed
+    assert listing_status(lid) == "AVAILABLE"      # auto-unlocked
 
 def test_cannot_accept_expired_409():
     set_clock(T0); s, lid = available(); b = mk_user()
