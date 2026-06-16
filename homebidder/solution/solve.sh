@@ -204,6 +204,16 @@ app.post('/offers/:id/counter', (req: Request, res: Response) => {
   if (!c.ok) { res.status(c.code).end(); return; }
   if (!posNum(body.offer_value) || !isTs(body.expiration)) { res.status(400).end(); return; }
   if (tsMs(body.expiration as string) <= virtualNowMs) { res.status(400).end(); return; }
+  // Directional constraint: buyer counter must be higher than seller's offer;
+  // seller counter must be lower than buyer's offer.
+  const newValue = body.offer_value as number;
+  if (c.o.made_by === 'SELLER') {
+    // Buyer countering a seller offer: must be greater than seller's offer
+    if (newValue <= c.o.offer_value) { res.status(409).end(); return; }
+  } else {
+    // Seller countering a buyer offer: must be less than buyer's offer
+    if (newValue >= c.o.offer_value) { res.status(409).end(); return; }
+  }
   c.o.status = 'REJECTED';
   const flipped: MadeBy = c.o.made_by === 'BUYER' ? 'SELLER' : 'BUYER';
   const n: Offer = { offer_id: randomUUID(), listing_id: c.l.listing_id, buyer_id: c.o.buyer_id, made_by: flipped, offer_value: body.offer_value as number, expiration: body.expiration as string, status: 'PENDING', created_at: nowIso() };

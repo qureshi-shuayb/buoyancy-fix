@@ -165,6 +165,7 @@ return
 - 400 if any field is missing, buyer_id, listing_id, offer_value, expiration
 - 400 if offer expiration is in invalid (in the past)
 - 400 if offer value is a negative number
+- 409 if the counter offer value violates the directional rule (buyer counter not greater than seller's offer, or seller counter not less than buyer's offer)
 - 404 if listing does not exist
 - 409 if buyer id === seller
 - 409 if listing is not in AVAILABLE status
@@ -262,6 +263,7 @@ return the new offer
 - 400 if any field is missing, actor_id, offer_value, expiration
 - 400 if offer expiration is in invalid (in the past)
 - 400 if offer value is a negative number
+- 409 if the counter offer value violates the directional rule (buyer counter not greater than seller's offer, or seller counter not less than buyer's offer)
 - 404 if listing does not exist
 - 404 if offer does not exist
 - 409 if offer is made_by BUYER and listing is not in AVAILABLE status

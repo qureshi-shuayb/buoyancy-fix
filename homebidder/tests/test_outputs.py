@@ -178,6 +178,35 @@ def test_buyer_counters_back_unlocks():
     assert n2["made_by"] == "BUYER" and n2["status"] == "PENDING"
     assert listing_status(lid) == "AVAILABLE"     # unlocked, seller free again
 
+def test_buyer_counter_must_be_higher_409():
+    """Buyer countering a seller offer must have a higher value."""
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o1 = mk_offer(lid, b, value=400000).json()["offer_id"]
+    n = counter(o1, s, value=450000).json()["offer_id"]  # seller counters at 450k
+    # Buyer tries to counter back at 440k (lower than seller's 450k) -> 409
+    r = counter(n, b, value=440000)
+    assert r.status_code == 409
+
+def test_seller_counter_must_be_lower_409():
+    """Seller countering a buyer offer must have a lower value."""
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o1 = mk_offer(lid, b, value=400000).json()["offer_id"]
+    # Seller tries to counter at 410k (higher than buyer's 400k) -> 409
+    r = counter(o1, s, value=410000)
+    assert r.status_code == 409
+
+def test_valid_directional_counter_succeeds():
+    """Valid directional counters should succeed."""
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o1 = mk_offer(lid, b, value=400000).json()["offer_id"]
+    # Seller counters lower at 380k -> 201
+    r1 = counter(o1, s, value=380000)
+    assert r1.status_code == 201
+    n1 = r1.json()["offer_id"]
+    # Buyer counters higher at 390k -> 201
+    r2 = counter(n1, b, value=390000)
+    assert r2.status_code == 201
+
 
 # ---------- expiry (virtual clock) ----------
 def test_offer_expires_with_clock():
