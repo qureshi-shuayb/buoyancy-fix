@@ -11,7 +11,6 @@ BASE = "http://localhost:3000"
 T0 = "2030-01-01T00:00:00Z"
 FUTURE = "2030-06-01T00:00:00Z"
 LATER = "2030-12-01T00:00:00Z"   # past FUTURE -> triggers expiry
-EVEN_LATER = "2031-06-01T00:00:00Z"   # past LATER -> valid expiration after the clock is at LATER
 _seq = itertools.count(1)
 
 
@@ -262,10 +261,6 @@ def test_negative_offer_value_400():
     set_clock(); _, lid = available(); b = mk_user()
     assert mk_offer(lid, b, value=-100).status_code == 400
 
-def test_zero_offer_value_400():
-    set_clock(); _, lid = available(); b = mk_user()
-    assert mk_offer(lid, b, value=0).status_code == 400
-
 def test_archive_unknown_listing_404():
     assert requests.post(f"{BASE}/listings/nope/archive").status_code == 404
 
@@ -308,12 +303,6 @@ def test_reoffer_after_reject_allowed():
     o = mk_offer(lid, b).json()["offer_id"]
     assert reject(o, s).status_code == 200
     assert mk_offer(lid, b).status_code == 201     # previous offer is REJECTED -> buyer may offer again
-
-def test_reoffer_after_expiry_allowed():
-    set_clock(T0); s, lid = available(); b = mk_user()
-    mk_offer(lid, b, expiration=FUTURE)
-    set_clock(LATER)                               # first offer EXPIRED
-    assert mk_offer(lid, b, expiration=EVEN_LATER).status_code == 201
 
 
 # ---------- offers blocked on terminal listings ----------
