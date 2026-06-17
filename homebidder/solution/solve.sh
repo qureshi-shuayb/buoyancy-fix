@@ -204,15 +204,15 @@ app.post('/offers/:id/counter', (req: Request, res: Response) => {
   if (!c.ok) { res.status(c.code).end(); return; }
   if (!posNum(body.offer_value) || !isTs(body.expiration)) { res.status(400).end(); return; }
   if (tsMs(body.expiration as string) <= virtualNowMs) { res.status(400).end(); return; }
-  // Directional constraint: buyer counter must be higher than seller's offer;
-  // seller counter must be lower than buyer's offer.
+  // Directional constraint (real-world negotiation): a seller's counter must be
+  // higher than the buyer's offer; a buyer's counter must be lower than the seller's offer.
   const newValue = body.offer_value as number;
   if (c.o.made_by === 'SELLER') {
-    // Buyer countering a seller offer: must be greater than seller's offer
-    if (newValue <= c.o.offer_value) { res.status(409).end(); return; }
-  } else {
-    // Seller countering a buyer offer: must be less than buyer's offer
+    // Buyer is countering a seller's offer: must be lower than the seller's offer
     if (newValue >= c.o.offer_value) { res.status(409).end(); return; }
+  } else {
+    // Seller is countering a buyer's offer: must be higher than the buyer's offer
+    if (newValue <= c.o.offer_value) { res.status(409).end(); return; }
   }
   c.o.status = 'REJECTED';
   const flipped: MadeBy = c.o.made_by === 'BUYER' ? 'SELLER' : 'BUYER';

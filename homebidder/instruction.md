@@ -281,12 +281,17 @@ returns the new Offer (full object)
 - if the new counter offer is made_by SELLER, the listing status becomes AVAILABLE -> PENDING (locked)
 - if the new counter offer is made_by BUYER, the listing status becomes PENDING -> AVAILABLE (unlocked)
 
+**Counter value rule (negotiation direction):**
+- when the **seller** counters a buyer's offer, the new `offer_value` must be **greater** than the buyer's offer (the seller is asking for more)
+- when the **buyer** counters a seller's offer, the new `offer_value` must be **less** than the seller's offer (the buyer is offering less)
+- example: buyer offers 400000 → seller may counter 450000 (valid), not 390000 (409); the buyer may then counter 420000 (valid), not 460000 (409)
+
 **Errors:**
 
 - 400 if any field is missing, actor_id, offer_value, expiration
 - 400 if offer expiration is in invalid (in the past)
 - 400 if offer value is a negative number
-- 409 if the counter offer value violates the directional rule (buyer counter not greater than seller's offer, or seller counter not less than buyer's offer)
+- 409 if the counter `offer_value` breaks the negotiation direction (a seller's counter is not greater than the buyer's offer, or a buyer's counter is not less than the seller's offer)
 - 404 if listing does not exist
 - 404 if offer does not exist
 - 409 if offer is made_by BUYER and listing is not in AVAILABLE status

@@ -135,7 +135,7 @@ def test_reject_buyer_offer_keeps_listing():
 def test_seller_counter_locks_listing():
     set_clock(); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b).json()["offer_id"]
-    r = counter(o1, s, value=380000); assert r.status_code == 201
+    r = counter(o1, s); assert r.status_code == 201   # seller counters higher (default 450k > 400k)
     n = r.json()
     assert offer_status(o1) == "REJECTED"
     assert n["made_by"] == "SELLER" and n["status"] == "PENDING"
@@ -146,7 +146,7 @@ def test_lock_blocks_new_offers_and_other_accepts():
     b1, b2 = mk_user(), mk_user()
     o1 = mk_offer(lid, b1).json()["offer_id"]
     o2 = mk_offer(lid, b2).json()["offer_id"]   # made before lock
-    counter(o1, s, value=380000)                               # listing now PENDING (locked)
+    counter(o1, s)                                             # listing now PENDING (locked)
     b3 = mk_user()
     assert mk_offer(lid, b3).status_code == 409   # no new offers while locked
     assert accept(o2, s).status_code == 409       # seller can't accept other offer while locked
@@ -154,15 +154,15 @@ def test_lock_blocks_new_offers_and_other_accepts():
 def test_buyer_accepts_counter_sold():
     set_clock(); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b).json()["offer_id"]
-    n = counter(o1, s, value=380000).json()["offer_id"]
-    assert accept(n, b).status_code == 200        # buyer is awaited party on a SELLER offer
+    n = counter(o1, s).json()["offer_id"]
+    assert accept(n, b).status_code == 200
     assert offer_status(n) == "ACCEPTED"
     assert listing_status(lid) == "SOLD"
 
 def test_buyer_rejects_counter_unlocks():
     set_clock(); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b).json()["offer_id"]
-    n = counter(o1, s, value=380000).json()["offer_id"]
+    n = counter(o1, s).json()["offer_id"]
     assert reject(n, b).status_code == 200
     assert offer_status(n) == "REJECTED"
     assert listing_status(lid) == "AVAILABLE"     # unlocked
@@ -170,41 +170,41 @@ def test_buyer_rejects_counter_unlocks():
 def test_buyer_counters_back_unlocks():
     set_clock(); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b).json()["offer_id"]
-    n = counter(o1, s, value=380000).json()["offer_id"]         # seller counter, listing PENDING
-    r = counter(n, b)                              # buyer counters back
+    n = counter(o1, s).json()["offer_id"]                       # seller counter (higher), listing PENDING
+    r = counter(n, b, value=420000)                # buyer counters back lower than seller's 450k
     assert r.status_code == 201
     n2 = r.json()
     assert offer_status(n) == "REJECTED"
     assert n2["made_by"] == "BUYER" and n2["status"] == "PENDING"
     assert listing_status(lid) == "AVAILABLE"     # unlocked, seller free again
 
-def test_buyer_counter_must_be_higher_409():
-    """Buyer countering a seller offer must have a higher value."""
+def test_buyer_counter_must_be_lower_409():
+    """Buyer countering a seller's offer must have a lower value."""
     set_clock(T0); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b, value=400000).json()["offer_id"]
-    n = counter(o1, s, value=380000).json()["offer_id"]  # seller counters at 380k (lower, valid)
-    # Buyer tries to counter back at 370k (lower than seller's 380k) -> 409
-    r = counter(n, b, value=370000)
+    n = counter(o1, s, value=450000).json()["offer_id"]  # seller counters at 450k (higher, valid)
+    # Buyer tries to counter back at 460k (higher than seller's 450k) -> 409
+    r = counter(n, b, value=460000)
     assert r.status_code == 409
 
-def test_seller_counter_must_be_lower_409():
-    """Seller countering a buyer offer must have a lower value."""
+def test_seller_counter_must_be_higher_409():
+    """Seller countering a buyer's offer must have a higher value."""
     set_clock(T0); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b, value=400000).json()["offer_id"]
-    # Seller tries to counter at 410k (higher than buyer's 400k) -> 409
-    r = counter(o1, s, value=410000)
+    # Seller tries to counter at 390k (lower than buyer's 400k) -> 409
+    r = counter(o1, s, value=390000)
     assert r.status_code == 409
 
 def test_valid_directional_counter_succeeds():
     """Valid directional counters should succeed."""
     set_clock(T0); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b, value=400000).json()["offer_id"]
-    # Seller counters lower at 380k -> 201
-    r1 = counter(o1, s, value=380000)
+    # Seller counters higher at 450k -> 201
+    r1 = counter(o1, s, value=450000)
     assert r1.status_code == 201
     n1 = r1.json()["offer_id"]
-    # Buyer counters higher at 390k -> 201
-    r2 = counter(n1, b, value=390000)
+    # Buyer counters lower at 420k -> 201
+    r2 = counter(n1, b, value=420000)
     assert r2.status_code == 201
 
 
@@ -219,7 +219,7 @@ def test_offer_expires_with_clock():
 def test_seller_counter_expiry_unlocks():
     set_clock(T0); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b).json()["offer_id"]
-    n = counter(o1, s, value=380000, expiration=FUTURE).json()["offer_id"]  # seller counter must be lower than buyer's 400k
+    n = counter(o1, s, expiration=FUTURE).json()["offer_id"]  # seller counter (default 450k, higher than buyer's 400k)
     assert listing_status(lid) == "PENDING"
     set_clock(LATER)                               # seller counter expires
     assert offer_status(n) == "EXPIRED"
@@ -243,7 +243,7 @@ def test_archive_rejects_pending_offers():
 def test_archive_blocked_when_locked_409():
     set_clock(); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b).json()["offer_id"]
-    counter(o1, s, value=380000)                                 # listing PENDING
+    counter(o1, s)                                               # listing PENDING (seller counters higher)
     assert requests.post(f"{BASE}/listings/{lid}/archive").status_code == 409
 
 
