@@ -64,6 +64,12 @@ const findOffer = (id: string) => offers.find((o) => o.offer_id === id);
 const listingOffers = (lid: string) => offers.filter((o) => o.listing_id === lid);
 // Sum of a buyer's outstanding (PENDING) BUYER offers across all listings.
 const committedBuyer = (buyerId: string) => offers.filter((o) => o.buyer_id === buyerId && o.made_by === 'BUYER' && o.status === 'PENDING').reduce((s, o) => s + o.offer_value, 0);
+// Proceeds a user has realized from selling their own listings: for each listing
+// they own that is SOLD, the value of the ACCEPTED offer on it.
+const acceptedValue = (lid: string) => { const a = offers.find((o) => o.listing_id === lid && o.status === 'ACCEPTED'); return a ? a.offer_value : 0; };
+const proceeds = (userId: string) => listings.filter((l) => l.seller_id === userId && l.status === 'SOLD').reduce((s, l) => s + acceptedValue(l.listing_id), 0);
+// Effective spending cap = base budget + realized sale proceeds (self-financing).
+const cap = (userId: string) => { const u = findUser(userId); return (u ? u.budget : 0) + proceeds(userId); };
 
 // Contingency dependency graph over listings: a PENDING offer on listing X with
 // contingent_on === Y is a directed edge X -> Y. hasPath answers "can we reach `to`
@@ -180,7 +186,7 @@ app.post('/offers', (req: Request, res: Response) => {
   if (l.status !== 'AVAILABLE') { res.status(409).end(); return; }                         // offers only on AVAILABLE (covers locked PENDING)
   if (l.seller_id === b.buyer_id) { res.status(409).end(); return; }                       // owner cannot offer on own listing
   if (listingOffers(l.listing_id).some((o) => o.buyer_id === b.buyer_id && o.status === 'PENDING')) { res.status(409).end(); return; } // one pending offer per buyer
-  if (committedBuyer(b.buyer_id as string) + (b.offer_value as number) > buyer.budget) { res.status(409).end(); return; } // exceeds buyer budget
+  if (!nonEmptyStr(b.contingent_on) && committedBuyer(b.buyer_id as string) + (b.offer_value as number) > cap(b.buyer_id as string)) { res.status(409).end(); return; } // non-contingent: must fit effective budget (base + proceeds) at creation; contingent offers are self-financing and re-checked at acceptance
   if (nonEmptyStr(b.contingent_on)) {
     if (b.contingent_on === l.listing_id) { res.status(409).end(); return; }               // R1: cannot be contingent on itself
     if (hasPath(b.contingent_on, l.listing_id)) { res.status(409).end(); return; }         // R2: would create a (transitive) cycle
@@ -217,6 +223,10 @@ app.post('/offers/:id/accept', (req: Request, res: Response) => {
     const dep = findListing(c.o.contingent_on);
     if (!dep || dep.status !== 'SOLD') { res.status(409).end(); return; }
   }
+  // Budget affordability at acceptance: a BUYER offer's buyer must still fit their
+  // effective budget (base + proceeds) including this commitment. Proceeds realized
+  // from a now-SOLD contingency are what can make a self-financing offer affordable.
+  if (c.o.made_by === 'BUYER' && committedBuyer(c.o.buyer_id) > cap(c.o.buyer_id)) { res.status(409).end(); return; }
   c.o.status = 'ACCEPTED';
   c.l.status = 'SOLD';
   for (const other of listingOffers(c.l.listing_id)) if (other.offer_id !== c.o.offer_id && other.status === 'PENDING') other.status = 'REJECTED';
@@ -244,7 +254,7 @@ app.post('/offers/:id/counter', (req: Request, res: Response) => {
     // Buyer is countering a seller's offer: must be lower than the seller's offer
     if (newValue >= c.o.offer_value) { res.status(409).end(); return; }
     const buyer = findUser(c.o.buyer_id);
-    if (buyer && committedBuyer(c.o.buyer_id) + newValue > buyer.budget) { res.status(409).end(); return; } // exceeds buyer budget
+    if (buyer && committedBuyer(c.o.buyer_id) + newValue > cap(c.o.buyer_id)) { res.status(409).end(); return; } // exceeds buyer effective budget (base + proceeds)
   } else {
     // Seller is countering a buyer's offer: must be higher than the buyer's offer
     if (newValue <= c.o.offer_value) { res.status(409).end(); return; }

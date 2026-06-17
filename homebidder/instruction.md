@@ -38,13 +38,46 @@ interface Offer {
 
 
 ## Budget invariant
-Every user has a `budget`. At any time, the **sum of a buyer's outstanding (PENDING) offers across all listings must not exceed that buyer's `budget`.** Only `made_by: BUYER` offers with status `PENDING` count toward the total; offers that are REJECTED, EXPIRED, or ACCEPTED do not (their amount is released). This is enforced whenever a buyer commits money — creating an offer (`POST /offers`) or countering a seller's offer (`POST /offers/:id/counter`). If the new amount would push the buyer's PENDING total over `budget`, respond **409**. A total exactly equal to `budget` is allowed.
+Every user has a base `budget`. At any time, the **sum of a buyer's outstanding (PENDING) offers across all listings must not exceed that buyer's *effective* budget** (see Self-financing below; with no sales, effective budget equals the base `budget`). Only `made_by: BUYER` offers with status `PENDING` count toward the total; offers that are REJECTED, EXPIRED, or ACCEPTED do not (their amount is released). This is enforced whenever a buyer commits money — creating a **non-contingent** offer (`POST /offers`) or countering a seller's offer (`POST /offers/:id/counter`). If the new amount would push the buyer's PENDING total over their effective budget, respond **409**. A total exactly equal to the effective budget is allowed.
 
-**Example** (buyer budget = 100000):
+**Example** (buyer effective budget = 100000):
 - offer 60000 on listing A → 201 (committed 60000)
 - offer 60000 on listing B → 409 (would be 120000 > 100000)
 - reject/expire the listing-A offer → frees 60000
 - offer 60000 on listing B → 201 (committed 60000)
+
+
+## Self-financing (effective budget)
+A user can both sell and buy. Selling raises their buying power: when a listing they own
+becomes **SOLD**, the **value of the accepted offer** on it is added to that user's spending
+power. Formally:
+
+> **effective budget** = base `budget` + **proceeds** − committed
+>
+> where **proceeds** = the sum, over every listing this user owns that is `SOLD`, of the
+> `offer_value` of the offer that was ACCEPTED on it; and **committed** = the sum of this
+> user's own outstanding (PENDING) `made_by: BUYER` offers.
+
+Proceeds are only realized once a listing is actually `SOLD`; a merely AVAILABLE or PENDING
+listing contributes nothing. This models "I can only afford the next home after my current
+one sells."
+
+**Interaction with contingent offers (self-financing chains):**
+- A **contingent** offer (one with `contingent_on` set) is **not** budget-checked at creation
+  — it may be created even if its value exceeds the buyer's current effective budget, because
+  the buyer intends to fund it by selling the listing it depends on.
+- A **non-contingent** offer **is** budget-checked at creation, against the buyer's effective
+  budget at that moment (so already-realized proceeds increase what the buyer may offer).
+- At **acceptance**, any `made_by: BUYER` offer is re-checked: the buyer's total PENDING
+  commitments must not exceed their effective budget at that moment. Because the depended-on
+  listing is `SOLD` by then (see R3), its proceeds count toward the buyer's effective budget.
+  If the realized proceeds are insufficient, acceptance fails with **409**.
+
+**Example** (buyer B base budget = 100000, B owns listing Y):
+- B makes an offer of 500000 on listing X **contingent on Y** → 201 (not checked at creation)
+- accepting B's offer on X before Y is SOLD → 409 (contingency unmet)
+- Y sells for 450000 → B's proceeds become 450000, effective budget 550000
+- accepting B's offer on X → 200 (500000 ≤ 550000); had Y sold for only 350000 it would be 409
 
 
 ## Contingent offers (dependency graph)
@@ -64,6 +97,7 @@ Treat contingencies as a directed graph over listings: a **PENDING** offer on li
 4. `actor_id` is the awaited party — else 409
 5. listing-lock rule (a BUYER offer requires its listing to be AVAILABLE) — else 409
 6. **contingency satisfied** (`contingent_on` listing is SOLD) — else 409
+7. **budget affordability** (a `made_by: BUYER` offer's buyer fits their effective budget; see Self-financing) — else 409
 
 
 ## API Endpoints
@@ -212,7 +246,7 @@ the created Offer (full object)
 - 409 if buyer id === seller
 - 409 if listing is not in AVAILABLE status
 - 409 if the buyer already has a **PENDING** offer on the listing (REJECTED or EXPIRED offers do not count, so a buyer may offer again after their previous offer ended)
-- 409 if the offer would exceed the buyer's budget (sum of the buyer's PENDING offers across all listings + this offer > budget; see Budget invariant)
+- 409 if a **non-contingent** offer would exceed the buyer's effective budget (sum of the buyer's PENDING offers across all listings + this offer > effective budget; see Budget invariant and Self-financing). A **contingent** offer is *not* budget-checked at creation.
 - 400 if `contingent_on` is present but does not reference an existing listing (see Contingent offers)
 - 409 if `contingent_on` equals this offer's own listing, or would create a dependency cycle (see Contingent offers)
 
@@ -253,6 +287,7 @@ User can be buyer or seller
 - 409 if offer is made_by BUYER and actor_id is not the seller
 - 409 if offer is made_by SELLER and actor_id is not the buyer (buyer_id can be inferred from offer_id)
 - 409 if the offer is contingent on a listing that is not yet SOLD (see Contingent offers, R3)
+- 409 if the offer is `made_by: BUYER` and the buyer's total PENDING commitments would exceed their effective budget at acceptance (see Self-financing); checked after the contingency, so realized proceeds count
 
 
 ### POST /offers/:id/reject
@@ -332,7 +367,7 @@ returns the new Offer (full object)
 - 400 if offer expiration is in invalid (in the past)
 - 400 if offer value is a negative number
 - 409 if the counter `offer_value` breaks the negotiation direction (a seller's counter is not greater than the buyer's offer, or a buyer's counter is not less than the seller's offer)
-- 409 if a buyer's counter would exceed the buyer's budget (see Budget invariant)
+- 409 if a buyer's counter would exceed the buyer's effective budget (see Budget invariant and Self-financing)
 - 404 if listing does not exist
 - 404 if offer does not exist
 - 409 if offer is made_by BUYER and listing is not in AVAILABLE status

@@ -460,3 +460,69 @@ def test_accept_missing_actor_400_precedes_contingency():
     o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]
     r = requests.post(f"{BASE}/offers/{o}/accept", json={})   # no actor_id
     assert r.status_code == 400   # missing actor_id (400) precedes the contingency check (409)
+
+
+# ---------- self-financing (effective budget = base + proceeds from own SOLD listings) ----------
+def _sell(lid, seller, value, expiration=FUTURE):
+    """A fresh buyer buys `lid` for `value`; `seller` accepts so the listing becomes SOLD."""
+    buyer = mk_user()
+    oid = mk_offer(lid, buyer, value=value, expiration=expiration).json()["offer_id"]
+    assert accept(oid, seller).status_code == 200
+
+def test_contingent_offer_over_budget_allowed_at_creation():
+    """A contingent offer is self-financing: not budget-checked at creation."""
+    set_clock(T0); sX, lX = available()
+    B = mk_user(budget=100000)
+    lY = mk_listing(B); publish(lY)
+    assert mk_offer(lX, B, value=500000, contingent_on=lY).status_code == 201  # 500k >> 100k base, but contingent
+
+def test_noncontingent_over_effective_budget_409():
+    """A non-contingent offer is checked at creation; no proceeds -> base budget only."""
+    set_clock(T0); sX, lX = available()
+    B = mk_user(budget=100000)
+    assert mk_offer(lX, B, value=150000).status_code == 409  # 150k > 100k, no proceeds
+
+def test_self_finance_enables_accept():
+    """Selling your own listing funds acceptance of a contingent offer that exceeds base budget."""
+    set_clock(T0); sX, lX = available()
+    B = mk_user(budget=100000)
+    lY = mk_listing(B); publish(lY)
+    oX = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]
+    assert accept(oX, sX).status_code == 409          # Y not SOLD -> contingency unmet
+    _sell(lY, B, 450000)                               # B realizes 450k proceeds
+    assert accept(oX, sX).status_code == 200           # 500k <= 100k + 450k effective budget
+    assert listing_status(lX) == "SOLD"
+
+def test_self_finance_insufficient_proceeds_409():
+    """If realized proceeds are too low, acceptance of the self-financed offer fails."""
+    set_clock(T0); sX, lX = available()
+    B = mk_user(budget=100000)
+    lY = mk_listing(B); publish(lY)
+    oX = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]
+    _sell(lY, B, 350000)                               # only 350k proceeds
+    assert accept(oX, sX).status_code == 409           # 500k > 100k + 350k
+    assert listing_status(lX) == "AVAILABLE"
+    assert offer_status(oX) == "PENDING"
+
+def test_proceeds_raise_cap_for_noncontingent():
+    """Realized proceeds raise the effective budget for ordinary (non-contingent) offers too."""
+    set_clock(T0)
+    B = mk_user(budget=100000)
+    lY = mk_listing(B); publish(lY)
+    _sell(lY, B, 200000)                               # effective budget now 300k
+    sX, lX = available()
+    assert mk_offer(lX, B, value=300000).status_code == 201   # 300k <= 300k
+    sZ, lZ = available()
+    assert mk_offer(lZ, B, value=1).status_code == 409         # committed 300k + 1 > 300k
+
+def test_accept_rechecks_effective_budget_with_other_commitment_409():
+    """Acceptance re-check accounts for the buyer's other PENDING commitments, not just this offer."""
+    set_clock(T0)
+    B = mk_user(budget=100000)
+    lY = mk_listing(B); publish(lY)
+    _sell(lY, B, 300000)                               # effective budget 400k
+    sX, lX = available()
+    assert mk_offer(lX, B, value=300000).status_code == 201    # non-contingent, commits 300k
+    sZ, lZ = available()
+    oZ = mk_offer(lZ, B, value=200000, contingent_on=lY).json()["offer_id"]  # lY already SOLD; relaxed at creation
+    assert accept(oZ, sZ).status_code == 409           # committed 300k + 200k = 500k > 400k
