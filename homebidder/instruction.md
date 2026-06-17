@@ -19,7 +19,7 @@ interface Listing {
   address: string;      // required, non-empty
   price: number;        // required, positive number
   seller_id: string;    // user_id of the owner; must reference an existing user
-  status: 'DRAFT' | 'AVAILABLE' | 'PENDING' | 'SOLD' | 'ARCHIVED';  // server-managed lifecycle
+  status: 'DRAFT' | 'AVAILABLE' | 'CHAINED' | 'PENDING' | 'SOLD' | 'ARCHIVED';  // server-managed lifecycle
   created_at: string;   // ISO 8601 datetime, server-generated
 }
 
@@ -68,16 +68,18 @@ one sells."
   the buyer intends to fund it by selling the listing it depends on.
 - A **non-contingent** offer **is** budget-checked at creation, against the buyer's effective
   budget at that moment (so already-realized proceeds increase what the buyer may offer).
-- At **acceptance**, any `made_by: BUYER` offer is re-checked: the buyer's total PENDING
+- At **settlement**, any committed (`made_by: BUYER`) offer is re-checked: the buyer's total
   commitments must not exceed their effective budget at that moment. Because the depended-on
-  listing is `SOLD` by then (see R3), its proceeds count toward the buyer's effective budget.
-  If the realized proceeds are insufficient, acceptance fails with **409**.
+  listing is `SOLD` by then, its proceeds count toward the buyer's effective budget. If the
+  realized proceeds are insufficient, the offer is **REJECTED** and its listing reverts to
+  `AVAILABLE` (see Property chains & auto-settlement).
 
 **Example** (buyer B base budget = 100000, B owns listing Y):
 - B makes an offer of 500000 on listing X **contingent on Y** → 201 (not checked at creation)
-- accepting B's offer on X before Y is SOLD → 409 (contingency unmet)
-- Y sells for 450000 → B's proceeds become 450000, effective budget 550000
-- accepting B's offer on X → 200 (500000 ≤ 550000); had Y sold for only 350000 it would be 409
+- accepting B's offer on X before Y is SOLD → **200**: it is committed, listing X becomes `CHAINED`
+- Y sells for 450000 → B's proceeds become 450000, effective budget 550000 → the sweep settles the
+  committed offer automatically (500000 ≤ 550000): X → `SOLD`. Had Y sold for only 350000 the offer
+  would instead be `REJECTED` and X would revert to `AVAILABLE`.
 
 
 ## Contingent offers (dependency graph)
@@ -87,8 +89,8 @@ Treat contingencies as a directed graph over listings: a **PENDING** offer on li
 
 - **R1 (validation):** if `contingent_on` is present it must reference an existing listing (else **400**); it may not equal the offer's own `listing_id` (else **409**).
 - **R2 (no cycles):** creating the offer must not form a cycle in the graph — considering existing PENDING edges plus the new one — whether **direct or transitive** (e.g. X→Y, Y→Z already exist, then a new Z→X). A cycle → **409**. Only PENDING offers form edges (REJECTED/EXPIRED/ACCEPTED do not).
-- **R3 (accept-block):** an offer with `contingent_on = D` can only be accepted once listing `D` is **SOLD**. Accepting while `D` is not SOLD → **409**.
-- **R4 (cascade):** when a listing `D` is ARCHIVED, every PENDING offer with `contingent_on = D` becomes **REJECTED** (its contingency can never be satisfied).
+- **R3 (accept commits "subject to sale"):** accepting an offer with `contingent_on = D` **succeeds (200)** even if `D` is not yet SOLD. It does not settle immediately; instead it is **committed** (see Property chains & auto-settlement): the listing becomes `CHAINED` and the offer stays publicly `PENDING` until its dependency sells. If `D` is already SOLD at accept time, settlement happens right away.
+- **R4 (cascade):** when a listing `D` is ARCHIVED, every PENDING offer with `contingent_on = D` becomes **REJECTED** (its contingency can never be satisfied); if such an offer was a committed (`CHAINED`) offer, its listing reverts to `AVAILABLE`.
 
 **Accept-check precedence** (exact order for `POST /offers/:id/accept`, so the result is deterministic):
 1. offer exists — else 404
@@ -96,8 +98,55 @@ Treat contingencies as a directed graph over listings: a **PENDING** offer on li
 3. `actor_id` present — else 400
 4. `actor_id` is the awaited party — else 409
 5. listing-lock rule (a BUYER offer requires its listing to be AVAILABLE) — else 409
-6. **contingency satisfied** (`contingent_on` listing is SOLD) — else 409
-7. **budget affordability** (a `made_by: BUYER` offer's buyer fits their effective budget; see Self-financing) — else 409
+6. if the offer is **contingent**, it is **committed** (listing → `CHAINED`, other PENDING offers cascade-rejected) and then settlement runs; the response is **200**. If the offer is **non-contingent**, it settles immediately, subject to the budget check below.
+7. **budget affordability for a non-contingent offer** (a `made_by: BUYER` offer's buyer fits their effective budget; see Self-financing) — else 409. (A contingent offer is *not* budget-checked here; its affordability is resolved during settlement — see below.)
+
+
+## Property chains & auto-settlement
+Accepting a contingent offer is the seller saying *"yes, subject to your sale."* It commits the
+deal without completing it. A **committed** offer is one whose listing is `CHAINED`; the offer's
+public `status` stays `PENDING`. While a listing is `CHAINED` it behaves like a locked listing:
+no new offers may be created on it and no other action may be taken against it.
+
+After **every** state-changing request (and on `POST /clock`), the server runs a deterministic
+**settlement sweep** that completes committed deals whose dependencies have sold, in a fixed order,
+until no more can be settled (a fixpoint). The sweep obeys these rules:
+
+- **Trigger:** a committed offer on listing `X` with `contingent_on = D` **settles** once `D` is
+  `SOLD` and the buyer can **afford** it: the offer → `ACCEPTED`, listing `X` → `SOLD`, and the
+  sale value is realized as proceeds for `X`'s seller (which may fund further settlements). One
+  trigger can therefore complete an arbitrarily deep chain (e.g. `Z → Y → X`) hop by hop.
+- **Order:** when more than one committed offer is settleable, exactly one is settled per step —
+  the **earliest by `created_at`, then by `offer_id`** (ascending). Then the sweep re-evaluates.
+- **Affordability & contention:** a buyer's spending power as deals settle is
+  `base budget + proceeds − money already spent on completed purchases − other PENDING
+  (non-committed) commitments`. Other committed offers by the same buyer do **not** count, so each
+  is judged individually; but each settlement **spends** budget, so when two committed offers by
+  one buyer are individually affordable yet **jointly** exceed the budget, the earlier one settles
+  and the later one then **cannot** be afforded.
+- **Insufficient funds at settlement:** a committed offer whose dependency is `SOLD` but which the
+  buyer cannot afford is **REJECTED**, and its listing reverts `CHAINED → AVAILABLE`.
+- **Expiry mid-chain:** expiry is applied before every step. A committed offer whose `expiration`
+  passes becomes `EXPIRED` and its listing reverts `CHAINED → AVAILABLE`, which can change which
+  downstream offers ever settle.
+- **Dependency can never sell:** if a committed offer's dependency is `ARCHIVED`, the offer is
+  `REJECTED` and its listing reverts `CHAINED → AVAILABLE` (the sweep then continues).
+
+**Worked example — 3-deep chain.** Offers committed so that `X`'s sale depends on `Y`, and `Y`'s on
+`Z` (listings `X` and `Y` are `CHAINED`). When a buyer's plain offer on `Z` is accepted, `Z` sells;
+the sweep then settles `Y` (now its dependency `Z` is SOLD), which sells `Y`; then settles `X`. End
+state: `X`, `Y`, `Z` all `SOLD`, all three offers `ACCEPTED`.
+
+**Worked example — same-buyer contention.** Buyer `B` (effective budget 600000) has two committed
+offers of 400000 each, both depending on listing `D`. When `D` sells, both become settleable. The
+earlier-created offer settles (400000 ≤ 600000); `B` has now spent 400000, leaving 200000, so the
+later offer (400000) can no longer be afforded → it is `REJECTED` and its listing reverts to
+`AVAILABLE`.
+
+**Worked example — mid-chain expiry.** `X` is committed depending on `Y`, and `Y` is committed
+depending on `Z` (both `CHAINED`). If `Y`'s committed offer expires before `Z` sells, that offer
+becomes `EXPIRED` and `Y` reverts to `AVAILABLE`; `X` stays `CHAINED` and can no longer settle
+through `Y`.
 
 
 ## API Endpoints
@@ -260,9 +309,21 @@ User can be buyer or seller
   (BUYER offer → the listing's seller; SELLER counter → the offer's buyer)
 
 **On success (200 OK):** returns the full Offer.
+
+For a **non-contingent** offer (immediate sale):
 - offer → ACCEPTED
 - listing → SOLD
 - all OTHER PENDING offers on that listing → REJECTED (cascade; not shown in the response)
+
+For a **contingent** offer (commit "subject to sale"; see Property chains & auto-settlement):
+- the offer is **committed**: its public `status` stays `PENDING`
+- listing → `CHAINED`
+- all OTHER PENDING offers on that listing → REJECTED (cascade)
+- the settlement sweep then runs, which may immediately settle this offer (→ ACCEPTED, listing →
+  SOLD) if its dependency is already SOLD and the buyer can afford it, or **REJECT** it (listing
+  reverts to AVAILABLE) if the dependency is SOLD but the buyer cannot afford it.
+
+The returned Offer reflects its state after the sweep.
 
 ```json
 {
@@ -286,8 +347,8 @@ User can be buyer or seller
 - 409 if offer is not PENDING status
 - 409 if offer is made_by BUYER and actor_id is not the seller
 - 409 if offer is made_by SELLER and actor_id is not the buyer (buyer_id can be inferred from offer_id)
-- 409 if the offer is contingent on a listing that is not yet SOLD (see Contingent offers, R3)
-- 409 if the offer is `made_by: BUYER` and the buyer's total PENDING commitments would exceed their effective budget at acceptance (see Self-financing); checked after the contingency, so realized proceeds count
+- a **contingent** offer is no longer rejected when its dependency is not yet SOLD; it is committed instead (listing → `CHAINED`) — see Property chains & auto-settlement
+- 409 if the offer is **non-contingent**, `made_by: BUYER`, and the buyer's total PENDING commitments would exceed their effective budget (see Self-financing). A contingent offer is not budget-checked here; its affordability is resolved during settlement.
 
 
 ### POST /offers/:id/reject

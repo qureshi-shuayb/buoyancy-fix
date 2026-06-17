@@ -429,10 +429,13 @@ def test_no_cycle_diamond_ok():
     assert mk_offer(lB, mk_user(), contingent_on=lD).status_code == 201   # B -> D
     assert mk_offer(lC, mk_user(), contingent_on=lD).status_code == 201   # C -> D (diamond, no cycle)
 
-def test_accept_blocked_until_dependency_sold_409():
+def test_accept_contingent_commits_chained():
+    """Accepting a contingent offer before its dependency is SOLD commits it 'subject to sale'."""
     set_clock(); sA, lA = available(); _, dep = available(); b = mk_user()
     o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]
-    assert accept(o, sA).status_code == 409   # dep not SOLD -> contingency unmet
+    assert accept(o, sA).status_code == 200    # commits (was 409): dep not SOLD -> chained
+    assert listing_status(lA) == "CHAINED"
+    assert offer_status(o) == "PENDING"        # publicly still PENDING while chained
 
 def test_accept_allowed_after_dependency_sold_200():
     set_clock(); sA, lA = available(); sDep, dep = available()
@@ -483,26 +486,29 @@ def test_noncontingent_over_effective_budget_409():
     assert mk_offer(lX, B, value=150000).status_code == 409  # 150k > 100k, no proceeds
 
 def test_self_finance_enables_accept():
-    """Selling your own listing funds acceptance of a contingent offer that exceeds base budget."""
+    """Selling your own listing funds settlement of a chained offer that exceeds base budget."""
     set_clock(T0); sX, lX = available()
     B = mk_user(budget=100000)
     lY = mk_listing(B); publish(lY)
     oX = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]
-    assert accept(oX, sX).status_code == 409          # Y not SOLD -> contingency unmet
-    _sell(lY, B, 450000)                               # B realizes 450k proceeds
-    assert accept(oX, sX).status_code == 200           # 500k <= 100k + 450k effective budget
+    assert accept(oX, sX).status_code == 200            # commit subject to sale; Y not SOLD yet
+    assert listing_status(lX) == "CHAINED"
+    assert offer_status(oX) == "PENDING"
+    _sell(lY, B, 450000)                                # B realizes 450k proceeds -> auto-settles oX
+    assert offer_status(oX) == "ACCEPTED"               # 500k <= 100k + 450k effective budget
     assert listing_status(lX) == "SOLD"
 
-def test_self_finance_insufficient_proceeds_409():
-    """If realized proceeds are too low, acceptance of the self-financed offer fails."""
+def test_self_finance_insufficient_proceeds_rejects():
+    """If realized proceeds are too low, the chained offer is rejected at settlement and the listing reverts."""
     set_clock(T0); sX, lX = available()
     B = mk_user(budget=100000)
     lY = mk_listing(B); publish(lY)
     oX = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]
-    _sell(lY, B, 350000)                               # only 350k proceeds
-    assert accept(oX, sX).status_code == 409           # 500k > 100k + 350k
-    assert listing_status(lX) == "AVAILABLE"
-    assert offer_status(oX) == "PENDING"
+    assert accept(oX, sX).status_code == 200            # commit subject to sale; lX -> CHAINED
+    assert listing_status(lX) == "CHAINED"
+    _sell(lY, B, 350000)                                # only 350k proceeds -> 500k > 100k + 350k
+    assert offer_status(oX) == "REJECTED"               # insufficient funds at settlement
+    assert listing_status(lX) == "AVAILABLE"            # reverts
 
 def test_proceeds_raise_cap_for_noncontingent():
     """Realized proceeds raise the effective budget for ordinary (non-contingent) offers too."""
@@ -515,8 +521,8 @@ def test_proceeds_raise_cap_for_noncontingent():
     sZ, lZ = available()
     assert mk_offer(lZ, B, value=1).status_code == 409         # committed 300k + 1 > 300k
 
-def test_accept_rechecks_effective_budget_with_other_commitment_409():
-    """Acceptance re-check accounts for the buyer's other PENDING commitments, not just this offer."""
+def test_accept_chained_rejects_when_other_commitment_exceeds_budget():
+    """A chained offer that, with the buyer's other PENDING commitments, exceeds the effective budget is rejected at settlement."""
     set_clock(T0)
     B = mk_user(budget=100000)
     lY = mk_listing(B); publish(lY)
@@ -525,4 +531,81 @@ def test_accept_rechecks_effective_budget_with_other_commitment_409():
     assert mk_offer(lX, B, value=300000).status_code == 201    # non-contingent, commits 300k
     sZ, lZ = available()
     oZ = mk_offer(lZ, B, value=200000, contingent_on=lY).json()["offer_id"]  # lY already SOLD; relaxed at creation
-    assert accept(oZ, sZ).status_code == 409           # committed 300k + 200k = 500k > 400k
+    assert accept(oZ, sZ).status_code == 200           # commit; settle then rejects
+    assert offer_status(oZ) == "REJECTED"              # committed 300k + 200k = 500k > 400k
+    assert listing_status(lZ) == "AVAILABLE"           # reverts
+
+
+# ---------- property chains & auto-settlement (CHAINED + settle() fixpoint) ----------
+def test_accept_commit_cascade_rejects_others():
+    """Committing a contingent offer locks the listing CHAINED and cascade-rejects other PENDING offers."""
+    set_clock(T0)
+    sX, lX = available(); _, dep = available()
+    b1, b2 = mk_user(), mk_user()
+    oX = mk_offer(lX, b1, contingent_on=dep).json()["offer_id"]
+    o2 = mk_offer(lX, b2).json()["offer_id"]
+    assert accept(oX, sX).status_code == 200
+    assert listing_status(lX) == "CHAINED"
+    assert offer_status(oX) == "PENDING"     # committed, awaiting dependency
+    assert offer_status(o2) == "REJECTED"    # cascade
+
+def test_three_deep_chain_auto_settles():
+    """One accept at the bottom of a 3-deep chain settles every hop to a fixpoint."""
+    set_clock(T0)
+    sX, lX = available(); sY, lY = available(); sZ, lZ = available()
+    bX, bY, bZ = mk_user(), mk_user(), mk_user()
+    oX = mk_offer(lX, bX, value=400000, contingent_on=lY).json()["offer_id"]  # lX depends on lY
+    oY = mk_offer(lY, bY, value=400000, contingent_on=lZ).json()["offer_id"]  # lY depends on lZ
+    oZ = mk_offer(lZ, bZ, value=400000).json()["offer_id"]                     # bottom, non-contingent
+    assert accept(oX, sX).status_code == 200 and listing_status(lX) == "CHAINED"
+    assert accept(oY, sY).status_code == 200 and listing_status(lY) == "CHAINED"
+    assert accept(oZ, sZ).status_code == 200            # triggers the full cascade
+    for oid in (oX, oY, oZ):
+        assert offer_status(oid) == "ACCEPTED"
+    for lid in (lX, lY, lZ):
+        assert listing_status(lid) == "SOLD"
+
+def test_same_buyer_contention_ordered_settle_then_reject():
+    """Two chained offers by one buyer, jointly over budget: in-order settle first, reject the loser, revert its listing."""
+    sA0 = "2030-01-01T00:00:00Z"; sA1 = "2030-01-02T00:00:00Z"
+    set_clock(sA0)
+    s1, l1 = available(); s2, l2 = available(); sD, dep = available()
+    B = mk_user(budget=600000)
+    oA = mk_offer(l1, B, value=400000, contingent_on=dep).json()["offer_id"]   # created first (earlier created_at)
+    set_clock(sA1)
+    oB = mk_offer(l2, B, value=400000, contingent_on=dep).json()["offer_id"]   # created later
+    assert accept(oA, s1).status_code == 200 and listing_status(l1) == "CHAINED"
+    assert accept(oB, s2).status_code == 200 and listing_status(l2) == "CHAINED"
+    _sell(dep, sD, 500000)                               # dep SOLD -> both become settleable in one sweep
+    assert offer_status(oA) == "ACCEPTED"               # earlier created_at settles first (400k <= 600k)
+    assert listing_status(l1) == "SOLD"
+    assert offer_status(oB) == "REJECTED"               # remaining budget 200k < 400k -> insufficient
+    assert listing_status(l2) == "AVAILABLE"            # reverts
+
+def test_mid_chain_expiry_reverts_and_stops_downstream():
+    """A chained offer expiring mid-chain becomes EXPIRED, reverts its listing, and stops downstream settlement."""
+    set_clock(T0)
+    sTop, lTop = available(); sMid, lMid = available(); _, lBot = available()
+    bTop, bMid = mk_user(), mk_user()
+    oTop = mk_offer(lTop, bTop, value=400000, expiration=EVEN_LATER, contingent_on=lMid).json()["offer_id"]
+    oMid = mk_offer(lMid, bMid, value=400000, expiration=FUTURE, contingent_on=lBot).json()["offer_id"]
+    assert accept(oMid, sMid).status_code == 200 and listing_status(lMid) == "CHAINED"
+    assert accept(oTop, sTop).status_code == 200 and listing_status(lTop) == "CHAINED"
+    set_clock(LATER)                                     # oMid expires (past FUTURE); oTop survives (EVEN_LATER)
+    assert offer_status(oMid) == "EXPIRED"
+    assert listing_status(lMid) == "AVAILABLE"          # reverts
+    assert offer_status(oTop) == "PENDING"              # still committed
+    assert listing_status(lTop) == "CHAINED"            # downstream stuck; its dependency can no longer sell via oMid
+
+def test_dependency_archived_reverts_and_rejects_chained():
+    """Archiving a dependency rejects every committed chained offer on it and reverts those listings."""
+    set_clock(T0)
+    sX, lX = available(); sY, lY = available(); _, lD = available()
+    bX, bY = mk_user(), mk_user()
+    oX = mk_offer(lX, bX, value=400000, contingent_on=lD).json()["offer_id"]
+    oY = mk_offer(lY, bY, value=400000, contingent_on=lD).json()["offer_id"]
+    assert accept(oX, sX).status_code == 200 and listing_status(lX) == "CHAINED"
+    assert accept(oY, sY).status_code == 200 and listing_status(lY) == "CHAINED"
+    assert requests.post(f"{BASE}/listings/{lD}/archive").status_code == 200
+    assert offer_status(oX) == "REJECTED" and offer_status(oY) == "REJECTED"
+    assert listing_status(lX) == "AVAILABLE" and listing_status(lY) == "AVAILABLE"
