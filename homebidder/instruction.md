@@ -32,6 +32,7 @@ interface Offer {
   expiration: string;   // ISO 8601 datetime; compared against the virtual clock
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';  // server-managed
   created_at: string;   // ISO 8601 datetime, server-generated
+  contingent_on: string | null;   // optional listing_id this offer's acceptance depends on (must be SOLD); null if none
 }
 ```
 
@@ -45,6 +46,27 @@ Every user has a `budget`. At any time, the **sum of a buyer's outstanding (PEND
 - reject/expire the listing-A offer → frees 60000
 - offer 60000 on listing B → 201 (committed 60000)
 
+
+## Contingent offers (dependency graph)
+An offer may be **contingent on the sale of another listing** (e.g. the buyer must sell their current home first). Set the optional `contingent_on` field to a `listing_id` when creating an offer via `POST /offers`. Counters never carry a contingency (a countered offer's replacement has `contingent_on: null`).
+
+Treat contingencies as a directed graph over listings: a **PENDING** offer on listing `X` with `contingent_on = Y` is an edge `X → Y` ("X's sale depends on Y selling first"). Rules:
+
+- **R1 (validation):** if `contingent_on` is present it must reference an existing listing (else **400**); it may not equal the offer's own `listing_id` (else **409**).
+- **R2 (no cycles):** creating the offer must not form a cycle in the graph — considering existing PENDING edges plus the new one — whether **direct or transitive** (e.g. X→Y, Y→Z already exist, then a new Z→X). A cycle → **409**. Only PENDING offers form edges (REJECTED/EXPIRED/ACCEPTED do not).
+- **R3 (accept-block):** an offer with `contingent_on = D` can only be accepted once listing `D` is **SOLD**. Accepting while `D` is not SOLD → **409**.
+- **R4 (cascade):** when a listing `D` is ARCHIVED, every PENDING offer with `contingent_on = D` becomes **REJECTED** (its contingency can never be satisfied).
+
+**Accept-check precedence** (exact order for `POST /offers/:id/accept`, so the result is deterministic):
+1. offer exists — else 404
+2. offer is PENDING — else 409
+3. `actor_id` present — else 400
+4. `actor_id` is the awaited party — else 409
+5. listing-lock rule (a BUYER offer requires its listing to be AVAILABLE) — else 409
+6. **contingency satisfied** (`contingent_on` listing is SOLD) — else 409
+
+
+## API Endpoints
 
 > All success responses return the **full object** as defined in the Data Model
 > (every field). The JSON blocks below are illustrative; server-generated values
@@ -127,7 +149,7 @@ the updated Listing (status `AVAILABLE`)
 
 ### POST /listings/:id/archive
 This end point archives  a listing. i.e chagnes status to "ARCHIVED".
-When archived, all PENDING offers on the listing become REJECTED.
+When archived, all PENDING offers on the listing become REJECTED, and every PENDING offer **contingent on** this listing is also REJECTED (its contingency can never be satisfied).
 
 **Response (200 OK):**
 the updated Listing (status `ARCHIVED`)
@@ -158,9 +180,11 @@ Creates a new offer on a listing,
   "buyer_id": "1asads",
   "listing_id": "ususus11221",
   "offer_value": 420000,
-  "expiration": "2024-02-15T10:30:00.000Z"
+  "expiration": "2024-02-15T10:30:00.000Z",
+  "contingent_on": null
 }
 ```
+- `contingent_on`: optional `listing_id` this offer depends on (see Contingent offers); omit or `null` for none
 
 
 **Response (201 Created):**
@@ -174,7 +198,8 @@ the created Offer (full object)
   "offer_value": 420000,
   "expiration": "2024-02-15T10:30:00.000Z",
   "status": "PENDING",
-  "created_at": "2024-01-15T10:30:00.000Z"
+  "created_at": "2024-01-15T10:30:00.000Z",
+  "contingent_on": null
 }
 ```
 
@@ -188,6 +213,8 @@ the created Offer (full object)
 - 409 if listing is not in AVAILABLE status
 - 409 if the buyer already has a **PENDING** offer on the listing (REJECTED or EXPIRED offers do not count, so a buyer may offer again after their previous offer ended)
 - 409 if the offer would exceed the buyer's budget (sum of the buyer's PENDING offers across all listings + this offer > budget; see Budget invariant)
+- 400 if `contingent_on` is present but does not reference an existing listing (see Contingent offers)
+- 409 if `contingent_on` equals this offer's own listing, or would create a dependency cycle (see Contingent offers)
 
 
 ### POST /offers/:id/accept
@@ -225,6 +252,7 @@ User can be buyer or seller
 - 409 if offer is not PENDING status
 - 409 if offer is made_by BUYER and actor_id is not the seller
 - 409 if offer is made_by SELLER and actor_id is not the buyer (buyer_id can be inferred from offer_id)
+- 409 if the offer is contingent on a listing that is not yet SOLD (see Contingent offers, R3)
 
 
 ### POST /offers/:id/reject

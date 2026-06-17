@@ -37,8 +37,11 @@ def available():
     """Return (seller_id, listing_id) for a published AVAILABLE listing."""
     s = mk_user(); lid = mk_listing(s); publish(lid); return s, lid
 
-def mk_offer(lid, buyer, value=400000, expiration=FUTURE):
-    return requests.post(f"{BASE}/offers", json={"listing_id": lid, "buyer_id": buyer, "offer_value": value, "expiration": expiration})
+def mk_offer(lid, buyer, value=400000, expiration=FUTURE, contingent_on=None):
+    body = {"listing_id": lid, "buyer_id": buyer, "offer_value": value, "expiration": expiration}
+    if contingent_on is not None:
+        body["contingent_on"] = contingent_on
+    return requests.post(f"{BASE}/offers", json=body)
 
 def accept(oid, actor): return requests.post(f"{BASE}/offers/{oid}/accept", json={"actor_id": actor})
 def reject(oid, actor): return requests.post(f"{BASE}/offers/{oid}/reject", json={"actor_id": actor})
@@ -391,3 +394,69 @@ def test_budget_counter_rechecks_409():
     assert counter(n, b, value=80000).status_code == 409
     # buyer counter 60k: 60k < 90k and 30k + 60k = 90k <= budget -> 201
     assert counter(n, b, value=60000).status_code == 201
+
+
+# ---------- contingency dependency graph (offer contingent on a listing's sale) ----------
+def test_contingent_offer_create_ok():
+    set_clock(); _, l1 = available(); _, dep = available(); b = mk_user()
+    r = mk_offer(l1, b, contingent_on=dep)
+    assert r.status_code == 201
+    assert r.json()["contingent_on"] == dep
+
+def test_contingent_unknown_listing_400():
+    set_clock(); _, l1 = available(); b = mk_user()
+    assert mk_offer(l1, b, contingent_on="nope").status_code == 400
+
+def test_contingent_self_409():
+    set_clock(); _, l1 = available(); b = mk_user()
+    assert mk_offer(l1, b, contingent_on=l1).status_code == 409
+
+def test_cycle_direct_409():
+    set_clock(); _, lA = available(); _, lB = available()
+    assert mk_offer(lA, mk_user(), contingent_on=lB).status_code == 201   # A -> B
+    assert mk_offer(lB, mk_user(), contingent_on=lA).status_code == 409   # B -> A closes a cycle
+
+def test_cycle_transitive_409():
+    set_clock(); _, lA = available(); _, lB = available(); _, lC = available()
+    assert mk_offer(lA, mk_user(), contingent_on=lB).status_code == 201   # A -> B
+    assert mk_offer(lB, mk_user(), contingent_on=lC).status_code == 201   # B -> C
+    assert mk_offer(lC, mk_user(), contingent_on=lA).status_code == 409   # C -> A closes a transitive cycle
+
+def test_no_cycle_diamond_ok():
+    set_clock(); _, lA = available(); _, lB = available(); _, lC = available(); _, lD = available()
+    assert mk_offer(lA, mk_user(), contingent_on=lB).status_code == 201   # A -> B
+    assert mk_offer(lA, mk_user(), contingent_on=lC).status_code == 201   # A -> C
+    assert mk_offer(lB, mk_user(), contingent_on=lD).status_code == 201   # B -> D
+    assert mk_offer(lC, mk_user(), contingent_on=lD).status_code == 201   # C -> D (diamond, no cycle)
+
+def test_accept_blocked_until_dependency_sold_409():
+    set_clock(); sA, lA = available(); _, dep = available(); b = mk_user()
+    o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]
+    assert accept(o, sA).status_code == 409   # dep not SOLD -> contingency unmet
+
+def test_accept_allowed_after_dependency_sold_200():
+    set_clock(); sA, lA = available(); sDep, dep = available()
+    b = mk_user(); bDep = mk_user()
+    o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]
+    oDep = mk_offer(dep, bDep).json()["offer_id"]
+    assert accept(oDep, sDep).status_code == 200   # dep now SOLD
+    assert accept(o, sA).status_code == 200         # contingency satisfied
+    assert listing_status(lA) == "SOLD"
+
+def test_archive_dependency_cascade_rejects():
+    set_clock(); sA, lA = available(); _, dep = available(); b = mk_user()
+    o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]
+    assert requests.post(f"{BASE}/listings/{dep}/archive").status_code == 200
+    assert offer_status(o) == "REJECTED"   # contingency can never be satisfied -> cascade reject
+
+def test_rejected_edge_not_in_cycle_graph():
+    set_clock(); sA, lA = available(); _, lB = available()
+    oA = mk_offer(lA, mk_user(), contingent_on=lB).json()["offer_id"]   # A -> B edge
+    assert reject(oA, sA).status_code == 200                            # edge removed (REJECTED)
+    assert mk_offer(lB, mk_user(), contingent_on=lA).status_code == 201  # B -> A now fine (no cycle)
+
+def test_accept_missing_actor_400_precedes_contingency():
+    set_clock(); _, lA = available(); _, dep = available(); b = mk_user()
+    o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]
+    r = requests.post(f"{BASE}/offers/{o}/accept", json={})   # no actor_id
+    assert r.status_code == 400   # missing actor_id (400) precedes the contingency check (409)
