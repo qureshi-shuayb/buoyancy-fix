@@ -677,3 +677,239 @@ def test_counter_invalid_offer_value_400(bad):
     b = mk_user()
     o = mk_offer(lX, b, value=400000).json()["offer_id"]
     assert counter_raw(o, sX, value=bad).status_code == 400
+
+
+# ============================================================================
+# Phase 1 — Density. Adds parametrized error-axis tables, no-mutation-on-rejection
+# re-reads, expiry boundary checks, and an expanded Lever F / contingency matrix.
+# Every assertion maps to a SPEC-PINNED behavior (one spec-derivable answer):
+#   - "required / non-empty / positive number"  -> 400 on missing/empty/non-positive
+#   - Technical Req #8: expiration "not a string / not a valid datetime" -> 400
+#   - Counter-check precedence (1..10) and Accept-check precedence (1..7): all
+#     validation precedes any mutation, so a 4xx leaves state unchanged.
+#   - Req #7: an offer whose expiration is AT or before the clock is EXPIRED.
+#   - Counter value rule: seller's counter strictly greater; buyer's strictly less.
+# Type-coercion-ambiguous inputs (e.g. "100", date-only strings) are deliberately
+# avoided so a defensible-but-different implementation is not unfairly failed.
+# ============================================================================
+
+# ---------- parametrized field validation: POST /users ----------
+@pytest.mark.parametrize("mutate", [
+    {"name": None},          # required
+    {"name": ""},            # non-empty
+    {"email": None},         # required
+    {"email": ""},           # non-empty
+    {"budget": None},        # required
+    {"budget": 0},           # positive
+    {"budget": -5},          # positive
+])
+def test_user_invalid_field_400(mutate):
+    body = {"name": "U", "email": email(), "budget": BIG_BUDGET}
+    body.update(mutate)
+    assert requests.post(f"{BASE}/users", json=body).status_code == 400
+
+
+# ---------- parametrized field validation: POST /listings ----------
+@pytest.mark.parametrize("mutate", [
+    {"address": None},                # required
+    {"address": ""},                  # non-empty
+    {"price": None},                  # required
+    {"price": 0},                     # positive (> 0)
+    {"price": -5},                    # positive
+    {"seller_id": None},              # required
+    {"seller_id": "nonexistent-id"},  # must reference an existing user
+])
+def test_listing_invalid_field_400(mutate):
+    s = mk_user()
+    body = {"seller_id": s, "address": "1 Main St", "price": 500000}
+    body.update(mutate)
+    assert requests.post(f"{BASE}/listings", json=body).status_code == 400
+
+
+# ---------- parametrized field validation: POST /offers ----------
+@pytest.mark.parametrize("mutate", [
+    {"listing_id": None},             # required
+    {"buyer_id": None},               # required
+    {"offer_value": None},            # required
+    {"offer_value": 0},               # positive
+    {"offer_value": -5},              # positive
+    {"expiration": None},             # required
+    {"expiration": "not-a-date"},     # Req #8: not a valid datetime
+    {"expiration": 12345},            # Req #8: not a string
+])
+def test_offer_invalid_field_400(mutate):
+    set_clock(T0); _, lid = available(); b = mk_user()
+    body = {"listing_id": lid, "buyer_id": b, "offer_value": 400000, "expiration": FUTURE}
+    body.update(mutate)
+    assert requests.post(f"{BASE}/offers", json=body).status_code == 400
+
+
+# ---------- POST /offers contingent_on is TWO-valued (omit == null == none) ----------
+def test_create_contingent_null_equals_omitted():
+    set_clock(T0); _, lid1 = available(); _, lid2 = available()
+    b1 = mk_user(); b2 = mk_user()
+    r1 = requests.post(f"{BASE}/offers", json={
+        "listing_id": lid1, "buyer_id": b1, "offer_value": 400000,
+        "expiration": FUTURE, "contingent_on": None})
+    assert r1.status_code == 201 and r1.json()["contingent_on"] is None
+    r2 = requests.post(f"{BASE}/offers", json={
+        "listing_id": lid2, "buyer_id": b2, "offer_value": 400000,
+        "expiration": FUTURE})
+    assert r2.status_code == 201 and r2.json()["contingent_on"] is None
+
+
+# ---------- directional counter value rule (strict; equality is a 409) ----------
+@pytest.mark.parametrize("counter_val, expected", [
+    (450000, 201),   # seller higher than buyer's 400k
+    (600000, 201),   # higher
+    (400000, 409),   # equal -> not strictly greater
+    (399999, 409),   # lower
+])
+def test_seller_counter_direction(counter_val, expected):
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b, value=400000).json()["offer_id"]
+    assert counter_raw(o, s, value=counter_val).status_code == expected
+
+@pytest.mark.parametrize("counter_val, expected", [
+    (449999, 201),   # buyer lower than seller's 450k
+    (400000, 201),   # lower
+    (450000, 409),   # equal -> not strictly less
+    (460000, 409),   # higher
+])
+def test_buyer_counter_direction(counter_val, expected):
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b, value=400000).json()["offer_id"]
+    n = counter_raw(o, s, value=450000).json()["offer_id"]   # seller offer 450k, listing PENDING
+    assert counter_raw(n, b, value=counter_val).status_code == expected
+
+
+# ---------- terminal-state guards: accept/reject/counter require PENDING ----------
+def _mk_terminal(state):
+    """Return (seller, listing, buyer, offer_id) for a BUYER offer driven to `state`."""
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b, value=400000, expiration=FUTURE).json()["offer_id"]
+    if state == "EXPIRED":
+        set_clock(LATER)
+    elif state == "REJECTED":
+        assert reject(o, s).status_code == 200
+    elif state == "ACCEPTED":
+        assert accept(o, s).status_code == 200
+    return s, lid, b, o
+
+@pytest.mark.parametrize("state", ["EXPIRED", "REJECTED", "ACCEPTED"])
+@pytest.mark.parametrize("action", ["accept", "reject", "counter"])
+def test_action_on_terminal_offer_409(action, state):
+    s, lid, b, o = _mk_terminal(state)
+    if action == "accept":
+        r = accept(o, s)
+    elif action == "reject":
+        r = reject(o, s)
+    else:
+        r = counter_raw(o, s, value=450000, expiration=EVEN_LATER)
+    assert r.status_code == 409
+
+
+# ---------- expiry boundary (Req #7: at-or-before the clock is EXPIRED) ----------
+@pytest.mark.parametrize("clock_ts, expected", [
+    ("2030-05-31T23:59:59Z", "PENDING"),    # one second before expiration
+    ("2030-06-01T00:00:00Z", "EXPIRED"),    # exactly at expiration -> EXPIRED
+    ("2030-06-01T00:00:01Z", "EXPIRED"),    # one second after expiration
+])
+def test_expiry_boundary(clock_ts, expected):
+    set_clock(T0); _, lid = available(); b = mk_user()
+    o = mk_offer(lid, b, expiration=FUTURE).json()["offer_id"]   # FUTURE = 2030-06-01T00:00:00Z
+    set_clock(clock_ts)
+    assert offer_status(o) == expected
+
+
+# ---------- no-mutation-on-rejection re-reads (precedence pins mutation last) ----------
+def test_counter_wrong_party_409_no_mutation():
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b, value=400000).json()["offer_id"]
+    assert counter_raw(o, b, value=450000).status_code == 409   # awaited party is the seller
+    assert offer_status(o) == "PENDING"
+    assert listing_status(lid) == "AVAILABLE"
+
+def test_counter_direction_violation_409_no_mutation():
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b, value=400000).json()["offer_id"]
+    assert counter_raw(o, s, value=390000).status_code == 409   # seller counter not greater
+    assert offer_status(o) == "PENDING"
+    assert listing_status(lid) == "AVAILABLE"
+
+def test_counter_budget_exceed_409_no_mutation():
+    set_clock(T0); s1, l1 = available(); _, l2 = available()
+    b = mk_user(budget=100000)
+    mk_offer(l2, b, value=30000)                                  # committed 30k elsewhere
+    o1 = mk_offer(l1, b, value=20000).json()["offer_id"]
+    n = counter_raw(o1, s1, value=90000).json()["offer_id"]       # seller offer 90k, listing PENDING
+    assert counter_raw(n, b, value=80000).status_code == 409      # 30k + 80k = 110k > 100k
+    assert offer_status(n) == "PENDING"                           # seller offer untouched
+    assert listing_status(l1) == "PENDING"                        # still locked
+
+def test_accept_contingency_unmet_409_no_mutation():
+    set_clock(T0); sA, lA = available(); _, dep = available(); b = mk_user()
+    o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]
+    assert accept(o, sA).status_code == 409                       # dep not SOLD
+    assert offer_status(o) == "PENDING"
+    assert listing_status(lA) == "AVAILABLE"
+
+def test_offer_budget_exceed_409_no_listing_mutation():
+    set_clock(T0); _, lX = available()
+    b = mk_user(budget=100000)
+    assert mk_offer(lX, b, value=150000).status_code == 409       # over base budget
+    assert listing_status(lX) == "AVAILABLE"                      # listing unchanged
+    assert mk_offer(lX, b, value=90000).status_code == 201        # nothing was committed -> within budget
+
+
+# ---------- expanded Lever F / contingency matrix ----------
+def test_counter_inherit_then_accept_blocked_until_sold():
+    """A seller counter inherits the buyer's contingency; accept is blocked until it sells."""
+    set_clock(T0); sX, lX = available(); sY, lY = available(); b = mk_user()
+    o = mk_offer(lX, b, value=400000, contingent_on=lY).json()["offer_id"]
+    n = counter_raw(o, sX, value=450000)                          # seller counter inherits lY
+    assert n.status_code == 201 and n.json()["contingent_on"] == lY
+    nid = n.json()["offer_id"]
+    assert accept(nid, b).status_code == 409                      # lY not SOLD -> contingency unmet
+    _sell(lY, sY, 100000)                                         # lY now SOLD
+    assert accept(nid, b).status_code == 200
+    assert listing_status(lX) == "SOLD"
+
+def test_counter_repoint_to_sold_listing_then_accept_ok():
+    """Re-pointing a contingency to an already-SOLD listing satisfies R3 immediately."""
+    set_clock(T0); sX, lX = available(); sZ, lZ = available(); b = mk_user()
+    _sell(lZ, sZ, 100000)                                         # lZ SOLD first
+    o = mk_offer(lX, b, value=400000).json()["offer_id"]
+    n = counter_raw(o, sX, value=450000, contingent_on=lZ)        # re-point to SOLD lZ
+    assert n.status_code == 201 and n.json()["contingent_on"] == lZ
+    assert accept(n.json()["offer_id"], b).status_code == 200     # lZ already SOLD -> allowed
+
+def test_inherited_contingency_survives_2step_chain_then_archive_cascades():
+    """Contingency carried through two counters still forms a live edge; archiving the
+    depended-on listing cascade-rejects the surviving offer (R4)."""
+    set_clock(T0); sX, lX = available(); sY, lY = available()
+    B = mk_user(budget=100000)
+    o = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]   # contingent (not checked)
+    n1 = counter_raw(o, sX, value=520000).json()["offer_id"]      # seller inherits lY
+    n2 = counter_raw(n1, B, value=510000)                         # buyer counters back, inherits lY
+    assert n2.status_code == 201 and n2.json()["contingent_on"] == lY
+    n2id = n2.json()["offer_id"]
+    assert requests.post(f"{BASE}/listings/{lY}/archive").status_code == 200
+    assert offer_status(n2id) == "REJECTED"                       # R4 cascade reached the inherited edge
+
+def test_counter_back_repoint_contingency_skips_budget_check():
+    """A buyer counter that re-points (stays contingent) is NOT budget-checked at counter time."""
+    set_clock(T0); sX, lX = available(); _, lZ = available()
+    B = mk_user(budget=100000)
+    o = mk_offer(lX, B, value=50000).json()["offer_id"]           # within base budget
+    n1 = counter_raw(o, sX, value=520000).json()["offer_id"]      # seller offer 520k
+    r = counter_raw(n1, B, value=510000, contingent_on=lZ)        # buyer counter-back, re-point -> contingent
+    assert r.status_code == 201                                   # 510k >> 100k base, but contingent
+    assert r.json()["contingent_on"] == lZ and r.json()["made_by"] == "BUYER"
+
+def test_cycle_four_node_transitive_409():
+    set_clock(); _, lA = available(); _, lB = available(); _, lC = available(); _, lD = available()
+    assert mk_offer(lA, mk_user(), contingent_on=lB).status_code == 201   # A -> B
+    assert mk_offer(lB, mk_user(), contingent_on=lC).status_code == 201   # B -> C
+    assert mk_offer(lC, mk_user(), contingent_on=lD).status_code == 201   # C -> D
+    assert mk_offer(lD, mk_user(), contingent_on=lA).status_code == 409   # D -> A closes a 4-node cycle
