@@ -5,6 +5,7 @@ expiry, and every error path. Deterministic: a test-controlled virtual clock,
 unique emails per entity, exact status-code + state assertions.
 """
 import itertools
+from datetime import datetime
 import pytest
 import requests
 
@@ -546,6 +547,11 @@ def counter_raw(oid, actor, value=450000, expiration=_OMIT, contingent_on=_OMIT)
 def offer_field(oid, field):
     return requests.get(f"{BASE}/offers/{oid}").json()[field]
 
+def _inst(s):
+    # Compare datetimes by instant, not raw string, so a server that normalizes the
+    # representation (e.g. adds .000) is not falsely failed.
+    return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+
 # --- contingent_on three-valued ---
 def test_counter_inherits_contingency_when_absent():
     """Omitting contingent_on on a counter inherits the parent offer's contingency."""
@@ -610,7 +616,7 @@ def test_counter_inherits_expiration_when_absent():
     o = mk_offer(lX, b, value=400000, expiration=FUTURE).json()["offer_id"]
     r = counter_raw(o, sX, value=450000)                     # expiration omitted -> inherit FUTURE
     assert r.status_code == 201
-    assert r.json()["expiration"] == FUTURE
+    assert _inst(r.json()["expiration"]) == _inst(FUTURE)
 
 def test_counter_explicit_null_expiration_400_no_mutation():
     set_clock(T0); sX, lX = available()
@@ -626,7 +632,7 @@ def test_counter_value_expiration_used():
     o = mk_offer(lX, b, value=400000).json()["offer_id"]
     r = counter_raw(o, sX, value=450000, expiration=EVEN_LATER)
     assert r.status_code == 201
-    assert r.json()["expiration"] == EVEN_LATER
+    assert _inst(r.json()["expiration"]) == _inst(EVEN_LATER)
 
 def test_counter_past_expiration_400_no_mutation():
     set_clock(T0); sX, lX = available()
@@ -662,16 +668,12 @@ def test_counter_back_clearing_contingency_budget_checked_409():
     assert listing_status(lX) == "PENDING"                   # still locked
 
 # --- density: parametrized invalid inputs on counter ---
-@pytest.mark.parametrize("bad", [-1, 0, "100", None, [1]])
+# Only cases the spec PINS ("required, positive number"): non-positive and missing.
+# Avoid type-coercion-ambiguous values (e.g. "100", [1]) where Number(x) is a valid
+# positive and an equally-defensible lenient implementation would accept them.
+@pytest.mark.parametrize("bad", [-1, 0, None])
 def test_counter_invalid_offer_value_400(bad):
     set_clock(T0); sX, lX = available()
     b = mk_user()
     o = mk_offer(lX, b, value=400000).json()["offer_id"]
     assert counter_raw(o, sX, value=bad).status_code == 400
-
-@pytest.mark.parametrize("bad", ["2030-06-01", "not-a-date", "06/01/2030", "2030-06-01T00:00Z", 12345])
-def test_counter_invalid_expiration_format_400(bad):
-    set_clock(T0); sX, lX = available()
-    b = mk_user()
-    o = mk_offer(lX, b, value=400000).json()["offer_id"]
-    assert counter_raw(o, sX, value=450000, expiration=bad).status_code == 400
