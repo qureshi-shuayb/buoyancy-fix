@@ -35,7 +35,7 @@ type ListingStatus = 'DRAFT' | 'AVAILABLE' | 'PENDING' | 'SOLD' | 'ARCHIVED';
 type OfferStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 type MadeBy = 'BUYER' | 'SELLER';
 
-interface User { user_id: string; name: string; email: string; }
+interface User { user_id: string; name: string; email: string; budget: number; }
 interface Listing { listing_id: string; address: string; price: number; seller_id: string; status: ListingStatus; created_at: string; }
 interface Offer {
   offer_id: string; listing_id: string; buyer_id: string; made_by: MadeBy;
@@ -61,6 +61,8 @@ const findUser = (id: unknown) => users.find((u) => u.user_id === id);
 const findListing = (id: string) => listings.find((l) => l.listing_id === id);
 const findOffer = (id: string) => offers.find((o) => o.offer_id === id);
 const listingOffers = (lid: string) => offers.filter((o) => o.listing_id === lid);
+// Sum of a buyer's outstanding (PENDING) BUYER offers across all listings.
+const committedBuyer = (buyerId: string) => offers.filter((o) => o.buyer_id === buyerId && o.made_by === 'BUYER' && o.status === 'PENDING').reduce((s, o) => s + o.offer_value, 0);
 
 // Lazily expire PENDING offers against the virtual clock; a seller-counter
 // expiring unlocks its (PENDING) listing back to AVAILABLE.
@@ -88,9 +90,9 @@ app.post('/clock', (req: Request, res: Response) => {
 // ---- users ----
 app.post('/users', (req: Request, res: Response) => {
   const b = (req.body ?? {}) as Record<string, unknown>;
-  if (!nonEmptyStr(b.name) || !nonEmptyStr(b.email)) { res.status(400).end(); return; }
+  if (!nonEmptyStr(b.name) || !nonEmptyStr(b.email) || !posNum(b.budget)) { res.status(400).end(); return; }
   if (users.some((u) => u.email === b.email)) { res.status(409).end(); return; }
-  const u: User = { user_id: randomUUID(), name: b.name, email: b.email };
+  const u: User = { user_id: randomUUID(), name: b.name, email: b.email, budget: b.budget as number };
   users.push(u);
   res.status(201).json(u);
 });
@@ -151,11 +153,13 @@ app.post('/offers', (req: Request, res: Response) => {
   if (!nonEmptyStr(b.listing_id) || !nonEmptyStr(b.buyer_id) || !posNum(b.offer_value) || !isTs(b.expiration)) { res.status(400).end(); return; }
   const l = findListing(b.listing_id);
   if (!l) { res.status(404).end(); return; }
-  if (!findUser(b.buyer_id)) { res.status(400).end(); return; }
+  const buyer = findUser(b.buyer_id);
+  if (!buyer) { res.status(400).end(); return; }
   if (tsMs(b.expiration as string) <= virtualNowMs) { res.status(400).end(); return; }   // expiration must be in the future
   if (l.status !== 'AVAILABLE') { res.status(409).end(); return; }                         // offers only on AVAILABLE (covers locked PENDING)
   if (l.seller_id === b.buyer_id) { res.status(409).end(); return; }                       // owner cannot offer on own listing
   if (listingOffers(l.listing_id).some((o) => o.buyer_id === b.buyer_id && o.status === 'PENDING')) { res.status(409).end(); return; } // one pending offer per buyer
+  if (committedBuyer(b.buyer_id as string) + (b.offer_value as number) > buyer.budget) { res.status(409).end(); return; } // exceeds buyer budget
   const o: Offer = { offer_id: randomUUID(), listing_id: l.listing_id, buyer_id: b.buyer_id as string, made_by: 'BUYER', offer_value: b.offer_value as number, expiration: b.expiration as string, status: 'PENDING', created_at: nowIso() };
   offers.push(o);
   res.status(201).json(o);
@@ -210,6 +214,8 @@ app.post('/offers/:id/counter', (req: Request, res: Response) => {
   if (c.o.made_by === 'SELLER') {
     // Buyer is countering a seller's offer: must be lower than the seller's offer
     if (newValue >= c.o.offer_value) { res.status(409).end(); return; }
+    const buyer = findUser(c.o.buyer_id);
+    if (buyer && committedBuyer(c.o.buyer_id) + newValue > buyer.budget) { res.status(409).end(); return; } // exceeds buyer budget
   } else {
     // Seller is countering a buyer's offer: must be higher than the buyer's offer
     if (newValue <= c.o.offer_value) { res.status(409).end(); return; }

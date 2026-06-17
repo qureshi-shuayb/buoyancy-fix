@@ -11,6 +11,7 @@ interface User {
   user_id: string;   // UUID, server-generated
   name: string;      // required, non-empty
   email: string;     // required, non-empty, unique across users
+  budget: number;    // required, positive; cap on the buyer's total outstanding (PENDING) offers
 }
 
 interface Listing {
@@ -35,7 +36,15 @@ interface Offer {
 ```
 
 
-## API Endpoints
+## Budget invariant
+Every user has a `budget`. At any time, the **sum of a buyer's outstanding (PENDING) offers across all listings must not exceed that buyer's `budget`.** Only `made_by: BUYER` offers with status `PENDING` count toward the total; offers that are REJECTED, EXPIRED, or ACCEPTED do not (their amount is released). This is enforced whenever a buyer commits money — creating an offer (`POST /offers`) or countering a seller's offer (`POST /offers/:id/counter`). If the new amount would push the buyer's PENDING total over `budget`, respond **409**. A total exactly equal to `budget` is allowed.
+
+**Example** (buyer budget = 100000):
+- offer 60000 on listing A → 201 (committed 60000)
+- offer 60000 on listing B → 409 (would be 120000 > 100000)
+- reject/expire the listing-A offer → frees 60000
+- offer 60000 on listing B → 201 (committed 60000)
+
 
 > All success responses return the **full object** as defined in the Data Model
 > (every field). The JSON blocks below are illustrative; server-generated values
@@ -46,10 +55,11 @@ Creates a new user.
 
 **Request Body:**
 ```json
-{ "name": "Kobe Bryant", "email": "Kobe@example.com" }
+{ "name": "Kobe Bryant", "email": "Kobe@example.com", "budget": 1000000 }
 ```
 - `name`: required, non-empty string
 - `email`: required, non-empty string, unique across all users
+- `budget`: required, positive number (the buyer's spending cap; see Budget invariant)
 
 **Response (201 Created):**
 the created user
@@ -57,13 +67,14 @@ the created user
 {
 "user_id": "ahh121212.",
 "name": "Kobe Bryant",
-"email": "Kobe@example.com"
+"email": "Kobe@example.com",
+"budget": 1000000
 }
 ```
 - server generates `user_id` (UUID)
 
 **Errors:**
-- 400 if `name` or `email` is missing/empty
+- 400 if `name`, `email`, or `budget` is missing/empty/invalid (budget must be a positive number)
 - 409 if a user with that `email` already exists
 
 
@@ -176,6 +187,7 @@ the created Offer (full object)
 - 409 if buyer id === seller
 - 409 if listing is not in AVAILABLE status
 - 409 if the buyer already has a **PENDING** offer on the listing (REJECTED or EXPIRED offers do not count, so a buyer may offer again after their previous offer ended)
+- 409 if the offer would exceed the buyer's budget (sum of the buyer's PENDING offers across all listings + this offer > budget; see Budget invariant)
 
 
 ### POST /offers/:id/accept
@@ -292,6 +304,7 @@ returns the new Offer (full object)
 - 400 if offer expiration is in invalid (in the past)
 - 400 if offer value is a negative number
 - 409 if the counter `offer_value` breaks the negotiation direction (a seller's counter is not greater than the buyer's offer, or a buyer's counter is not less than the seller's offer)
+- 409 if a buyer's counter would exceed the buyer's budget (see Budget invariant)
 - 404 if listing does not exist
 - 404 if offer does not exist
 - 409 if offer is made_by BUYER and listing is not in AVAILABLE status

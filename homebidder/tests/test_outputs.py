@@ -11,6 +11,8 @@ BASE = "http://localhost:3000"
 T0 = "2030-01-01T00:00:00Z"
 FUTURE = "2030-06-01T00:00:00Z"
 LATER = "2030-12-01T00:00:00Z"   # past FUTURE -> triggers expiry
+EVEN_LATER = "2031-06-01T00:00:00Z"   # valid expiration once the clock has advanced to LATER
+BIG_BUDGET = 10_000_000           # high enough not to constrain non-budget tests
 _seq = itertools.count(1)
 
 
@@ -20,8 +22,8 @@ def email():
 def set_clock(ts=T0):
     r = requests.post(f"{BASE}/clock", json={"now": ts}); assert r.status_code == 200, r.text; return r
 
-def mk_user():
-    r = requests.post(f"{BASE}/users", json={"name": "U", "email": email()})
+def mk_user(budget=BIG_BUDGET):
+    r = requests.post(f"{BASE}/users", json={"name": "U", "email": email(), "budget": budget})
     assert r.status_code == 201, r.text; return r.json()["user_id"]
 
 def mk_listing(seller):
@@ -50,13 +52,15 @@ def offer_status(oid): return requests.get(f"{BASE}/offers/{oid}").json()["statu
 def test_user_create_and_dup_email():
     set_clock()
     e = email()
-    r1 = requests.post(f"{BASE}/users", json={"name": "A", "email": e}); assert r1.status_code == 201
+    r1 = requests.post(f"{BASE}/users", json={"name": "A", "email": e, "budget": BIG_BUDGET}); assert r1.status_code == 201
     assert "user_id" in r1.json()
-    r2 = requests.post(f"{BASE}/users", json={"name": "B", "email": e}); assert r2.status_code == 409
+    r2 = requests.post(f"{BASE}/users", json={"name": "B", "email": e, "budget": BIG_BUDGET}); assert r2.status_code == 409
 
 def test_user_bad_input_400():
     assert requests.post(f"{BASE}/users", json={"name": ""}).status_code == 400
     assert requests.post(f"{BASE}/users", json={"email": email()}).status_code == 400
+    assert requests.post(f"{BASE}/users", json={"name": "U", "email": email()}).status_code == 400          # budget missing
+    assert requests.post(f"{BASE}/users", json={"name": "U", "email": email(), "budget": 0}).status_code == 400  # budget not positive
 
 
 # ---------- listings ----------
@@ -270,7 +274,8 @@ def test_counter_on_expired_offer_409():
     set_clock(T0); s, lid = available(); b = mk_user()
     o = mk_offer(lid, b, expiration=FUTURE).json()["offer_id"]
     set_clock(LATER)                               # offer now EXPIRED
-    assert counter(o, s, value=450000).status_code == 409
+    # valid (future) counter expiration so the only failing condition is the expired target offer
+    assert counter(o, s, value=450000, expiration=EVEN_LATER).status_code == 409
 
 def test_reject_on_expired_offer_409():
     set_clock(T0); s, lid = available(); b = mk_user()
@@ -335,3 +340,54 @@ def test_full_counter_chain_to_sold():
     assert listing_status(lid) == "PENDING"
     assert accept(n3["offer_id"], b).status_code == 200
     assert listing_status(lid) == "SOLD"
+
+
+# ---------- budget invariant (buyer's PENDING offers across all listings <= budget) ----------
+def test_budget_blocks_over_commit_409():
+    set_clock(T0); _, l1 = available(); _, l2 = available()
+    b = mk_user(budget=100000)
+    assert mk_offer(l1, b, value=60000).status_code == 201
+    assert mk_offer(l2, b, value=60000).status_code == 409   # 60k + 60k = 120k > 100k
+
+def test_budget_exact_boundary_allowed():
+    set_clock(T0); _, l1 = available(); _, l2 = available(); _, l3 = available()
+    b = mk_user(budget=100000)
+    assert mk_offer(l1, b, value=60000).status_code == 201
+    assert mk_offer(l2, b, value=40000).status_code == 201   # sum exactly 100k == budget -> allowed
+    assert mk_offer(l3, b, value=1).status_code == 409        # 100001 > 100k
+
+def test_budget_released_on_reject():
+    set_clock(T0); s1, l1 = available(); _, l2 = available()
+    b = mk_user(budget=100000)
+    o1 = mk_offer(l1, b, value=60000).json()["offer_id"]
+    assert mk_offer(l2, b, value=60000).status_code == 409
+    assert reject(o1, s1).status_code == 200                  # frees 60k
+    assert mk_offer(l2, b, value=60000).status_code == 201
+
+def test_budget_released_on_expiry():
+    set_clock(T0); _, l1 = available(); _, l2 = available()
+    b = mk_user(budget=100000)
+    mk_offer(l1, b, value=60000, expiration=FUTURE)
+    assert mk_offer(l2, b, value=60000).status_code == 409
+    set_clock(LATER)                                          # l1 offer EXPIRES, frees 60k
+    assert mk_offer(l2, b, value=60000, expiration=EVEN_LATER).status_code == 201
+
+def test_budget_released_on_accept_cascade():
+    set_clock(T0); s1, l1 = available(); _, l2 = available()
+    bA = mk_user(budget=100000); bB = mk_user(budget=100000)
+    oB = mk_offer(l1, bB, value=60000).json()["offer_id"]
+    assert mk_offer(l2, bB, value=60000).status_code == 409   # bB committed 60k on l1
+    oA = mk_offer(l1, bA, value=70000).json()["offer_id"]
+    assert accept(oA, s1).status_code == 200                  # cascade-rejects bB's l1 offer -> frees bB's 60k
+    assert mk_offer(l2, bB, value=60000).status_code == 201
+
+def test_budget_counter_rechecks_409():
+    set_clock(T0); s1, l1 = available(); _, l2 = available()
+    b = mk_user(budget=100000)
+    mk_offer(l2, b, value=30000)                              # committed 30k elsewhere
+    o1 = mk_offer(l1, b, value=20000).json()["offer_id"]
+    n = counter(o1, s1, value=90000).json()["offer_id"]      # seller counters higher -> SELLER offer 90k (l1 buyer offer freed)
+    # buyer counter 80k: directional ok (80k < 90k) but 30k + 80k = 110k > budget -> 409
+    assert counter(n, b, value=80000).status_code == 409
+    # buyer counter 60k: 60k < 90k and 30k + 60k = 90k <= budget -> 201
+    assert counter(n, b, value=60000).status_code == 201
