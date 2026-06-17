@@ -37,6 +37,10 @@ interface Offer {
 
 ## API Endpoints
 
+> All success responses return the **full object** as defined in the Data Model
+> (every field). The JSON blocks below are illustrative; server-generated values
+> (`*_id`, `created_at`) are examples only and are never matched exactly.
+
 ### POST /users
 Creates a new user.
 
@@ -140,23 +144,26 @@ Creates a new offer on a listing,
 
 ```json
 {
-"buyer_id": "1asads", // user_id of the buyer, required
-"listing_id": "ususus11221", // listing_id of the listing, required
-"offer_value": 420000, // offer value, required, positive number
-"expiration": "2024-02-15T10:30:00.000Z", // expiration date, required,
+  "buyer_id": "1asads",
+  "listing_id": "ususus11221",
+  "offer_value": 420000,
+  "expiration": "2024-02-15T10:30:00.000Z"
 }
 ```
 
 
 **Response (201 Created):**
-Offer successfully created
-return
+the created Offer (full object)
 ```json
 {
-"status": "PENDING",
-"made_by": "BUYER",
-"offer_id": "1kl12k", // made by server
-"created_at": "2024-02-15T10:30:00.000Z",
+  "offer_id": "1kl12k",
+  "listing_id": "ususus11221",
+  "buyer_id": "1asads",
+  "made_by": "BUYER",
+  "offer_value": 420000,
+  "expiration": "2024-02-15T10:30:00.000Z",
+  "status": "PENDING",
+  "created_at": "2024-01-15T10:30:00.000Z"
 }
 ```
 
@@ -179,23 +186,23 @@ User can be buyer or seller
 - `actor_id`: required — must be the awaited party
   (BUYER offer → the listing's seller; SELLER counter → the offer's buyer)
 
-**On success (200 OK):** returns the Offer.
+**On success (200 OK):** returns the full Offer.
 - offer → ACCEPTED
 - listing → SOLD
-- all OTHER PENDING offers on that listing → REJECTED  (cascade)
-
-
-**On success (200 OK):**
-- successfully accepted the offer
+- all OTHER PENDING offers on that listing → REJECTED (cascade; not shown in the response)
 
 ```json
 {
-"status": "ACCEPTED",
-"offer_id": "1kl12k", // made by server
+  "offer_id": "1kl12k",
+  "listing_id": "ususus11221",
+  "buyer_id": "1asads",
+  "made_by": "BUYER",
+  "offer_value": 420000,
+  "expiration": "2024-02-15T10:30:00.000Z",
+  "status": "ACCEPTED",
+  "created_at": "2024-01-15T10:30:00.000Z"
 }
 ```
-- LISTING becomes SOLD
-- all the other offer on the listing becomes REJECTED, we dont need to show this in the response
 
 **Errors:**
 - 400 if actor_id or offer_id is missing
@@ -244,15 +251,30 @@ User can be buyer or seller
 **Request Body:**
 ```json
 {
-"actor_id": "0kasdsa",
-"offer_value": 450000, //required, positive number
-"expiration": "2024-02-15T10:30:00.000Z", //required, ISO 8601 datetime, must be after current time
+  "actor_id": "0kasdsa",
+  "offer_value": 450000,
+  "expiration": "2024-02-15T10:30:00.000Z"
 }
 ```
+- `offer_value`: required, positive number
+- `expiration`: required, ISO 8601 datetime, must be after the current virtual time
+
 **On success (201 Created):**
-return the new offer
-- orginal offer → REJECTED
-- status → PENDING
+returns the new Offer (full object)
+```json
+{
+  "offer_id": "9mn34p",
+  "listing_id": "ususus11221",
+  "buyer_id": "1asads",
+  "made_by": "SELLER",
+  "offer_value": 450000,
+  "expiration": "2024-02-15T10:30:00.000Z",
+  "status": "PENDING",
+  "created_at": "2024-01-15T10:30:00.000Z"
+}
+```
+- original offer → REJECTED
+- new offer status → PENDING
 - made_by → the party that created this counter (i.e. the `actor_id`):
   - SELLER when the seller counters a buyer's offer
   - BUYER when the buyer counters a seller's offer
