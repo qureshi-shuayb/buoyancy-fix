@@ -332,6 +332,7 @@ returns the new Offer (full object)
 ### POST /clock
 - sets the server's virtual clock.
 - the expiration are compared against this time
+- advancing the clock immediately re-evaluates expiry: any PENDING offer whose `expiration` is now at/before the clock becomes EXPIRED (and a SELLER offer doing so unlocks its PENDING listing to AVAILABLE).
 
 **Request Body:**
 ```json
@@ -357,7 +358,9 @@ returns the new Offer (full object)
 
 6. **Date/Time Handling:** Use ISO 8601 datetimes in UTC (e.g. "2030-06-01T00:00:00Z"). `created_at` is server-generated. All expiration checks compare against the virtual clock set by `POST /clock`, never the real wall clock.
 
-7. **Timestamp Validation:**
+7. **Expiry is global and authoritative:** at any moment, an offer whose `expiration` is at or before the current virtual time is **EXPIRED**, regardless of which endpoint is called. Before applying the rules of *any* request — every read **and** every write, including the buyer-budget computation on `POST /offers` and `POST /offers/:id/counter` — the server must first treat all such offers as EXPIRED (a SELLER offer expiring also unlocks its PENDING listing back to AVAILABLE). Because an EXPIRED offer is no longer PENDING, it no longer counts toward a buyer's committed budget.
+
+8. **Timestamp Validation:**
 `expiration` (offers/counters) and `now` (clock) must be valid ISO 8601 datetime strings.
 Reject with 400 if missing, not a string, or not a valid datetime.
 Additionally, an offer/counter `expiration` must be after the current virtual time (else 400).
