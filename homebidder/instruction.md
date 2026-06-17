@@ -175,7 +175,7 @@ the created Offer (full object)
 - 404 if listing does not exist
 - 409 if buyer id === seller
 - 409 if listing is not in AVAILABLE status
-- 409 if buyer already made an offer on listing
+- 409 if the buyer already has a **PENDING** offer on the listing (REJECTED or EXPIRED offers do not count, so a buyer may offer again after their previous offer ended)
 
 
 ### POST /offers/:id/accept

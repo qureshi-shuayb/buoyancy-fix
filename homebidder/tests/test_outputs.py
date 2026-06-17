@@ -11,6 +11,7 @@ BASE = "http://localhost:3000"
 T0 = "2030-01-01T00:00:00Z"
 FUTURE = "2030-06-01T00:00:00Z"
 LATER = "2030-12-01T00:00:00Z"   # past FUTURE -> triggers expiry
+EVEN_LATER = "2031-06-01T00:00:00Z"   # past LATER -> valid expiration after the clock is at LATER
 _seq = itertools.count(1)
 
 
@@ -254,3 +255,94 @@ def test_clock_invalid_400():
 def test_unknown_offer_404():
     assert requests.get(f"{BASE}/offers/nope").status_code == 404
     assert accept("nope", "x").status_code == 404
+
+
+# ---------- value validation ----------
+def test_negative_offer_value_400():
+    set_clock(); _, lid = available(); b = mk_user()
+    assert mk_offer(lid, b, value=-100).status_code == 400
+
+def test_zero_offer_value_400():
+    set_clock(); _, lid = available(); b = mk_user()
+    assert mk_offer(lid, b, value=0).status_code == 400
+
+def test_archive_unknown_listing_404():
+    assert requests.post(f"{BASE}/listings/nope/archive").status_code == 404
+
+
+# ---------- terminal-state guards (offer must be PENDING) ----------
+def test_counter_on_expired_offer_409():
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b, expiration=FUTURE).json()["offer_id"]
+    set_clock(LATER)                               # offer now EXPIRED
+    assert counter(o, s, value=450000).status_code == 409
+
+def test_reject_on_expired_offer_409():
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b, expiration=FUTURE).json()["offer_id"]
+    set_clock(LATER)
+    assert reject(o, s).status_code == 409
+
+def test_double_accept_409():
+    set_clock(); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b).json()["offer_id"]
+    assert accept(o, s).status_code == 200
+    assert accept(o, s).status_code == 409         # already ACCEPTED, not PENDING
+
+
+# ---------- wrong-party guards ----------
+def test_reject_wrong_party_409():
+    set_clock(); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b).json()["offer_id"]
+    assert reject(o, b).status_code == 409         # buyer cannot reject own BUYER offer (awaited = seller)
+
+def test_counter_wrong_party_409():
+    set_clock(); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b).json()["offer_id"]
+    assert counter(o, b, value=450000).status_code == 409   # awaited party is the seller
+
+
+# ---------- one-PENDING-offer-per-buyer (terminal offers don't count) ----------
+def test_reoffer_after_reject_allowed():
+    set_clock(); s, lid = available(); b = mk_user()
+    o = mk_offer(lid, b).json()["offer_id"]
+    assert reject(o, s).status_code == 200
+    assert mk_offer(lid, b).status_code == 201     # previous offer is REJECTED -> buyer may offer again
+
+def test_reoffer_after_expiry_allowed():
+    set_clock(T0); s, lid = available(); b = mk_user()
+    mk_offer(lid, b, expiration=FUTURE)
+    set_clock(LATER)                               # first offer EXPIRED
+    assert mk_offer(lid, b, expiration=EVEN_LATER).status_code == 201
+
+
+# ---------- offers blocked on terminal listings ----------
+def test_offer_on_sold_listing_409():
+    set_clock(); s, lid = available()
+    b1, b2 = mk_user(), mk_user()
+    o1 = mk_offer(lid, b1).json()["offer_id"]
+    assert accept(o1, s).status_code == 200        # listing SOLD
+    assert mk_offer(lid, b2).status_code == 409
+
+def test_offer_on_archived_listing_409():
+    set_clock(); s, lid = available(); b = mk_user()
+    assert requests.post(f"{BASE}/listings/{lid}/archive").status_code == 200
+    assert mk_offer(lid, b).status_code == 409
+
+
+# ---------- full alternating chain (made_by flips, buyer_id preserved) ----------
+def test_full_counter_chain_to_sold():
+    set_clock(T0); s, lid = available(); b = mk_user()
+    o0 = mk_offer(lid, b, value=400000).json()
+    assert o0["made_by"] == "BUYER"
+    n1 = counter(o0["offer_id"], s, value=450000).json()   # seller higher
+    assert n1["made_by"] == "SELLER" and n1["buyer_id"] == b
+    assert listing_status(lid) == "PENDING"
+    n2 = counter(n1["offer_id"], b, value=420000).json()   # buyer lower than seller's 450k
+    assert n2["made_by"] == "BUYER" and n2["buyer_id"] == b
+    assert listing_status(lid) == "AVAILABLE"
+    n3 = counter(n2["offer_id"], s, value=440000).json()   # seller higher than buyer's 420k
+    assert n3["made_by"] == "SELLER"
+    assert listing_status(lid) == "PENDING"
+    assert accept(n3["offer_id"], b).status_code == 200
+    assert listing_status(lid) == "SOLD"
