@@ -48,36 +48,40 @@ Every user has a base `budget`. At any time, the **sum of a buyer's outstanding 
 
 
 ## Self-financing (effective budget)
-A user can both sell and buy. Selling raises their buying power: when a listing they own
-becomes **SOLD**, the **value of the accepted offer** on it is added to that user's spending
-power. Formally:
+A user can both sell and buy, and selling raises their buying power. A buyer's spending power
+is not a fixed number: it grows as their own sales actually complete. The moment a listing a
+user owns becomes **SOLD**, the value that was accepted for it becomes money that user can
+spend. A listing that is only DRAFT, AVAILABLE, or locked (PENDING) has not paid out yet and
+adds nothing — this models "I can only afford the next home once my current one has actually
+sold."
 
-> **effective budget** = base `budget` + **proceeds** − committed
->
-> where **proceeds** = the sum, over every listing this user owns that is `SOLD`, of the
-> `offer_value` of the offer that was ACCEPTED on it; and **committed** = the sum of this
-> user's own outstanding (PENDING) `made_by: BUYER` offers.
+Against that spending power, the only amounts that count as already spent are the buyer's own
+still-outstanding purchase offers — their `made_by: BUYER` offers that are still `PENDING`.
+Offers that have ended (REJECTED, EXPIRED, or ACCEPTED) no longer tie up any money. A buyer
+is within budget as long as the total they currently have outstanding does not exceed their
+spending power; being exactly at that limit is still within budget.
 
-Proceeds are only realized once a listing is actually `SOLD`; a merely AVAILABLE or PENDING
-listing contributes nothing. This models "I can only afford the next home after my current
-one sells."
+Whether this limit is enforced depends on **when** the buyer commits money and whether the
+commitment is self-financing:
+- A **contingent** offer (one with `contingent_on` set) is deliberately allowed to be created
+  even when it exceeds the buyer's current spending power, because the buyer intends to fund
+  it by selling the listing it depends on; it is therefore **not** checked when created.
+- A **non-contingent** offer **is** checked at the moment it is created, against whatever
+  spending power the buyer has then (so proceeds from sales that have already completed do
+  raise what the buyer may offer).
+- Every `made_by: BUYER` offer is checked **again** when someone tries to accept it. By then
+  the listing it depended on has sold (it must be SOLD for the offer to be acceptable at all),
+  so the proceeds of that sale are part of the buyer's spending power at that instant. If even
+  then the buyer's outstanding total exceeds their spending power, acceptance fails with
+  **409**.
 
-**Interaction with contingent offers (self-financing chains):**
-- A **contingent** offer (one with `contingent_on` set) is **not** budget-checked at creation
-  — it may be created even if its value exceeds the buyer's current effective budget, because
-  the buyer intends to fund it by selling the listing it depends on.
-- A **non-contingent** offer **is** budget-checked at creation, against the buyer's effective
-  budget at that moment (so already-realized proceeds increase what the buyer may offer).
-- At **acceptance**, any `made_by: BUYER` offer is re-checked: the buyer's total PENDING
-  commitments must not exceed their effective budget at that moment. Because the depended-on
-  listing is `SOLD` by then (see R3), its proceeds count toward the buyer's effective budget.
-  If the realized proceeds are insufficient, acceptance fails with **409**.
-
-**Example** (buyer B base budget = 100000, B owns listing Y):
-- B makes an offer of 500000 on listing X **contingent on Y** → 201 (not checked at creation)
-- accepting B's offer on X before Y is SOLD → 409 (contingency unmet)
-- Y sells for 450000 → B's proceeds become 450000, effective budget 550000
-- accepting B's offer on X → 200 (500000 ≤ 550000); had Y sold for only 350000 it would be 409
+**Example** (buyer B, base budget 100000, B owns listing Y):
+- B offers 500000 on listing X **contingent on Y** → 201 (a contingent offer is not checked
+  at creation).
+- Accepting B's offer on X while Y is still unsold → 409 (the contingency is unmet).
+- Once Y sells for 450000, B's spending power becomes 550000, so accepting the offer on X
+  succeeds (500000 fits within 550000). Had Y sold for only 350000, acceptance would instead
+  fail with 409.
 
 
 ## Contingent offers (dependency graph)
@@ -91,14 +95,20 @@ Treat contingencies as a directed graph over listings: a **PENDING** offer on li
 - **R3 (accept-block):** an offer with `contingent_on = D` can only be accepted once listing `D` is **SOLD**. Accepting while `D` is not SOLD → **409**.
 - **R4 (cascade):** when a listing `D` is ARCHIVED, every PENDING offer with `contingent_on = D` becomes **REJECTED** (its contingency can never be satisfied).
 
-**Accept-check precedence** (exact order for `POST /offers/:id/accept`, so the result is deterministic):
-1. offer exists — else 404
-2. offer is PENDING — else 409
-3. `actor_id` present — else 400
-4. `actor_id` is the awaited party — else 409
-5. listing-lock rule (a BUYER offer requires its listing to be AVAILABLE) — else 409
-6. **contingency satisfied** (`contingent_on` listing is SOLD) — else 409
-7. **budget affordability** (a `made_by: BUYER` offer's buyer fits their effective budget; see Self-financing) — else 409
+**Accepting (`POST /offers/:id/accept`) is evaluated deterministically.** The server first
+resolves whether the offer even exists (a missing offer is a 404); everything below assumes
+it does. An offer that is no longer `PENDING` cannot be accepted, and that is settled before
+the request body is considered at all (so a terminal offer is refused regardless of who is
+asking). The actor is examined next: the request must carry an `actor_id` (a missing one is a
+malformed request, 400) and that actor must be the party currently awaited on the offer — the
+seller for a BUYER offer, the buyer for a SELLER counter (otherwise 409). Only once the
+requester is validated does the server consider the state of the deal: a BUYER offer may be
+accepted only while its listing is still AVAILABLE (a locked listing blocks it, 409). Two
+conditions remain, and **their order matters**: the contingency is checked **before**
+affordability, because a `made_by: BUYER` offer's budget is re-evaluated using the proceeds of
+the depended-on sale, which are realized only once that listing is SOLD. So the server first
+requires any `contingent_on` listing to be SOLD (else 409), and only then requires the buyer
+to fit within their spending power (else 409; see Self-financing).
 
 
 ## API Endpoints
@@ -373,20 +383,24 @@ returns the new Offer (full object)
 - when the **buyer** counters a seller's offer, the new `offer_value` must be **less** than the seller's offer (the buyer is offering less)
 - example: buyer offers 400000 → seller may counter 450000 (valid), not 390000 (409); the buyer may then counter 420000 (valid), not 460000 (409)
 
-**Counter-check precedence** (exact order, so the result is deterministic):
-1. offer exists — else 404
-2. offer is PENDING (not expired/terminal) — else 409
-3. `actor_id` present — else 400
-4. `actor_id` is the awaited party — else 409
-5. listing-lock rule (a BUYER offer requires its listing to be AVAILABLE) — else 409
-6. `offer_value` present and a positive number — else 400
-7. `expiration` field rule: omitted → inherit the countered offer's expiration; explicit `null` → 400; otherwise must be a valid ISO 8601 datetime after the current virtual time — else 400
-8. `contingent_on` field rule: omitted → inherit; explicit `null` → clear; otherwise re-point — R1 (existing listing else 400; not the new offer's own listing else 409) then R2 (no direct/transitive cycle else 409)
-9. negotiation direction (a seller's counter must be greater than the buyer's offer; a buyer's counter must be less than the seller's offer) — else 409
-10. budget affordability — if the new offer is `made_by: BUYER` and **not** contingent (resulting `contingent_on` is null), the buyer's committed PENDING total + this offer must fit their effective budget — else 409. A **contingent** buyer counter is not budget-checked here; affordability is re-checked at acceptance (see Self-financing).
-- 409 if offer is not PENDING status
-- 409 if offer is made_by BUYER and actor_id is not the seller
-- 409 if offer is made_by SELLER and actor_id is not the buyer (buyer_id can be inferred from offer_id)
+**Countering (`POST /offers/:id/counter`) is evaluated deterministically, and shares its
+first checks with accepting.** Exactly as for an accept, the server resolves existence (404),
+refuses an offer that is no longer PENDING (409), requires an `actor_id` (400) that is the
+awaited party (409), and requires a BUYER offer's listing to still be AVAILABLE (409) — in
+that order — before it looks at the counter's own fields. It then validates the counter body
+in sequence: the `offer_value` must be present and a positive number (else 400); next the
+`expiration` field is resolved by its three cases (omitted → inherit the countered offer's
+expiration; explicit `null` → 400; a value → it must be a valid ISO 8601 datetime after the
+current virtual time, else 400); then the `contingent_on` field is resolved by its three
+cases (omitted → inherit; explicit `null` → clear; a value → re-point, which must satisfy R1
+then R2 — an existing listing else 400, not the offer's own listing else 409, and forming no
+direct or transitive cycle else 409). Only after the new offer is fully formed does the
+server apply the negotiation-direction rule (a seller's counter must be greater than the
+buyer's offer, a buyer's counter must be less than the seller's offer, else 409). Affordability
+is considered **last**, and only when it can apply: if the resulting offer is `made_by: BUYER`
+and ends up non-contingent (its `contingent_on` is null), the buyer's outstanding total
+including this new amount must fit their spending power (else 409); a contingent buyer counter
+is not checked here and is instead re-checked at acceptance (see Self-financing).
 
 
 
