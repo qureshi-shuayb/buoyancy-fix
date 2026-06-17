@@ -67,9 +67,9 @@ the created user
 Creates a new listing
 
 **Request Body:**
-​```json
+```json
 { "seller_id": "ahh121212", "address": "123 Main St", "price": 450000 }
-​```
+```
 - `seller_id`: required, must reference an existing user
 - `address`: required, non-empty string
 - `price`: required, positive number (> 0)
@@ -156,7 +156,7 @@ return
 "status": "PENDING",
 "made_by": "BUYER",
 "offer_id": "1kl12k", // made by server
-"created at": "2024-02-15T10:30:00.000Z",
+"created_at": "2024-02-15T10:30:00.000Z",
 }
 ```
 
@@ -165,7 +165,6 @@ return
 - 400 if any field is missing, buyer_id, listing_id, offer_value, expiration
 - 400 if offer expiration is in invalid (in the past)
 - 400 if offer value is a negative number
-- 409 if the counter offer value violates the directional rule (buyer counter not greater than seller's offer, or seller counter not less than buyer's offer)
 - 404 if listing does not exist
 - 409 if buyer id === seller
 - 409 if listing is not in AVAILABLE status
@@ -254,9 +253,11 @@ User can be buyer or seller
 return the new offer
 - orginal offer → REJECTED
 - status → PENDING
-- made_by → SELLER (if buyer counter) or BUYER (if seller counter)
-- if offer is made by SELLER, the listing status becomes AVAILABLE -> PENDING (locked)
-- if offer is made by BUYER, the listing status becomes PENDING -> AVAILABLE (unlocked)
+- made_by → the party that created this counter (i.e. the `actor_id`):
+  - SELLER when the seller counters a buyer's offer
+  - BUYER when the buyer counters a seller's offer
+- if the new counter offer is made_by SELLER, the listing status becomes AVAILABLE -> PENDING (locked)
+- if the new counter offer is made_by BUYER, the listing status becomes PENDING -> AVAILABLE (unlocked)
 
 **Errors:**
 
