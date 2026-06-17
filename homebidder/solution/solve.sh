@@ -238,7 +238,7 @@ EOF
 cat > src/server.ts <<'EOF'
 import app from './app';
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
-app.listen(PORT, () => { console.log(`Homebidder API listening on `); });
+app.listen(PORT, () => { console.log(`Homebidder API listening on ${PORT}`); });
 EOF
 
 npm install

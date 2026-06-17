@@ -12,15 +12,15 @@ apt-get install -y curl psmisc
 npm install
 npm run build --if-present
 
-fuser -k "/tcp" 2>/dev/null || true
+fuser -k "$PORT/tcp" 2>/dev/null || true
 sleep 1
 
 npm start &
 SERVER_PID=$!
 
 for i in $(seq 1 30); do
-  if curl -sf "http://localhost:/listings" >/dev/null 2>&1; then
-    echo "Server up after s"; break
+  if curl -sf "http://localhost:$PORT/listings" >/dev/null 2>&1; then
+    echo "Server up after ${i}s"; break
   fi
   sleep 1
 done

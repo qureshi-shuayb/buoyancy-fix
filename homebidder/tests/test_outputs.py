@@ -219,7 +219,7 @@ def test_offer_expires_with_clock():
 def test_seller_counter_expiry_unlocks():
     set_clock(T0); s, lid = available(); b = mk_user()
     o1 = mk_offer(lid, b).json()["offer_id"]
-    n = counter(o1, s, expiration=FUTURE).json()["offer_id"]
+    n = counter(o1, s, value=380000, expiration=FUTURE).json()["offer_id"]  # seller counter must be lower than buyer's 400k
     assert listing_status(lid) == "PENDING"
     set_clock(LATER)                               # seller counter expires
     assert offer_status(n) == "EXPIRED"
