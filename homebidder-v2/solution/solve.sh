@@ -143,9 +143,11 @@ app.post('/listings/:id/archive', (req: Request, res: Response) => {
   const l = findListing(req.params.id);
   if (!l) { res.status(404).end(); return; }
   if (l.status !== 'DRAFT' && l.status !== 'AVAILABLE') { res.status(409).end(); return; }
+  // R4 reverse-edge guard: refuse to archive while any PENDING offer is contingent on this
+  // listing (a live edge X -> this). Legality depends on the current reverse-dependents.
+  if (offers.some((o) => o.status === 'PENDING' && o.contingent_on === l.listing_id)) { res.status(409).end(); return; }
   l.status = 'ARCHIVED';
   for (const o of listingOffers(l.listing_id)) if (o.status === 'PENDING') o.status = 'REJECTED';
-  for (const o of offers) if (o.status === 'PENDING' && o.contingent_on === l.listing_id) o.status = 'REJECTED'; // R4: dependents can never satisfy their contingency
   res.status(200).json(l);
 });
 

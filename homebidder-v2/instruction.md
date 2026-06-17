@@ -93,7 +93,7 @@ Treat contingencies as a directed graph over listings: a **PENDING** offer on li
 - **R2 (no cycles):** creating the offer (or re-pointing its contingency via a counter) must not form a cycle in the graph
 - **R2 (no cycles):** creating the offer must not form a cycle in the graph — considering existing PENDING edges plus the new one — whether **direct or transitive** (e.g. X→Y, Y→Z already exist, then a new Z→X). A cycle → **409**. Only PENDING offers form edges (REJECTED/EXPIRED/ACCEPTED do not).
 - **R3 (accept-block):** an offer with `contingent_on = D` can only be accepted once listing `D` is **SOLD**. Accepting while `D` is not SOLD → **409**.
-- **R4 (cascade):** when a listing `D` is ARCHIVED, every PENDING offer with `contingent_on = D` becomes **REJECTED** (its contingency can never be satisfied).
+- **R4 (reverse-edge guard):** a listing `D` may **not** be ARCHIVED while any **PENDING** offer is currently contingent on it (any live edge `X → D`). Such an archive is refused with **409** and nothing changes. Archiving `D` becomes possible only once no PENDING offer depends on it (its dependents were rejected, expired, or otherwise ended). Only PENDING offers count as live dependents; REJECTED/EXPIRED/ACCEPTED ones do not. Whether `D` can be archived therefore depends on the *current* set of reverse-dependents and changes over time.
 
 **Accepting (`POST /offers/:id/accept`) is evaluated deterministically.** The server first
 resolves whether the offer even exists (a missing offer is a 404); everything below assumes
@@ -193,8 +193,11 @@ the updated Listing (status `AVAILABLE`)
 
 
 ### POST /listings/:id/archive
-This end point archives  a listing. i.e chagnes status to "ARCHIVED".
-When archived, all PENDING offers on the listing become REJECTED, and every PENDING offer **contingent on** this listing is also REJECTED (its contingency can never be satisfied).
+This end point archives a listing, i.e. changes status to "ARCHIVED".
+Archiving is refused while another offer still depends on this listing (see R4): if any
+**PENDING** offer is currently contingent on this listing, the request is rejected with
+**409** and nothing changes. When archiving does proceed, all PENDING offers **on** this
+listing become REJECTED (offers contingent on *other* listings are unaffected).
 
 **Response (200 OK):**
 the updated Listing (status `ARCHIVED`)
@@ -202,6 +205,7 @@ the updated Listing (status `ARCHIVED`)
 **Errors:**
 - 404 if no listing exists with that id
 - 409 if the listing is not in DRAFT or AVAILABLE status
+- 409 if any PENDING offer is currently contingent on this listing (R4 reverse-edge guard)
 
 
 ### GET /listings/:id

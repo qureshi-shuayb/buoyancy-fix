@@ -445,11 +445,39 @@ def test_accept_allowed_after_dependency_sold_200():
     assert accept(o, sA).status_code == 200         # contingency satisfied
     assert listing_status(lA) == "SOLD"
 
-def test_archive_dependency_cascade_rejects():
-    set_clock(); sA, lA = available(); _, dep = available(); b = mk_user()
-    o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]
+def test_archive_blocked_by_reverse_dependent_409_no_mutation():
+    """R4 reverse-edge guard: cannot archive a listing while a PENDING offer is contingent on it."""
+    set_clock(); sA, lA = available(); sDep, dep = available(); b = mk_user()
+    o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]   # live edge lA -> dep
+    r = requests.post(f"{BASE}/listings/{dep}/archive")
+    assert r.status_code == 409                                 # blocked by the reverse-dependent
+    assert listing_status(dep) == "AVAILABLE"                   # nothing changed
+    assert offer_status(o) == "PENDING"                         # dependent untouched
+
+def test_archive_allowed_after_dependent_rejected():
+    """Legality is reactive: once the dependent edge dies, archiving becomes possible."""
+    set_clock(); sA, lA = available(); sDep, dep = available(); b = mk_user()
+    o = mk_offer(lA, b, contingent_on=dep).json()["offer_id"]   # lA -> dep
+    assert requests.post(f"{BASE}/listings/{dep}/archive").status_code == 409   # blocked
+    assert reject(o, sA).status_code == 200                     # remove the edge (REJECTED)
+    assert requests.post(f"{BASE}/listings/{dep}/archive").status_code == 200   # now allowed
+    assert listing_status(dep) == "ARCHIVED"
+
+def test_archive_allowed_after_dependent_expires():
+    """An EXPIRED dependent no longer blocks (only PENDING edges count)."""
+    set_clock(T0); sA, lA = available(); sDep, dep = available(); b = mk_user()
+    mk_offer(lA, b, expiration=FUTURE, contingent_on=dep)       # lA -> dep, PENDING
+    assert requests.post(f"{BASE}/listings/{dep}/archive").status_code == 409
+    set_clock(LATER)                                            # dependent offer EXPIRES
     assert requests.post(f"{BASE}/listings/{dep}/archive").status_code == 200
-    assert offer_status(o) == "REJECTED"   # contingency can never be satisfied -> cascade reject
+
+def test_archive_blocked_by_dependent_even_with_no_own_offers():
+    """A listing with NO offers of its own is still un-archivable while something depends on it.
+    Kills an implementation that inspects only the listing's own offers instead of the reverse edge."""
+    set_clock(); sA, lA = available(); sDep, dep = available(); b = mk_user()
+    mk_offer(lA, b, contingent_on=dep)                          # dep has a dependent but no offers OF ITS OWN
+    assert requests.post(f"{BASE}/listings/{dep}/archive").status_code == 409
+    assert listing_status(dep) == "AVAILABLE"
 
 def test_rejected_edge_not_in_cycle_graph():
     set_clock(); sA, lA = available(); _, lB = available()
@@ -884,18 +912,17 @@ def test_counter_repoint_to_sold_listing_then_accept_ok():
     assert n.status_code == 201 and n.json()["contingent_on"] == lZ
     assert accept(n.json()["offer_id"], b).status_code == 200     # lZ already SOLD -> allowed
 
-def test_inherited_contingency_survives_2step_chain_then_archive_cascades():
+def test_inherited_contingency_survives_2step_chain_blocks_archive():
     """Contingency carried through two counters still forms a live edge; archiving the
-    depended-on listing cascade-rejects the surviving offer (R4)."""
+    depended-on listing is therefore blocked (R4 reverse-edge guard)."""
     set_clock(T0); sX, lX = available(); sY, lY = available()
     B = mk_user(budget=100000)
     o = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]   # contingent (not checked)
     n1 = counter_raw(o, sX, value=520000).json()["offer_id"]      # seller inherits lY
     n2 = counter_raw(n1, B, value=510000)                         # buyer counters back, inherits lY
     assert n2.status_code == 201 and n2.json()["contingent_on"] == lY
-    n2id = n2.json()["offer_id"]
-    assert requests.post(f"{BASE}/listings/{lY}/archive").status_code == 200
-    assert offer_status(n2id) == "REJECTED"                       # R4 cascade reached the inherited edge
+    assert requests.post(f"{BASE}/listings/{lY}/archive").status_code == 409   # live inherited edge blocks archive
+    assert listing_status(lY) == "AVAILABLE"                      # no mutation
 
 def test_counter_back_repoint_contingency_skips_budget_check():
     """A buyer counter that re-points (stays contingent) is NOT budget-checked at counter time."""
