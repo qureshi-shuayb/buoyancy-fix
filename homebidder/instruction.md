@@ -97,7 +97,7 @@ Treat contingencies as a directed graph over listings: a **PENDING** offer on li
 2. offer is PENDING — else 409
 3. `actor_id` present — else 400
 4. `actor_id` is the awaited party — else 409
-5. listing-lock rule (a BUYER offer requires its listing to be AVAILABLE) — else 409
+5. listing-lock rule (a BUYER offer requires its listing to be AVAILABLE; **exception:** the seller may act on a non-contingent backup offer on a `CHAINED` listing — see Preemptive offers) — else 409
 6. if the offer is **contingent**, it is **committed** (listing → `CHAINED`, other PENDING offers cascade-rejected) and then settlement runs; the response is **200**. If the offer is **non-contingent**, it settles immediately, subject to the budget check below.
 7. **budget affordability for a non-contingent offer** (a `made_by: BUYER` offer's buyer fits their effective budget; see Self-financing) — else 409. (A contingent offer is *not* budget-checked here; its affordability is resolved during settlement — see below.)
 
@@ -105,8 +105,9 @@ Treat contingencies as a directed graph over listings: a **PENDING** offer on li
 ## Property chains & auto-settlement
 Accepting a contingent offer is the seller saying *"yes, subject to your sale."* It commits the
 deal without completing it. A **committed** offer is one whose listing is `CHAINED`; the offer's
-public `status` stays `PENDING`. While a listing is `CHAINED` it behaves like a locked listing:
-no new offers may be created on it and no other action may be taken against it.
+public `status` stays `PENDING`. While a listing is `CHAINED` it behaves like a locked listing: no
+action may be taken against the committed offer and no new offers may be created on it, **except** a
+non-contingent backup bid that strictly exceeds the committed value (see Preemptive offers).
 
 After **every** state-changing request (and on `POST /clock`), the server runs a deterministic
 **settlement sweep** that completes committed deals whose dependencies have sold, in a fixed order,
@@ -147,6 +148,35 @@ later offer (400000) can no longer be afforded → it is `REJECTED` and its list
 depending on `Z` (both `CHAINED`). If `Y`'s committed offer expires before `Z` sells, that offer
 becomes `EXPIRED` and `Y` reverts to `AVAILABLE`; `X` stays `CHAINED` and can no longer settle
 through `Y`.
+
+
+### Preemptive offers (gazumping)
+A `CHAINED` listing is normally locked, but it accepts one kind of new offer: a **non-contingent
+backup bid**. The rules are exact:
+
+- **Backup creation (G1):** a `POST /offers` with no `contingent_on` succeeds (201, `PENDING`) on a
+  `CHAINED` listing **iff** its `offer_value` is **strictly greater** than the committed (chained)
+  offer's `offer_value`. The listing stays `CHAINED`. The usual checks still apply (the owner may
+  not bid; a buyer may not hold two `PENDING` offers on one listing; the non-contingent budget check
+  applies). A **contingent** offer on a `CHAINED` listing is rejected (**409**), and so is a
+  non-contingent bid that does not strictly exceed the committed value (**409**).
+- **Manual gazump (G2):** the seller (the awaited party) may **accept** a backup offer. This
+  *gazumps* the committed buyer: the committed (chained) offer becomes **REJECTED**, the backup
+  settles immediately (offer → `ACCEPTED`, listing → `SOLD`), all other `PENDING` offers on the
+  listing cascade-**REJECTED**, and the settlement sweep then runs (which may complete other chains).
+  The committed offer itself stays settle()-only: the seller may not directly accept, reject, or
+  counter it (**409**).
+- **Automatic preemption (G3):** when a committed offer on listing `X` is found **unaffordable at
+  settlement**, the sweep **first** looks for a settleable backup before reverting: the first
+  non-contingent `PENDING` offer on `X` (in `(created_at, offer_id)` order) whose buyer can afford it
+  settles instead (offer → `ACCEPTED`, `X` → `SOLD`), and the committed offer is **REJECTED**. Only
+  if **no** affordable backup exists does `X` revert `CHAINED → AVAILABLE`. The expiry and
+  archived-dependency reversions are unchanged (they always revert).
+
+**Worked example — manual gazump.** Listing `X` is `CHAINED` with a committed offer of 400000
+(depending on some `D` not yet `SOLD`). A different buyer posts a non-contingent backup of 450000 on
+`X` (allowed: 450000 > 400000); `X` stays `CHAINED`. The seller accepts the backup: the committed
+400000 offer becomes `REJECTED`, the backup becomes `ACCEPTED`, and `X` becomes `SOLD`.
 
 
 ## API Endpoints
@@ -293,7 +323,8 @@ the created Offer (full object)
 - 400 if offer value is a negative number
 - 404 if listing does not exist
 - 409 if buyer id === seller
-- 409 if listing is not in AVAILABLE status
+- 409 if the listing is not in AVAILABLE status — **except** a `CHAINED` listing, which accepts a **non-contingent** backup bid whose value strictly exceeds the committed (chained) offer's value (see Preemptive offers)
+- 409 if a **non-contingent** backup bid on a `CHAINED` listing does not strictly exceed the committed (chained) offer's value, or if a **contingent** offer targets a `CHAINED` listing (see Preemptive offers)
 - 409 if the buyer already has a **PENDING** offer on the listing (REJECTED or EXPIRED offers do not count, so a buyer may offer again after their previous offer ended)
 - 409 if a **non-contingent** offer would exceed the buyer's effective budget (sum of the buyer's PENDING offers across all listings + this offer > effective budget; see Budget invariant and Self-financing). A **contingent** offer is *not* budget-checked at creation.
 - 400 if `contingent_on` is present but does not reference an existing listing (see Contingent offers)
@@ -314,6 +345,9 @@ For a **non-contingent** offer (immediate sale):
 - offer → ACCEPTED
 - listing → SOLD
 - all OTHER PENDING offers on that listing → REJECTED (cascade; not shown in the response)
+- if the listing was `CHAINED` and this is a non-contingent backup bid, accepting it **gazumps** the
+  committed buyer: the committed (chained) offer is among the cascade-REJECTED offers, and the
+  settlement sweep then runs (see Preemptive offers).
 
 For a **contingent** offer (commit "subject to sale"; see Property chains & auto-settlement):
 - the offer is **committed**: its public `status` stays `PENDING`
@@ -341,7 +375,7 @@ The returned Offer reflects its state after the sweep.
 **Errors:**
 - 400 if actor_id or offer_id is missing
 - 404 if offer or list does not exist
-- 409 if offer is made_by BUYER and listing is not in AVAILABLE status
+- 409 if offer is made_by BUYER and listing is not in AVAILABLE status — **except** a non-contingent backup offer on a `CHAINED` listing, which the seller may accept to gazump the committed buyer (see Preemptive offers); the committed (chained) offer itself stays settle()-only and acting on it directly is 409
 - 409 if offer is made_by SELLER and listing is not in PENDING status
 - 409 if offer expiration is in the past
 - 409 if offer is not PENDING status

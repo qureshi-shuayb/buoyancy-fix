@@ -609,3 +609,133 @@ def test_dependency_archived_reverts_and_rejects_chained():
     assert requests.post(f"{BASE}/listings/{lD}/archive").status_code == 200
     assert offer_status(oX) == "REJECTED" and offer_status(oY) == "REJECTED"
     assert listing_status(lX) == "AVAILABLE" and listing_status(lY) == "AVAILABLE"
+
+
+# ---------- preemptive offers / gazumping (CHAINED backup bids + auto-preemption) ----------
+def _chain_listing(value=400000):
+    """Make `lX` CHAINED via a contingent offer (depending on a never-sold `dep`). Returns (sX, lX, dep, bChain, oChain)."""
+    sX, lX = available(); _, dep = available()
+    bChain = mk_user()
+    oChain = mk_offer(lX, bChain, value=value, contingent_on=dep).json()["offer_id"]
+    assert accept(oChain, sX).status_code == 200 and listing_status(lX) == "CHAINED"
+    return sX, lX, dep, bChain, oChain
+
+def test_backup_bid_on_chained_allowed_when_higher():
+    """A non-contingent offer strictly above the committed value is accepted on a CHAINED listing."""
+    set_clock(T0)
+    sX, lX, dep, bChain, oChain = _chain_listing(value=400000)
+    bBk = mk_user()
+    r = mk_offer(lX, bBk, value=450000)
+    assert r.status_code == 201
+    assert r.json()["status"] == "PENDING"
+    assert listing_status(lX) == "CHAINED"        # listing stays chained; this is just a backup
+    assert offer_status(oChain) == "PENDING"      # committed offer untouched
+
+def test_backup_must_exceed_committed_409():
+    """A backup bid that does not strictly exceed the committed value, or any contingent bid, is rejected on CHAINED."""
+    set_clock(T0)
+    sX, lX, dep, bChain, oChain = _chain_listing(value=400000)
+    assert mk_offer(lX, mk_user(), value=400000).status_code == 409   # equal -> not strictly greater
+    assert mk_offer(lX, mk_user(), value=399999).status_code == 409   # below
+    assert mk_offer(lX, mk_user(), value=500000, contingent_on=dep).status_code == 409  # contingent-on-CHAINED stays 409
+
+def test_manual_gazump_via_accept():
+    """Seller accepts a higher non-contingent backup on a CHAINED listing: the chained buyer is gazumped."""
+    set_clock(T0)
+    sX, lX, dep, bChain, oChain = _chain_listing(value=400000)
+    bBk = mk_user()
+    oBk = mk_offer(lX, bBk, value=450000).json()["offer_id"]
+    assert accept(oBk, sX).status_code == 200
+    assert offer_status(oBk) == "ACCEPTED"
+    assert offer_status(oChain) == "REJECTED"     # gazumped
+    assert listing_status(lX) == "SOLD"
+
+def test_reentrant_gazump_settles_dependent_chain():
+    """Gazumping a CHAINED listing X sells it, which in the same sweep settles a chain that depended on X."""
+    set_clock(T0)
+    sX, lX = available(); sW, lW = available(); _, dep = available()
+    bX, bW, bGz = mk_user(), mk_user(), mk_user()
+    oX = mk_offer(lX, bX, value=400000, contingent_on=dep).json()["offer_id"]   # X depends on dep (never sells)
+    assert accept(oX, sX).status_code == 200 and listing_status(lX) == "CHAINED"
+    oW = mk_offer(lW, bW, value=400000, contingent_on=lX).json()["offer_id"]    # W depends on X
+    assert accept(oW, sW).status_code == 200 and listing_status(lW) == "CHAINED"
+    oGz = mk_offer(lX, bGz, value=450000).json()["offer_id"]                    # higher backup on X
+    assert accept(oGz, sX).status_code == 200                                    # gazump: X SOLD, oX REJECTED
+    assert offer_status(oGz) == "ACCEPTED" and offer_status(oX) == "REJECTED"
+    assert listing_status(lX) == "SOLD"
+    assert offer_status(oW) == "ACCEPTED"          # re-entrant: now that X is SOLD, W's chain settles
+    assert listing_status(lW) == "SOLD"
+
+def test_auto_preemption_prefers_backup_over_revert():
+    """A chained offer goes unaffordable at settlement while an affordable backup exists: the backup settles instead of reverting."""
+    set_clock(T0)
+    sX, lX = available()
+    B = mk_user(budget=100000)
+    lY = mk_listing(B); publish(lY)               # B owns Y; will fund X via proceeds
+    bBk = mk_user(budget=BIG_BUDGET)
+    oX = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]
+    assert accept(oX, sX).status_code == 200 and listing_status(lX) == "CHAINED"
+    oBk = mk_offer(lX, bBk, value=510000).json()["offer_id"]   # higher backup, affordable
+    assert offer_status(oBk) == "PENDING"
+    _sell(lY, B, 350000)                          # B effective 450000 < 500000 -> oX unaffordable
+    assert offer_status(oX) == "REJECTED"         # unaffordable chained offer rejected
+    assert offer_status(oBk) == "ACCEPTED"        # affordable backup preempts the revert
+    assert listing_status(lX) == "SOLD"           # listing does NOT revert to AVAILABLE
+
+def test_affordable_chained_wins_over_backup():
+    """When the chained offer is affordable at settlement, it settles and the backup is cascade-rejected (no auto-preemption)."""
+    set_clock(T0)
+    sX, lX = available()
+    B = mk_user(budget=100000)
+    lY = mk_listing(B); publish(lY)
+    bBk = mk_user(budget=BIG_BUDGET)
+    oX = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]
+    assert accept(oX, sX).status_code == 200 and listing_status(lX) == "CHAINED"
+    oBk = mk_offer(lX, bBk, value=510000).json()["offer_id"]
+    _sell(lY, B, 450000)                          # B effective 550000 >= 500000 -> oX affordable
+    assert offer_status(oX) == "ACCEPTED"         # chained buyer keeps the deal
+    assert offer_status(oBk) == "REJECTED"        # backup cascade-rejected; no gazump
+    assert listing_status(lX) == "SOLD"
+
+def test_no_affordable_backup_reverts():
+    """If the only backup is itself unaffordable when the chained offer fails, the listing reverts to AVAILABLE."""
+    set_clock(T0)
+    sX, lX = available()
+    B = mk_user(budget=100000)
+    lY = mk_listing(B); publish(lY)
+    oX = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]
+    assert accept(oX, sX).status_code == 200 and listing_status(lX) == "CHAINED"
+    # Backup buyer can post the backup at creation, but has already spent most of its budget.
+    bBk = mk_user(budget=600000)
+    sZ, lZ = available()
+    oZ = mk_offer(lZ, bBk, value=200000).json()["offer_id"]
+    assert accept(oZ, sZ).status_code == 200       # bBk now has 200000 spent (completed purchase)
+    oBk = mk_offer(lX, bBk, value=510000).json()["offer_id"]   # created: creation ignores already-spent money
+    _sell(lY, B, 350000)                           # oX unaffordable; backup also unaffordable (510k > 600k-200k)
+    assert offer_status(oX) == "REJECTED"
+    assert offer_status(oBk) == "PENDING"          # backup not settleable -> stays pending
+    assert listing_status(lX) == "AVAILABLE"       # reverts, as before
+
+def test_preemption_deterministic():
+    """The auto-preemption corner resolves identically across repeated runs."""
+    for _ in range(3):
+        set_clock(T0)
+        sX, lX = available()
+        B = mk_user(budget=100000)
+        lY = mk_listing(B); publish(lY)
+        bBk = mk_user(budget=BIG_BUDGET)
+        oX = mk_offer(lX, B, value=500000, contingent_on=lY).json()["offer_id"]
+        assert accept(oX, sX).status_code == 200
+        oBk = mk_offer(lX, bBk, value=510000).json()["offer_id"]
+        _sell(lY, B, 350000)
+        assert offer_status(oX) == "REJECTED"
+        assert offer_status(oBk) == "ACCEPTED"
+        assert listing_status(lX) == "SOLD"
+
+def test_seller_cannot_act_on_committed_chained_offer_409():
+    """The committed (chained) offer itself stays settle()-only: the seller may not accept/reject/counter it directly."""
+    set_clock(T0)
+    sX, lX, dep, bChain, oChain = _chain_listing(value=400000)
+    assert accept(oChain, sX).status_code == 409
+    assert reject(oChain, sX).status_code == 409
+    assert counter(oChain, sX, value=450000).status_code == 409

@@ -77,6 +77,9 @@ const spent = (userId: string) => offers.filter((o) => o.buyer_id === userId && 
 const committedNonChained = (userId: string) => offers.filter((o) => o.buyer_id === userId && o.made_by === 'BUYER' && o.status === 'PENDING' && !o.chained).reduce((s, o) => s + o.offer_value, 0);
 // A chained offer is affordable when its value plus the buyer's non-chained commitments fits base+proceeds minus money already spent.
 const affordable = (o: Offer) => o.offer_value + committedNonChained(o.buyer_id) <= cap(o.buyer_id) - spent(o.buyer_id);
+// A non-contingent (preemptive) backup offer is settleable when the buyer's total non-chained PENDING commitments
+// (which already include this offer) fit base+proceeds minus money already spent.
+const affordableBackup = (o: Offer) => committedNonChained(o.buyer_id) <= cap(o.buyer_id) - spent(o.buyer_id);
 // Total settlement order: created_at ascending, then offer_id ascending.
 const byOrder = (a: Offer, b: Offer) => (a.created_at !== b.created_at ? (a.created_at < b.created_at ? -1 : 1) : (a.offer_id < b.offer_id ? -1 : 1));
 
@@ -135,9 +138,20 @@ function settle(): void {
       for (const other of listingOffers(l.listing_id)) if (other.offer_id !== ok.offer_id && other.status === 'PENDING') other.status = 'REJECTED';
       continue;
     }
-    // Insufficient funds at settlement: dependency SOLD but unaffordable -> reject, revert listing.
+    // Insufficient funds at settlement: dependency SOLD but the committed offer is unaffordable.
     const broke = chained.find((o) => { const d = findListing(o.contingent_on as string); return !!d && d.status === 'SOLD'; });
-    if (broke) { broke.status = 'REJECTED'; const l = findListing(broke.listing_id); if (l && l.status === 'CHAINED') l.status = 'AVAILABLE'; continue; }
+    if (broke) {
+      const l = findListing(broke.listing_id) as Listing;
+      // G3: before reverting X to AVAILABLE, prefer the first affordable non-contingent backup (preemptor) on X, in total order.
+      const preemptor = listingOffers(l.listing_id).filter((o) => o.status === 'PENDING' && !o.contingent_on && o.offer_id !== broke.offer_id).sort(byOrder).find((o) => affordableBackup(o));
+      broke.status = 'REJECTED';
+      if (preemptor) {
+        preemptor.status = 'ACCEPTED';
+        l.status = 'SOLD';
+        for (const other of listingOffers(l.listing_id)) if (other.offer_id !== preemptor.offer_id && other.status === 'PENDING') other.status = 'REJECTED';
+      } else if (l.status === 'CHAINED') { l.status = 'AVAILABLE'; }
+      continue;
+    }
     break; // fixpoint: remaining chained offers depend on listings that are not yet SOLD
   }
 }
@@ -226,7 +240,12 @@ app.post('/offers', (req: Request, res: Response) => {
   if (b.contingent_on !== undefined && b.contingent_on !== null) {                          // R1: contingent_on, if present, must reference an existing listing
     if (!nonEmptyStr(b.contingent_on) || !findListing(b.contingent_on)) { res.status(400).end(); return; }
   }
-  if (l.status !== 'AVAILABLE') { res.status(409).end(); return; }                         // offers only on AVAILABLE (covers locked PENDING)
+  // G1: a CHAINED listing accepts a non-contingent backup bid strictly above the committed (chained) offer's value; a contingent offer on CHAINED stays 409. Any other non-AVAILABLE status rejects.
+  if (l.status === 'CHAINED') {
+    if (nonEmptyStr(b.contingent_on)) { res.status(409).end(); return; }
+    const committed = listingOffers(l.listing_id).find((o) => o.chained && o.status === 'PENDING');
+    if (!committed || (b.offer_value as number) <= committed.offer_value) { res.status(409).end(); return; }
+  } else if (l.status !== 'AVAILABLE') { res.status(409).end(); return; } // offers only on AVAILABLE (covers locked PENDING)
   if (l.seller_id === b.buyer_id) { res.status(409).end(); return; }                       // owner cannot offer on own listing
   if (listingOffers(l.listing_id).some((o) => o.buyer_id === b.buyer_id && o.status === 'PENDING')) { res.status(409).end(); return; } // one pending offer per buyer
   if (!nonEmptyStr(b.contingent_on) && committedBuyer(b.buyer_id as string) + (b.offer_value as number) > cap(b.buyer_id as string)) { res.status(409).end(); return; } // non-contingent: must fit effective budget (base + proceeds) at creation; contingent offers are self-financing and re-checked at acceptance
@@ -255,8 +274,9 @@ function precheck(offerId: string, actorId: unknown): ActCheck {
   if (o.status !== 'PENDING') return { ok: false, code: 409 };          // expired/terminal
   if (!nonEmptyStr(actorId)) return { ok: false, code: 400 };
   if (actorId !== awaitedParty(o, l)) return { ok: false, code: 409 };  // wrong party
-  // Lock: actions on a BUYER offer require the listing to be AVAILABLE.
-  if (o.made_by === 'BUYER' && l.status !== 'AVAILABLE') return { ok: false, code: 409 };
+  // Lock: actions on a BUYER offer require the listing to be AVAILABLE — except a non-contingent
+  // (preemptive) backup offer on a CHAINED listing, which the seller may act on to gazump.
+  if (o.made_by === 'BUYER' && l.status !== 'AVAILABLE' && !(l.status === 'CHAINED' && !o.contingent_on)) return { ok: false, code: 409 };
   return { ok: true, o, l };
 }
 
