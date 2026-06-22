@@ -61,18 +61,31 @@ t_initial`) and a scalar-vs-list input-equivalence check. The verifier writes
 ## Completion Rates
 | Agent | Pass rate |
 |-------|-----------|
-| Oracle | 1.0 (verified locally via the Docker oracle flow) |
-| Sonnet 4.6 | TBD |
-| Opus 4.6 | TBD |
-| Avocado | TBD |
+| Oracle | 3/3 (validated on Codimango) |
+| Sonnet 4.6 | TBD (not run) |
+| Opus 4.6 (agent) | TBD (run in progress) |
+| Avocado (metacode) | 4/5 |
 
-Oracle verified locally: the reference `solve.sh` + `tests/test.sh` flow in a
-clean `python:3.12-slim` container yields `FINAL_REWARD=1`. A naive variant
-(instantaneous deadband, curve-only COP with no part-load factor, no defrost, no
-backup-during-defrost) yields `FINAL_REWARD=0`: it underestimates energy (it omits
-both the defrost electricity and the part-load COP penalty) and understates comfort
-violations (it misses the cooldowns during defrost and the overshoot/undershoot
-forced by the minimum-cycle constraint).
+Codimango validation status: **passing** (commit `44d1df6`) — oracle 3/3 and the
+metacode tester has the required pass/fail balance (4/5).
+
+## Model Analysis
+The metacode tester (`avocado_dvsc_tester`) passed 4/5; the single failure shows
+the intended trap — the interacting concerns are not composed correctly:
+- **Mild in-band day:** the failing attempt returned `energy_kwh = 36.0` vs the
+  reference `14.92` (~2.4×) and `comfort_degree_hours = 80.9` vs `0.61`. The round
+  `36.0` plus a *rising* trajectory (`indoor_temp[1] = 20.07` instead of the
+  reference `19.85`) show the compressor was run at full output every step — the
+  anti-short-cycle / hysteresis state machine and part-load cycling were never
+  applied, so the unit neither modulated nor rested.
+- **Cold day:** `energy_kwh = 72.0` vs `63.5` — energy overcounted because the
+  part-load COP penalty and defrost accounting were missing.
+
+This is the "compose several interacting concerns" difficulty: each piece
+(hysteresis, min-runtime, defrost, part-load `Cd`, backup) is individually
+tractable, but getting the couplings right against a tight tolerance is where the
+model slips. The oracle passes 3/3, isolating the failure to model reasoning, not
+task setup.
 
 ## Anti-Cheating Analysis
 - **Hardcoded outputs:** outputs depend on continuous physical inputs across four
