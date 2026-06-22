@@ -2,15 +2,15 @@ schema_version = "1.1"
 
 [task]
 name = "codimango/single-zone-rc-thermal"
-description = "Implement a single-zone lumped-capacitance (1R1C) building thermal model with a hand-rolled numerical integrator. Given outdoor temperature, internal gains, and HVAC input (scalar or per-step arrays), integrate C*dT_in/dt = (T_out - T_in)/R + Q_internal + Q_hvac over n_steps and return the indoor-temperature trajectory. The trap is numerical stability: naive forward Euler diverges when dt is comparable to the system time constant tau=R*C, so a correct solution must use a stable scheme (exact analytic update, implicit Euler, or sufficiently sub-stepped explicit method). Graded per-step against an independent analytic reference."
+description = "Implement a single-zone lumped-capacitance (1R1C) building thermal model augmented with a NONLINEAR radiative loss term, using a hand-rolled numerical integrator. Given outdoor temperature, internal gains, HVAC input (scalar or per-step arrays) and a radiative coefficient k_rad, integrate C*dT_in/dt = (T_out - T_in)/R + Q_internal + Q_hvac - k_rad*((T_in+273.15)^4 - (T_out+273.15)^4) over n_steps and return the indoor-temperature trajectory. The quartic term uses absolute (Kelvin) temperature, so the ODE is nonlinear and has NO closed-form solution. The trap is twofold: there is no analytic exponential update to fall back on, and the system is stiff -- when dt is several times the effective time constant a naive single-step forward Euler overshoots, oscillates and diverges. A correct solution must design its own stable AND accurate numerical scheme (e.g. sub-stepped RK4 or implicit Euler with Newton iteration); no discretization recipe is given. Graded per-step against an independent high-accuracy RK4 reference."
 authors = []
-keywords = ["numerical-methods", "ode", "thermal-model", "building-physics", "rc-circuit", "numerical-stability", "stiff", "python"]
+keywords = ["numerical-methods", "ode", "nonlinear-ode", "thermal-model", "building-physics", "rc-circuit", "radiative-heat-transfer", "numerical-stability", "stiff", "runge-kutta", "python"]
 
 [metadata]
-difficulty = "medium"
+difficulty = "hard"
 category = "feature-implementation"
-expert_time_estimate_min = 30.0
-junior_time_estimate_min = 90.0
+expert_time_estimate_min = 45.0
+junior_time_estimate_min = 150.0
 
 [verifier]
 timeout_sec = 300.0

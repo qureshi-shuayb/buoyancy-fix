@@ -1,17 +1,22 @@
-# Single-Zone RC Building Thermal Model
+# Single-Zone RC Building Thermal Model with Nonlinear Radiative Loss
 
 Implement a single-zone **lumped-capacitance (1R1C)** building thermal model
-with a **hand-rolled numerical integrator**, and write it to
-`/app/rc_model.py`.
+**with an additional nonlinear radiative loss term**, using a **hand-rolled
+numerical integrator**, and write it to `/app/rc_model.py`.
 
 ## The physics
 
 A single thermal zone is modeled as one capacitance `C` (the building's
-thermal mass) connected through one resistance `R` to the outdoor air. The
-indoor air temperature `T_in` evolves according to the first-order ODE:
+thermal mass) connected through one resistance `R` to the outdoor air. In
+addition to the linear conductive exchange, the zone loses (or gains) heat
+radiatively, modeled with a Stefan–Boltzmann-style quartic term that depends
+on **absolute** temperature. The indoor air temperature `T_in` evolves
+according to the **nonlinear** first-order ODE:
 
 ```
-C * dT_in/dt = (T_out - T_in) / R + Q_internal + Q_hvac
+C * dT_in/dt = (T_out - T_in) / R
+               + Q_internal + Q_hvac
+               - k_rad * ( (T_in + 273.15)^4 - (T_out + 273.15)^4 )
 ```
 
 where
@@ -21,16 +26,24 @@ where
 - `C` — thermal capacitance in **J/K**
 - `Q_internal` — internal heat gains (people, equipment) in **watts**
 - `Q_hvac` — heat added (+) or removed (−) by the HVAC system in **watts**
+- `k_rad` — lumped radiative coefficient (emissivity·σ·area) in **W/K⁴**
 - time `t` in **seconds**
 
-The system time constant is `tau = R * C` (seconds).
+> **Kelvin matters.** The quartic radiative term uses **absolute** temperature.
+> Convert Celsius to Kelvin by adding `273.15` *inside* the fourth powers, as
+> written above. Using Celsius directly in the `^4` terms is wrong.
+
+> **There is no closed form.** Because of the `T_in^4` term this ODE is
+> nonlinear and has **no analytic / exponential solution**. You must integrate
+> it numerically. (The familiar `T = Teq + (T0 - Teq)·exp(-dt/tau)` update from
+> the purely linear model does **not** apply here and will be graded as wrong.)
 
 ## What to implement
 
 Create `/app/rc_model.py` exposing exactly this function:
 
 ```python
-def simulate(t_out, q_internal, q_hvac, R, C, t_initial, dt, n_steps):
+def simulate(t_out, q_internal, q_hvac, R, C, t_initial, dt, n_steps, k_rad):
     ...
 ```
 
@@ -44,6 +57,7 @@ Arguments:
 - `t_initial` — initial indoor temperature (degC) at `t = 0`.
 - `dt` — time-step size in seconds.
 - `n_steps` — number of integration steps (a non-negative integer).
+- `k_rad` — radiative coefficient (W/K⁴), a scalar.
 
 Return value:
 
@@ -56,10 +70,13 @@ Return value:
 
 Your trajectory is graded at every step against a high-accuracy independent
 reference, with per-step tolerances of 0.05–0.2 °C. Some scenarios use a time
-step `dt` that is large relative to the system time constant `tau = R * C` (in
-one case several times larger). Choose an integration scheme that stays
-**stable and accurate** under those conditions; a scheme that is accurate only
-for small `dt` will not pass.
+step `dt` that is **large relative to the system's effective time constant** (in
+one case several times larger). Under those conditions a naive single-step
+explicit (forward Euler) update overshoots, oscillates, and diverges. **You
+must choose and implement an integration scheme that stays both stable and
+accurate** at the supplied `dt`. How you achieve that — the scheme, any internal
+sub-stepping, any iteration — is entirely up to you and is the core of the task;
+no recipe is provided.
 
 ## Constraints
 
@@ -69,3 +86,10 @@ for small `dt` will not pass.
   fine for array handling, but the time-stepping logic must be yours.)
 - Put everything in `/app/rc_model.py`; do not require a network connection
   at import time.
+
+## Difficulty
+
+**Hard.** The combination of nonlinearity (no closed form) and stiffness
+(large `dt` relative to the effective time constant) means a correct solution
+requires a genuinely stable *and* accurate numerical integrator that you design
+yourself.
