@@ -2,15 +2,15 @@ schema_version = "1.1"
 
 [task]
 name = "codimango/degree-day-energy"
-description = "Implement a Python tool that parses a year of hourly outdoor temperatures from CSV, computes heating and cooling degree days (HDD/CDD) against a configurable balance-point temperature, and estimates annual heating and cooling energy (kWh) from the building UA value and equipment efficiency (heating COP/AFUE and cooling COP). The hard parts are per-hour (not per-day) degree-day accumulation, the degree-hours-to-degree-days unit conversion, the UA-driven thermal-energy formula, and dividing thermal load by the correct efficiency to get delivered electricity."
+description = "Implement a pure-Python tool that estimates a building's annual heating/cooling electricity (kWh) from a year of hourly outdoor temperatures. The hard parts are physics, not scaffolding: the balance point must be DERIVED (T_setpoint - (Q_internal + Q_solar)/UA) rather than taken as the setpoint, and heating electricity must be integrated PER HOUR using a temperature-dependent COP curve that is linearly interpolated at each hour's outdoor temperature (the degree-days * UA / average-COP shortcut drifts past a tight 0.5% tolerance because the COP curve is convex and load concentrates in cold, low-COP hours). The tool must also handle 8760- vs 8784-row (leap) files and skip malformed CSV rows."
 authors = []
-keywords = ["python", "energy-modeling", "degree-days", "hvac", "csv-parsing", "unit-conversion", "feature-implementation"]
+keywords = ["python", "energy-modeling", "degree-days", "hvac", "heat-pump", "cop-interpolation", "csv-parsing", "unit-conversion", "numerical-integration", "feature-implementation"]
 
 [metadata]
-difficulty = "medium"
+difficulty = "hard"
 category = "feature-implementation"
-expert_time_estimate_min = 45.0
-junior_time_estimate_min = 120.0
+expert_time_estimate_min = 60.0
+junior_time_estimate_min = 150.0
 
 [verifier]
 timeout_sec = 300.0
