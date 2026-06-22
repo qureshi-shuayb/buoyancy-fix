@@ -2,15 +2,15 @@ schema_version = "1.1"
 
 [task]
 name = "codimango/psychro-process-sim"
-description = "Implement a psychrometric process simulator driven by a tiny text DSL. The agent writes a parser and state machine in /app/process_sim.py that runs a sequence of moist-air process commands (set/heat/cool/humidify/mix) over a moist-air state and reports the final air state (dry-bulb, humidity ratio, relative humidity, enthalpy) plus cumulative sensible energy, latent energy and total water added. No psychrometrics library implements this DSL, so it cannot be one-shot recalled; the difficulty is the parser plus the process-by-process energy/mass bookkeeping (isothermal humidification adds latent energy, sensible heating lowers relative humidity, and stream mixing must use an enthalpy/humidity-ratio balance rather than a linear temperature average). Outputs are graded against an independent in-task oracle across several DSL programs including whitespace/comment edge cases and multiple mixes."
+description = "Implement a psychrometric process simulator driven by a tiny text DSL. The agent writes a parser and state machine in /app/process_sim.py that runs a sequence of moist-air process commands (set/heat/cool/cool-sat/humidify/mix/process-to/recirc) over a moist-air state and reports the final air state (dry-bulb, humidity ratio, relative humidity, enthalpy) plus cumulative net sensible energy, net latent energy and net signed water. No psychrometrics library implements this DSL, so it cannot be one-shot recalled; the difficulty is the parser plus order-dependent process-by-process energy/mass bookkeeping: isothermal humidification adds latent energy, cooling through the dew point ('cool x sat') condenses water out (humidity ratio clamped to saturation, negative signed water and latent), 'process to T/RH' is sensible-then-(de)humidify, 'recirc' blends the current air back with the original supply state captured at set, and stream mixing must use an enthalpy/humidity-ratio balance rather than a linear temperature average. The parser strips inline comments, accepts irregular whitespace/case, and raises on malformed or out-of-order lines. Outputs are graded against an independent in-task oracle under tight tolerances across many DSL programs and parser edge cases."
 authors = []
 keywords = ["python", "parser", "state-machine", "dsl", "psychrometrics", "hvac", "energy-balance", "feature-implementation"]
 
 [metadata]
-difficulty = "medium"
+difficulty = "hard"
 category = "feature-implementation"
-expert_time_estimate_min = 60.0
-junior_time_estimate_min = 180.0
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 240.0
 
 [verifier]
 timeout_sec = 300.0
