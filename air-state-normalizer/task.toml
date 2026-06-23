@@ -3,15 +3,15 @@ schema_version = "1.1"
 
 [task]
 name = "codimango/air-state-normalizer"
-description = "Implement a robust moist-air input normalizer (single Python module at /app/air_state.py). The function parses messy air-state records given in mixed units (temperature in C/F/K; pressure in Pa/kPa/hPa/mbar/bar/atm/mmHg/inHg or an elevation in m/km/ft converted via the barometric formula; relative humidity as percent or fraction; humidity ratio in kg/kg or g/kg; enthalpy in kJ/kg; specific volume in m3/kg) and one or more moisture properties (relative humidity, dew point, wet-bulb, humidity ratio, enthalpy, or specific volume), then either returns a canonical SI state (dry-bulb C, humidity ratio kg/kg, RH fraction, dew point C, enthalpy kJ/kg, pressure Pa) or raises ValueError. It must implement a precise error contract: under-specified, over-specified-contradictory, out-of-range (including negative-Kelvin, supersaturation, and enthalpy/volume implying negative humidity ratio), and bad/ambiguous formats (unknown units, decimal commas, both pressure and elevation) raise; over-specified-consistent inputs are accepted within tight tolerance. Canonical outputs are graded against independent in-task golden values (not against any psychrometrics library) under tightened tolerances across many unit and property combinations, and the error contract is checked over many invalid records."
+description = "Implement a moist-air state RECONCILIATION normalizer (single Python module at /app/air_state.py). Each record is over-instrumented: it gives a dry-bulb temperature, a pressure (or elevation), and SEVERAL mutually-redundant moisture properties (relative humidity, dew point, wet-bulb, humidity ratio, specific enthalpy, specific volume) in mixed units, of which AT MOST ONE is corrupted. The function must parse the messy units, reduce every property to a humidity ratio W at the given dry-bulb/pressure, cross-check the candidates against each other, detect and discard the single inconsistent (outlier) property via a deterministic width-tau (5e-4 kg/kg) sliding-window consensus rule, reconcile the canonical state from the consistent majority, and report which property it discarded -- or raise ValueError when the record is irreconcilable or the outlier is ambiguous. It returns a canonical SI state (p_Pa, t_db_C, rh, w_kg_kg, t_dp_C, h_kJ_kg) plus an 'outlier' key (the discarded property's key, or None when no corruption). It implements a precise error contract: under-specified, per-property out-of-range (negative-Kelvin, supersaturation, enthalpy/volume implying negative W), ambiguous/irreconcilable reconciliation (two-property contradiction, non-unique outlier, two equal groups, no majority), and bad/ambiguous formats (unknown units, decimal commas, both pressure and elevation) all raise; over-specified-consistent and single-uniquely-identifiable-outlier inputs are accepted. Canonical outputs and the outlier identity are graded against independent in-task golden values (not against any psychrometrics library) under tightened tolerances, and the error contract is checked over many invalid records. The difficulty is the deterministic outlier-detection and reconciliation reasoning over a redundant property set, not the unit parsing."
 authors = []
-keywords = ["python", "psychrometrics", "hvac", "input-parsing", "unit-conversion", "validation", "feature-implementation"]
+keywords = ["python", "psychrometrics", "hvac", "data-reconciliation", "outlier-detection", "reasoning", "unit-conversion", "validation", "feature-implementation"]
 
 [metadata]
-difficulty = "medium"
+difficulty = "hard"
 category = "feature-implementation"
-expert_time_estimate_min = 60.0
-junior_time_estimate_min = 180.0
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 240.0
 
 [verifier]
 timeout_sec = 300.0
