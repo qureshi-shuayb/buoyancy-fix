@@ -1,0 +1,32 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/hrv-frost-bypass-ruby"
+description = "Implement pure-Ruby numerical model of heat recovery ventilator with frost control bypass damper, effectiveness derate, and supply temperature maintenance for commercial building ventilation. Difficulty in four interacting features not scaffolding: effectiveness derate non-linear with airflow ratio and temperature differential via NTU relation not constant; frost threshold dynamic depends on exhaust humidity ratio requiring psychrometric saturation pressure calculation per hour not fixed outdoor temp; bypass damper hysteresis state machine interacting with supply temperature maintenance triggering supplementary heater creating stateful coupling across hours; fan power rise non-linear with bypass position. Couplings interact so single-miss drifts past tight 0.5% tolerance on recovered energy and 5% on supplementary heating. Must handle 8760 and 8784 row CSVs skipping malformed rows."
+authors = []
+keywords = ["ruby", "hvac", "hrv", "psychrometrics", "numerical-methods", "bin-method", "frost-control", "feature-implementation"]
+
+[metadata]
+difficulty = "hard"
+category = "feature-implementation"
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 240.0
+
+[verifier]
+timeout_sec = 300.0
+
+[agent]
+timeout_sec = 1800.0
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[verifier.env]
+[environment.env]
+[solution.env]
