@@ -1,0 +1,32 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/degree-day-energy-v2"
+description = "v2 clean scaffold redo. Pure-Python annual building heating cooling electricity estimator kWh from hourly outdoor temperatures. Four interacting features: temperature bin method per occupancy state evaluated at bin center, time-varying setback schedule shifting balance points by hour of day, part-load temperature-dependent heat pump COP curve with electric resistance backup below lockout and cooling COP curve interpolated per bin, economizer free cooling below changeover temperature zero compressor electricity. Couplings cause >4x 0.5% drift if any feature missed. Must handle 8760 and 8784 row CSVs skipping malformed rows."
+authors = []
+keywords = ["python","energy-modeling","bin-method","hvac","heat-pump","setback-schedule","economizer","cop-interpolation","part-load","csv-parsing","unit-conversion","feature-implementation"]
+
+[metadata]
+difficulty = "hard"
+category = "feature-implementation"
+expert_time_estimate_min = 60.0
+junior_time_estimate_min = 150.0
+
+[verifier]
+timeout_sec = 300.0
+
+[agent]
+timeout_sec = 1800.0
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[verifier.env]
+[environment.env]
+[solution.env]
