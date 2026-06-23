@@ -17,16 +17,33 @@ all interact correctly.
 ## Completion Rates
 | Agent | Pass rate |
 |-------|-----------|
-| Oracle | TBD (pending Codimango run) |
-| Sonnet 4.6 | TBD |
-| Opus 4.6 | TBD |
-| Avocado | TBD |
+| Oracle | 3/3 (validated on Codimango) |
+| Opus 4.6 (claude-code) | 4/5 |
+| GPT-5.5 (codex) | 0/5 |
+| Avocado (metacode) | 4/5 |
 
-Reference logic validated locally (26/26 grader checks pass against a dependency-free
-mirror of the reference). Model rates to be populated from Codimango runs.
+Codimango validation: **passing** (commit `9190dcb`) — oracle 3/3 with the required
+metacode pass/fail balance (4/5). No Sonnet run was performed.
 
 ## Model Analysis
-TBD - from Codimango model runs.
+All models implement the basic marketplace correctly — user/listing/offer creation
+and validation, the seller-counter lock, accept-cascade, party-aware "who can act"
+rules, and the counter negotiation direction all pass for every model. The failures
+concentrate entirely in the **contingent-offer chain + settlement** mechanics:
+
+- **GPT-5.5 (codex): 0/5.** Passes every basic + offer/counter/lock/cascade test, but
+  fails all five trials on the property-chain cases — in particular the
+  preemption/backup rule (G3): when a committed (`CHAINED`) offer becomes unaffordable
+  at settlement, the sweep must fall back to the first affordable non-contingent backup
+  bid and only revert the listing to `AVAILABLE` if none exists. The settlement-sweep +
+  gazumping interaction was not reproduced.
+- **Opus 4.6: 4/5.** One failure on **mid-chain expiry**: in a `Z → Y → X` chain, when a
+  committed offer expires its listing must revert `CHAINED → AVAILABLE`; the attempt
+  left it `CHAINED`.
+
+These are genuine reasoning gaps in the coupled state-machine + fixpoint settlement
+logic, not task-setup artifacts: the oracle passes 3/3 and every basic check passes for
+all models, isolating the failures to the chain/settlement rules.
 
 ## Anti-Cheating Analysis
 - Hardcoded outputs: server-generated UUIDs + a virtual clock the test drives make responses depend on prior state, not constants.
