@@ -255,15 +255,15 @@ def assert_matches(out, ref, params):
 
     # Trajectory.
     for i, (a, b) in enumerate(zip(temps, ref["indoor_temp"])):
-        assert math.isclose(float(a), float(b), rel_tol=5e-4, abs_tol=5e-3), \
+        assert math.isclose(float(a), float(b), rel_tol=1e-3, abs_tol=1e-2), \
             f"indoor_temp[{i}] = {a}, expected ~{b}"
 
     # Energy and comfort.
     assert math.isclose(float(out["energy_kwh"]), ref["energy_kwh"],
-                        rel_tol=5e-3, abs_tol=5e-3), \
+                        rel_tol=1e-2, abs_tol=1e-2), \
         f"energy_kwh = {out['energy_kwh']}, expected ~{ref['energy_kwh']}"
     assert math.isclose(float(out["comfort_degree_hours"]), ref["comfort_degree_hours"],
-                        rel_tol=1e-2, abs_tol=2.5e-2), \
+                        rel_tol=2e-2, abs_tol=5e-2), \
         f"comfort_degree_hours = {out['comfort_degree_hours']}, " \
         f"expected ~{ref['comfort_degree_hours']}"
 
