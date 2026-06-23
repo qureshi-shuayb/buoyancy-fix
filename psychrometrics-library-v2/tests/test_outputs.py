@@ -23,19 +23,25 @@ psychrolib.SetUnitSystem(psychrolib.SI)
 APP_MODULE = "/app/psychrometrics.py"
 
 # Tolerances (per task spec)
-TOL_W = 1e-4          # humidity ratio [kg/kg]
-TOL_RH = 0.005        # relative humidity (0.5%)
-TOL_DEW = 0.3         # dew point [degC]
-TOL_ENTH = 0.3        # enthalpy [kJ/kg dry air]
-TOL_WB = 0.3          # wet bulb [degC]
+TOL_W = 5e-5          # humidity ratio [kg/kg]
+TOL_RH = 0.0025        # relative humidity (0.5%)
+TOL_DEW = 0.15         # dew point [degC]
+TOL_ENTH = 0.15        # enthalpy [kJ/kg dry air]
+TOL_WB = 0.15          # wet bulb [degC]
 
 # Condition grid
-T_GRID = [0.0, 10.0, 20.0, 25.0, 30.0, 35.0]
-RH_GRID = [0.2, 0.5, 0.8]
-P_GRID = [101325.0, 90000.0]   # sea level + ~altitude
+T_GRID = [-10.0, -5.0, 0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0]
+RH_GRID = [0.05, 0.1, 0.2, 0.5, 0.8, 0.95, 1.0]
+P_GRID = [101325.0, 90000.0, 70000.0]   # sea level + ~altitude
 
 # Edge cases: (t_db, rh, p) -- saturated, very dry, altitude+dry, altitude+saturated
 EDGE_CASES = [
+    (-10.0, 0.05, 70000.0),
+    (-5.0, 0.2, 90000.0),
+    (0.0, 0.05, 101325.0),
+    (40.0, 0.95, 101325.0),
+    (45.0, 0.5, 90000.0),
+
     (25.0, 1.00, 101325.0),   # saturated air
     (35.0, 1.00, 101325.0),   # saturated, warm
     (30.0, 0.05, 101325.0),   # very dry air
