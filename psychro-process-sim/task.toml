@@ -2,15 +2,15 @@ schema_version = "1.1"
 
 [task]
 name = "codimango/psychro-process-sim"
-description = "Implement a psychrometric process simulator driven by a tiny text DSL. The agent writes a parser and state machine in /app/process_sim.py that runs a sequence of moist-air process commands (set/heat/cool/cool-sat/humidify/mix/process-to/recirc) over a moist-air state and reports the final air state (dry-bulb, humidity ratio, relative humidity, enthalpy) plus cumulative net sensible energy, net latent energy and net signed water. No psychrometrics library implements this DSL, so it cannot be one-shot recalled; the difficulty is the parser plus order-dependent process-by-process energy/mass bookkeeping: isothermal humidification adds latent energy, cooling through the dew point ('cool x sat') condenses water out (humidity ratio clamped to saturation, negative signed water and latent), 'process to T/RH' is sensible-then-(de)humidify, 'recirc' blends the current air back with the original supply state captured at set, and stream mixing must use an enthalpy/humidity-ratio balance rather than a linear temperature average. The parser strips inline comments, accepts irregular whitespace/case, and raises on malformed or out-of-order lines. Outputs are graded against an independent in-task oracle under tight tolerances across many DSL programs and parser edge cases."
+description = "Implement an interpreter for PsychroLang, a small imperative programming language that drives a moist-air psychrometric state machine, in /app/process_sim.py exposing simulate(program: str) -> dict. The agent must build a real tokenizer + recursive-descent parser + tree-walking interpreter (not a line/regex parser): named variables (let), arithmetic expressions over live state accessors (t_db/w/rh/h and the accumulators), comparisons and and/or/not, control flow with brace-delimited blocks (if/else, repeat N, while), plus the psychrometric process statements (set/heat/cool/cool-sat/humidify/mix/process/recirc). Two constructs are implicit equations that must be solved numerically: 'recycle frac { body }' blends a fraction of the block output back into the block input, so the recycle stream must be iterated to a fixed point (a single pass is wrong) with accumulators committed on exactly one converged pass; and 'control heat|humidify to rh|h = expr' must root-find the actuator amount to hit a target metric (heat-to-rh is transcendental in the ASHRAE saturation correlation, so there is no closed form). Carried-over correctness: cool-sat condenses water (clamp to saturation, negative signed water/latent), process is order-dependent sensible-then-(de)humidify, mix/recirc are enthalpy/humidity-ratio balances, recirc/recycle blend with the original supply state captured at set. The interpreter strips inline comments, treats newlines/semicolons as insignificant, and raises on malformed or out-of-order programs. Outputs are graded against an independent in-task oracle (a full second interpreter, no psychrometrics library) under tight tolerances across programs exercising loops, conditionals, the fixed-point recycle, and the root-finding control."
 authors = []
-keywords = ["python", "parser", "state-machine", "dsl", "psychrometrics", "hvac", "energy-balance", "feature-implementation"]
+keywords = ["python", "interpreter", "parser", "recursive-descent", "control-flow", "fixed-point", "root-finding", "state-machine", "dsl", "psychrometrics", "hvac", "energy-balance", "feature-implementation"]
 
 [metadata]
 difficulty = "hard"
 category = "feature-implementation"
-expert_time_estimate_min = 90.0
-junior_time_estimate_min = 240.0
+expert_time_estimate_min = 150.0
+junior_time_estimate_min = 360.0
 
 [verifier]
 timeout_sec = 300.0
