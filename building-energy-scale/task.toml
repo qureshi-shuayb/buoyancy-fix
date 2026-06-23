@@ -1,0 +1,34 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/building-energy-scale"
+description = "Optimise an annual (8760-hour) multi-zone building energy simulation so it fits a tight wall-clock budget WITHOUT changing its numerical results. The building is modelled as n_zones lumped 1R1C thermal nodes coupled to a few neighbours (banded conductance network) and to outdoor air, each controlled by an ideal proportional HVAC element, advanced with an implicit (backward-Euler) update. Every hourly step requires solving a linear system A*T_next = b. Because the model is linear, the system matrix A is time-invariant. The shipped baseline is correct but NAIVE: it rebuilds and LU-factorises A from scratch on all 8760 steps (O(n_zones^3) per step) and is far too slow. The required outputs (annual HVAC energy in kWh, peak demand in kW, unmet zone-hours) are well defined and graded against an independent golden reference. The verifier enforces a performance gate (agent runtime must stay within a small multiple of an efficient golden's runtime) that a re-factor-every-step solution cannot pass; the fix is to factorise the invariant matrix once and reuse the factorisation for the cheap per-step solve. Pure Python only (numpy/scipy are forbidden) so the performance gate is meaningful."
+authors = []
+keywords = ["performance-optimization", "linear-algebra", "lu-factorization", "building-physics", "thermal-model", "rc-network", "implicit-euler", "simulation", "caching", "python"]
+
+[metadata]
+difficulty = "hard"
+category = "feature-implementation"
+expert_time_estimate_min = 40.0
+junior_time_estimate_min = 150.0
+
+[verifier]
+timeout_sec = 300.0
+
+[agent]
+timeout_sec = 1800.0
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[verifier.env]
+
+[environment.env]
+
+[solution.env]
