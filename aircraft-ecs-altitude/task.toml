@@ -1,0 +1,34 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/aircraft-ecs-altitude"
+description = "Fix a multi-file, std-only Rust aircraft Environmental Control System (ECS) simulation that builds and runs but produces wrong cabin temperature and cabin pressure above the tropopause. The crate models the International Standard Atmosphere, an air-cycle machine (bootstrap pack with ram-air heat exchangers, compressor, and turbine), differential-pressure-limited cabin pressurization, and a lumped cabin thermal balance integrated with forward Euler over a climb/cruise/descent flight profile. The single defect is in the atmosphere model: above the tropopause the layer is isothermal, so ambient temperature must be held at the tropopause value instead of continuing the troposphere lapse rate; that one defect propagates through bleed-air temperature, both heat exchangers, the turbine expansion, and the cabin pressure schedule. Outputs are graded offline with cargo test against an independent in-test reference (re-derived ISA, air-cycle thermodynamics, pressurization, and Euler integration) over a full flight profile and at discrete altitudes spanning the tropopause, to tight tolerances."
+authors = []
+keywords = ["rust", "cargo", "simulation", "numerical-methods", "aerospace", "hvac", "bug-fixing", "debugging"]
+
+[metadata]
+difficulty = "medium"
+category = "bug-fixing"
+expert_time_estimate_min = 60.0
+junior_time_estimate_min = 180.0
+
+[verifier]
+timeout_sec = 300.0
+
+[agent]
+timeout_sec = 1800.0
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[verifier.env]
+
+[environment.env]
+
+[solution.env]
