@@ -1,0 +1,32 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/thermostat-heatpump-v2"
+description = "v2 clean scaffold redo. Implement Python day-long simulation of single-zone 1R1C building heated by deadband hysteresis thermostat driving air-source heat pump with three interacting realism effects: anti-short-cycle minimum compressor runtime off-time overriding deadband, periodic defrost cycles inside defrost band with no useful heat degraded COP backup fills gap, and part-load cycling degradation PLF = 1 - Cd*(1-PLR) on effective COP. Heat pump capacity limit plus backup resistance heat COP 1 cover shortfall including defrost. Simulator integrates zone ODE with exact analytic update, runs coupled control defrost part-load state machine, accounts heat pump defrost backup electricity, reports total energy kWh and comfort degree-hours outside deadband. Deterministic numeric grading against independent reference; naive implementations drift past tight tolerances."
+authors = []
+keywords = ["python","simulation","control-systems","hvac","heat-pump","thermostat","hysteresis","defrost","part-load","anti-short-cycle","state-machine","numerical-integration","energy"]
+
+[metadata]
+difficulty = "hard"
+category = "feature-implementation"
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 240.0
+
+[verifier]
+timeout_sec = 300.0
+
+[agent]
+timeout_sec = 1800.0
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[verifier.env]
+[environment.env]
+[solution.env]
