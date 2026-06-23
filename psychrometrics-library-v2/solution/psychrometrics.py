@@ -108,7 +108,13 @@ def _w_from_tdb_twb(t_db: float, t_wb: float, p: float) -> float:
 
 
 def wet_bulb(t_db: float, rh: float, p: float = STANDARD_PRESSURE) -> float:
-    """Wet bulb temperature C solved iteratively by bisection between dew point and dry bulb."""
+    """Wet bulb temperature C solved iteratively by bisection between dew point and dry bulb.
+    The ASHRAE energy balance defines w_star(t_wb) which is monotonically decreasing
+    in t_wb over [t_dp, t_db]: higher wet-bulb temperature implies higher saturation
+    humidity at the wet bulb but reduced evaporative cooling term, net effect decreases
+    implied humidity ratio. Therefore we bisect: if w_star(mid) > actual w, the true
+    wet bulb is higher, so move lo up; else move hi down. At convergence w_star matches w.
+    """
     w = hum_ratio_from_rh(t_db, rh, p)
     # saturated case shortcut
     if rh >= 0.999999:
@@ -116,10 +122,8 @@ def wet_bulb(t_db: float, rh: float, p: float = STANDARD_PRESSURE) -> float:
     t_dp = dew_point(t_db, rh, p)
     lo = t_dp
     hi = t_db
-    # bisection: w_star decreases as t_wb increases? Let's evaluate monotonic.
-    # At lo=dew point, w_star should be <= w? Actually test direction empirically.
-    # We'll use standard approach: compute w_star at mid, if w_star > w then hi=mid else lo=mid,
-    # matching v1 logic that passed.
+    # bisection on monotonic w_star(t_wb): w_star decreases as t_wb increases.
+    # We seek t_wb such that w_star == w.
     for _ in range(100):
         mid = 0.5 * (lo + hi)
         w_star = _w_from_tdb_twb(t_db, mid, p)
