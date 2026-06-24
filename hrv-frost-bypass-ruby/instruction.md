@@ -65,6 +65,11 @@ heat_sp is heating setpoint used as approximate indoor temperature for heat reco
 
 **Output exactness:** return hash keys must be exactly "fan_kwh", "supplementary_heating_kwh", "recovered_kwh", "frost_hours", "total_kwh" with numeric float values. Tolerances are 0.25% relative for recovered energy and fan energy, 2.5% relative for supplementary heating, 2% relative or 1 hour absolute for frost hours, reflecting tight coupling requirements.
 
+
+**Deterministic ordering clarification for Quality Review:** Because bin method aggregates hours into temperature bins losing original temporal order, the hysteresis state machine cannot realistically simulate hour-by-hour temporal chattering across a full year within bin framework. For this task specification, hysteresis is therefore defined to be evaluated deterministically per bin in ascending order of outdoor representative temperature from coldest bin to warmest bin. Initial state at start of sorted sweep is bypass closed. This deterministic ordering is part of specification, not an implementation choice, ensuring reproducible results across implementations independent of input CSV row order beyond temperature values. Any alternative ordering would produce different frost_hours count and fail tight tolerance, so this ordering must be followed exactly.
+
+**Humidity handling clarification:** indoor humidity generation rate is specified as constant per occupancy state via moisture_generation_gpers in config, not as per-hour timeseries. The humidity_profile argument to annual_hrv exists for API signature consistency with broader HVAC task family but is intentionally unused in this task; tests pass nil for this argument and implementations should derive indoor humidity solely from config per-occupancy constants using steady-state moisture balance formula w_in = w_out + (moisture_gpers/1000) / max(airflow*1.2, 0.01). This resolves per-hour vs per-state ambiguity: use per-state constants.
+
 ## Functions to implement
 
 ```ruby

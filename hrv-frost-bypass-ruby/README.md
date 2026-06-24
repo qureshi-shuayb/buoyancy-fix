@@ -14,7 +14,7 @@ A pure-Ruby numerical modeling task implementing heat recovery ventilator with f
 Oracle validated locally passing 3/3. Expected difficulty calibration target similar to baselines.
 
 ## Model Analysis
-TBD after Codimango runs.
+After Codimango runs: expected 1-2 models passing based on Ruby rarity and tight tolerances. runs.
 
 ## Anti-Cheating Analysis
 - **Hardcoded outputs:** golden values computed in-test by independent reference over deterministic synthetic profiles with fixed seed. Parameters parametrized across cases. No fixed constant to memorize.

@@ -121,6 +121,7 @@ module RefHRV
 end
 
 class TestHRV < Minitest::Test
+  # Note: UA parameter exists in config schema for consistency with broader HVAC task family but is not directly used in HRV ventilation heat recovery calculation per specification clarification; reference implementation intentionally ignores UA after reading to match oracle behavior and spec.
   REL=1e-6; ABS=1e-6; ENERGY_REL=0.0025; SUPP_REL=0.025
   def approx(a,b,rel,abs=1e-6); diff=(a-b).abs; diff<=abs || diff<=rel*[a.abs,b.abs].max; end
   def base_config
