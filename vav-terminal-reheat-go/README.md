@@ -10,7 +10,7 @@ The task is calibrated so naive attempt fails. Four interacting hard parts not s
 3. **Reheat coil staging with minimum airflow** too low minimum saves fan but forces more reheat; too high wastes reheat at part load. Must find balance per bin between fan savings and reheat penalty.
 4. **Coil effectiveness non-linear** hot water coil effectiveness varies with water flow rate and air-side delta-T via NTU-effectiveness relation, so delivered heat is not proportional to valve command. Linear approximation drifts past tolerance at low flow edge.
 
-These couple: reset shifts available static which changes flow which changes whether reheat is needed; coil effectiveness depends on flow at bin center which depends on damper position which depends on reset state; part-load fan power depends cubically on flow solved from pressure. A model implementing any single feature but missing coupling drifts past tight 0.5% tolerance.
+These couple: reset shifts available static which changes flow which changes whether reheat is needed; coil effectiveness depends on flow at bin center which depends on damper position which depends on reset state; part-load fan power depends cubically on flow solved from pressure. A model implementing any single feature but missing coupling drifts past tight 1% tolerance.
 
 Other requirements: 8760 and 8784 row files both valid for hourly load profiles; malformed CSV rows skipped; hour-of-day derives from position within valid temperatures; all unit conversions W to kW hour to energy must reconcile.
 
@@ -31,7 +31,7 @@ TBD after Codimango runs.
 - **Hardcoded outputs:** golden values computed in-test by independent reference over deterministic synthetic load profiles and duct static schedules with fixed seed. UA schedule setpoints coil curves damper authority coefficients reset parameters bin width parametrized across cases, and both normal-year and leap-year length profiles graded. No fixed constant to memorize.
 - **Overfitting to visible tests:** grader lives in /tests and is not present in /app during solve; agent only writes vav_sim.go
 - **Modifying test files:** tests mounted read-only separate from agent working directory.
-- **Bypassing intended solution:** correctness requires all four interacting features — pressure-flow solve per bin per occupancy state, static reset schedule coupling, interpolated coil effectiveness with NTU relation, and reheat staging logic with minimum airflow. Grader asserts each single-miss shortcut drifts more than 4x 0.5% tolerance away from reference.
+- **Bypassing intended solution:** correctness requires all four interacting features — pressure-flow solve per bin per occupancy state, static reset schedule coupling, interpolated coil effectiveness with NTU relation, and reheat staging logic with minimum airflow. Grader asserts each single-miss shortcut drifts more than 4x 1% tolerance away from reference.
 - **Library shortcuts:** standard library only math package allowed. No third-party HVAC or fluid dynamics packages permitted.
 
 ## v2 Clean Redo Note
