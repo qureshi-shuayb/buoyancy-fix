@@ -18,21 +18,21 @@ Other requirements: 8760 and 8784 row files both valid for hourly load profiles;
 | Agent | Pass rate |
 |-------|-----------|
 | Oracle | 3/3 |
-| Sonnet 4.6 | TBD |
-| Opus 4.6 | TBD |
-| Avocado | TBD |
+| Sonnet 4.6 | TBD pending Codimango runs |
+| Opus 4.6 | TBD pending Codimango runs |
+| Avocado | TBD pending Codimango runs |
 
 Oracle validated locally passing 3/3. Expected difficulty calibration target similar to baselines.
 
 ## Model Analysis
-TBD after Codimango runs.
+Pending Codimango runs to populate representative failure modes. Expected difficulty target 1-2 models passing based on Go language rarity and 2% tolerance calibration.
 
 ## Anti-Cheating Analysis
-- **Hardcoded outputs:** golden values computed in-test by independent reference over deterministic synthetic load profiles and duct static schedules with fixed seed. UA schedule setpoints coil curves damper authority coefficients reset parameters bin width parametrized across cases, and both normal-year and leap-year length profiles graded. No fixed constant to memorize.
+- **Hardcoded outputs:** golden values computed in-test by reference implementation recomputed from spec formulas over deterministic synthetic load profiles and duct static schedules with fixed seed. UA schedule setpoints coil curves damper authority coefficients reset parameters bin width parametrized across cases, and both normal-year and leap-year length profiles graded. No fixed constant to memorize.
 - **Overfitting to visible tests:** grader lives in /tests and is not present in /app during solve; agent only writes vav_sim.go
 - **Modifying test files:** tests mounted read-only separate from agent working directory.
 - **Bypassing intended solution:** correctness requires all four interacting features — pressure-flow solve per bin per occupancy state, static reset schedule coupling, interpolated coil effectiveness with NTU relation, and reheat staging logic with minimum airflow. Grader asserts each single-miss shortcut drifts more than 4x 2% tolerance away from reference.
 - **Library shortcuts:** standard library only math package allowed. No third-party HVAC or fluid dynamics packages permitted.
 
 ## v2 Clean Redo Note
-This is net new task to fill taxonomy gap for Go language at 8.36% vs 10% target -1.64pp within 5pp yellow per language coverage table. Follows v2 clean redo pattern established for psychrometrics-library-v2 degree-day-energy-v2 thermostat-heatpump-v2 homebidder-v2 with single module pure stdlib, independent reference in test, tight tolerances, fail-signal tests, and canary GUID preserved.
+This is net new task to fill taxonomy gap for Go language at 8.36% vs 10% target -1.64pp within 5pp yellow per language coverage table. Follows v2 clean redo pattern established for psychrometrics-library-v2 degree-day-energy-v2 thermostat-heatpump-v2 homebidder-v2 with single module pure stdlib, reference implementation recomputed from spec in test, tight tolerances, fail-signal tests, and canary GUID preserved.

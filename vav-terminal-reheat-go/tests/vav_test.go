@@ -22,7 +22,7 @@ func approxEqual(a, b, rel, abs float64) bool {
     return diff <= rel*maxab
 }
 
-// Independent reference implementation
+// Reference implementation recomputed from specification formulas following T-Bench v2 pattern
 func refInterp(x float64, curve [][]float64) float64 {
     if len(curve)==0 { return 0 }
     pts := make([][]float64, len(curve))
@@ -59,12 +59,12 @@ func refAnnualEnergy(temps []float64, config map[string]interface{}) map[string]
     occHours := config["occupied_hours"].([]int)
     bw := config["bin_width_c"].(float64)
     fanEff := config["fan_efficiency"].(float64)
-    dac := config["damper_authority_curve"].([][]float64)
-    coil := config["coil_effectiveness_curve"].([][]float64)
+    damperCurve := config["damper_authority_curve"].([][]float64)
+    coilCurve := config["coil_effectiveness_curve"].([][]float64)
     staticMin := config["static_reset_min_pa"].(float64)
     staticMax := config["static_reset_max_pa"].(float64)
     supplyTemp := 13.0
-    rhoCp := 1200.0
+    rhoCpConst := 1200.0
     boilerEff := 0.9
     elecFactor := 0.05
 
@@ -99,16 +99,16 @@ func refAnnualEnergy(temps []float64, config map[string]interface{}) map[string]
         norm := (tRep - tMin)/tr
         if norm<0 {norm=0}; if norm>1 {norm=1}
         availableStatic := staticMin + norm*(staticMax-staticMin)
-        maxFlow := refInterp(availableStatic, dac)
+        maxFlow := refInterp(availableStatic, damperCurve)
         if tRep < tbHeat {
             load := ua*(tbHeat - tRep)
             airflow := minAir
             if airflow>maxFlow {airflow=maxFlow}
-            airHeat := airflow*rhoCp*(supplyTemp - tRep)
+            airHeat := airflow*rhoCpConst*(supplyTemp - tRep)
             coilHeat := load - airHeat
             if coilHeat<0 {coilHeat=0}
             waterFlow := coilHeat/500.0
-            eff := refInterp(waterFlow, coil)
+            eff := refInterp(waterFlow, coilCurve)
             if eff<0.1 {eff=0.1}
             heatingElec := coilHeat/eff/boilerEff*elecFactor
             fanPower := airflow*availableStatic/fanEff
@@ -117,10 +117,10 @@ func refAnnualEnergy(temps []float64, config map[string]interface{}) map[string]
         } else if tRep > tbCool {
             load := ua*(tRep - tbCool)
             deltaT := 11.0
-            required := load/(rhoCp*deltaT)
+            required := load/(rhoCpConst*deltaT)
             if required<minAir {required=minAir}
             if required>maxFlow {
-                shortfall := (load - maxFlow*rhoCp*deltaT)/load
+                shortfall := (load - maxFlow*rhoCpConst*deltaT)/load
                 if shortfall<0 {shortfall=0}
                 comfortDH += float64(n)*shortfall*1.0
                 required = maxFlow
@@ -219,6 +219,22 @@ func TestInterp(t *testing.T) {
     if !approxEqual(Interp(-5,curve),0,relTol,absTol) { t.Fatalf("clamp low") }
     if !approxEqual(Interp(20,curve),100,relTol,absTol) { t.Fatalf("clamp high") }
 }
+
+func TestStdlibOnly(t *testing.T) {
+    // Verify agent source uses only allowed standard library packages per spec
+    data, err := os.ReadFile("/app/vav_sim.go")
+    if err != nil {
+        t.Fatalf("cannot read agent source: %v", err)
+    }
+    src := string(data)
+    banned := []string{"github.com", "golang.org/x", "gonum", "gonum.org"}
+    for _, b := range banned {
+        if strings.Contains(src, b) {
+            t.Fatalf("banned third-party import detected containing %s", b)
+        }
+    }
+}
+
 func TestBalancePoints(t *testing.T) {
     bh, bc := BalancePoints(21,24,600,200)
     if !approxEqual(bh,18,relTol,absTol) || !approxEqual(bc,21,relTol,absTol) { t.Fatalf("bp %v %v",bh,bc) }

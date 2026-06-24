@@ -2,7 +2,7 @@
 
 Implement a pure-Go numerical model of a VAV terminal unit serving a single zone in a commercial building with variable air volume system, pressure-dependent airflow, hot water reheat coil staging, and duct static pressure reset.
 
-Unlike simple bin method accumulation, answer here depends on four features that interact, and getting any one coupling wrong drifts result past tight 1% tolerance:
+Unlike simple bin method accumulation, answer here depends on four features that interact, and getting any one coupling wrong drifts result past tight 2% tolerance:
 
 1. **Bin method.** Energy accumulated over temperature bins not as one running sum over raw hours, per occupancy state, evaluated at bin center.
 2. **Time-varying static pressure reset schedule.** Available duct static changes by hour based on outdoor temperature position within annual range, so airflow capability changes.
@@ -69,6 +69,10 @@ Min airflow for occupied is 0.15, so airflow = 0.15 capped to max_flow 0.35 => 0
 Load = UA*(Tb_heat - t_rep) = 200*(17 - (-5)) = 4400 W. Air heat = airflow * 1200 * (supply_temp - t_rep) = 0.15*1200*(13 - (-5)) = 0.15*1200*18=3240 W. Coil heat = 4400-3240=1160 W. Water flow = 1160/500=2.32 lps. Effectiveness from coil curve [[0,0.3],[2,0.55],[5,0.75],[10,0.85]] via interp gives about 0.58. Heating elec = 1160 /0.58 /0.9 *0.05 ≈ 111 W. Fan power = 0.15*96.9 /0.65 ≈ 22.4 W. Weighted by hours in bin gives Wh contributions.
 
 This example shows how static reset shifts available static, which limits max flow, which interacts with minimum airflow choice, which determines coil heat and fan power simultaneously. Repeat similar logic for cooling mode with deltaT 11 K and required airflow formula, and for deadband floating mode.
+
+**Heating mode comfort note:** Although pressure-dependent airflow description mentions capping airflow at maximum, for heating mode the reference implementation assumes reheat coil can always meet load at minimum airflow when properly sized, therefore comfort violation is recorded as zero in heating mode. Comfort degree-hours are accumulated only in cooling mode proportional to shortfall ratio when required airflow exceeds maximum flow. This matches test expectations and resolves spec-reference mismatch.
+
+**Tolerance note:** Energy outputs graded at 2% relative tolerance with absolute floor 1e-6, comfort at 5% relative or 1e-3 absolute. This is operative pass threshold matching test implementation.
 
 ## Functions to implement
 
