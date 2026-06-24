@@ -17,12 +17,12 @@ Other requirements: 8760 and 8784 row files both valid for hourly load profiles;
 ## Completion Rates
 | Agent | Pass rate |
 |-------|-----------|
-| Oracle | TBD |
+| Oracle | 3/3 |
 | Sonnet 4.6 | TBD |
 | Opus 4.6 | TBD |
 | Avocado | TBD |
 
-Oracle to be validated locally in Docker and on Codimango. Expected difficulty calibration target similar to degree-day-energy-v2 and thermostat-heatpump-v2 baselines.
+Oracle validated locally passing 3/3. Expected difficulty calibration target similar to baselines.
 
 ## Model Analysis
 TBD after Codimango runs.

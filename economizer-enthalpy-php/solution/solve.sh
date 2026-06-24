@@ -48,7 +48,7 @@ function read_temps($csv_path) {
     if (($h=fopen($csv_path,"r"))!==false) {
         $header=fgetcsv($h);
         $idx=1;
-        foreach($header as $i=>$col){ if(strtolower(trim($col))=="temp_c"){ $idx=$i; break; } }
+        foreach($header as $i=>$col){ if(strtolower(trim($col))=="temp_db"||strtolower(trim($col))=="temp_c"){ $idx=$i; break; } }
         while(($row=fgetcsv($h))!==false){
             if(!isset($row[$idx])) continue;
             $s=trim($row[$idx]); if($s==="") continue;

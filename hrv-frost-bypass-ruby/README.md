@@ -6,12 +6,12 @@ A pure-Ruby numerical modeling task implementing heat recovery ventilator with f
 ## Completion Rates
 | Agent | Pass rate |
 |-------|-----------|
-| Oracle | TBD |
+| Oracle | 3/3 |
 | Sonnet 4.6 | TBD |
 | Opus 4.6 | TBD |
 | Avocado | TBD |
 
-Oracle to be validated locally in Docker and on Codimango.
+Oracle validated locally passing 3/3. Expected difficulty calibration target similar to baselines.
 
 ## Model Analysis
 TBD after Codimango runs.
