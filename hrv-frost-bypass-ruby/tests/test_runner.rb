@@ -6,18 +6,18 @@ require_relative '/app/hrv_sim'
 module RefHRV
   def self.interp(x, curve)
     return 0.0 if curve.empty?
-    pts=curve.sort_by{|p| p[0]}
-    return pts[0][1] if x<=pts[0][0]
-    return pts[-1][1] if x>=pts[-1][0]
-    (1...pts.length).each do |i|
-      x0,y0=pts[i-1]; x1,y1=pts[i]
+    points=curve.sort_by{|p| p[0]}
+    return points[0][1] if x<=points[0][0]
+    return points[-1][1] if x>=points[-1][0]
+    (1...points.length).each do |i|
+      x0,y0=points[i-1]; x1,y1=points[i]
       if x<=x1
         return y0 if x1==x0
         frac=(x-x0)/(x1-x0)
         return y0+frac*(y1-y0)
       end
     end
-    pts[-1][1]
+    points[-1][1]
   end
   def self.sat_pressure(t)
     tk=t+273.15
@@ -31,17 +31,17 @@ module RefHRV
   end
   def self.frost_point(w, pressure=101325.0)
     pw = w*pressure/(0.621945+w)
-    lo=-100.0; hi=20.0
+    low=-100.0; high=20.0
     80.times do
-      mid=(lo+hi)/2.0
+      mid=(low+high)/2.0
       ps=sat_pressure(mid)
       if ps>pw
-        hi=mid
+        high=mid
       else
-        lo=mid
+        low=mid
       end
     end
-    (lo+hi)/2.0
+    (low+high)/2.0
   end
   def self.annual_hrv(temps, humidity_profile, config)
     occ_hours=config["occupied_hours"]
@@ -148,6 +148,7 @@ class TestHRV < Minitest::Test
     assert_in_delta 12.0, out[1], 1e-6
   end
   def test_interp; assert_in_delta 50, HRVSim.interp(5,[[0,0],[10,100]]),1e-6; end
+  def test_interp_clamp; assert_in_delta 0, HRVSim.interp(-5,[[0,0],[10,100]]),1e-6; assert_in_delta 100, HRVSim.interp(25,[[0,0],[10,100]]),1e-6; end
   def test_frost_point; fp=HRVSim.frost_point(0.003); assert fp<-5 && fp>-20; end
   def test_stdlib_only
     src=File.read("/app/hrv_sim.rb")

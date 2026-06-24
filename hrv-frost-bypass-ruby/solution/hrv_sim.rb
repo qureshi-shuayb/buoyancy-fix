@@ -62,7 +62,6 @@ module HRVSim
   end
 
   def self.annual_hrv(temps, humidity_profile, config)
-    ua=config["UA"]||200.0
     occ_hours=config["occupied_hours"]
     bw=config["bin_width_c"]
     fan_base=config["fan_power_base_w"]

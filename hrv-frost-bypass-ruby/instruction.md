@@ -53,6 +53,18 @@ heat_sp is heating setpoint used as approximate indoor temperature for heat reco
 
 **Frost hours:** count hours weighted by bin count when bypass open.
 
+
+
+## Clarifications to remove ambiguity per Quality Review
+
+**Hysteresis state machine ordering:** Because bin method loses temporal order across the year, hysteresis is evaluated per bin in ascending order of outdoor representative temperature (coldest to warmest). This deterministic ordering approximates stateful coupling across temperature regimes and ensures reproducible results independent of input CSV row order beyond temperature values themselves. Initial state at start of sorted sweep is bypass closed. Once opened at a cold bin, it remains open for all colder bins and only closes when ascending sweep crosses frost threshold plus hysteresis band. This is the specified behavior for this task, not per-hour temporal simulation.
+
+**Humidity handling:** indoor humidity generation is specified as constant per occupancy state via moisture_generation_gpers in config, not per-hour timeseries. The humidity_profile argument to annual_hrv is required by function signature for API consistency with other HVAC tasks but is unused in this implementation; tests pass nil. Exhaust humidity ratio is derived directly from indoor humidity ratio calculated from moisture generation rate divided by airflow rate, assuming steady-state moisture balance per occupancy state. No per-hour variation beyond occupancy state switching.
+
+**UA parameter:** UA appears in config schema for consistency with broader HVAC task family but is not directly used in HRV ventilation heat recovery energy calculation, which focuses on sensible heat transfer across heat exchanger not envelope conduction. Implementations may read UA but need not apply it to energy results; reference implementation ignores UA after reading to maintain schema compatibility.
+
+**Output exactness:** return hash keys must be exactly "fan_kwh", "supplementary_heating_kwh", "recovered_kwh", "frost_hours", "total_kwh" with numeric float values. Tolerances are 0.25% relative for recovered energy and fan energy, 2.5% relative for supplementary heating, 2% relative or 1 hour absolute for frost hours, reflecting tight coupling requirements.
+
 ## Functions to implement
 
 ```ruby
