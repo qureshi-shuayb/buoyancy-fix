@@ -54,6 +54,22 @@ heat_sp cool_sp gain_w are heating setpoint C cooling setpoint C and combined in
 
 **AnnualEnergy output.** Sum fan Wh and reheat Wh across all bins convert to kWh dividing by 1000. Return map with keys fan_kwh, reheat_kwh, comfort_degree_hours, total_kwh where total is sum fan + reheat.
 
+
+
+## Worked example for one bin to illustrate coupling
+
+Suppose outdoor temperature bin center t_rep = -5 C, occupancy state occupied with heat_sp 21, cool_sp 24, gain_w 800, UA 200 => Tb_heat = 21 - 800/200 = 17 C, Tb_cool = 24 - 4 = 20 C. Since -5 < 17 we are in heating mode.
+
+Overall temp range across year suppose t_min -10 t_max 30 => range 40, norm = (-5 - (-10))/40 = 0.125, available_static = 75 + 0.125*(250-75) = 96.9 Pa.
+
+Damper authority curve [[50,0.2],[150,0.5],[300,0.9],[500,1.2]] => interp at 96.9 gives max_flow about 0.35 m3/s via linear between 50 and 150.
+
+Min airflow for occupied is 0.15, so airflow = 0.15 capped to max_flow 0.35 => 0.15.
+
+Load = UA*(Tb_heat - t_rep) = 200*(17 - (-5)) = 4400 W. Air heat = airflow * 1200 * (supply_temp - t_rep) = 0.15*1200*(13 - (-5)) = 0.15*1200*18=3240 W. Coil heat = 4400-3240=1160 W. Water flow = 1160/500=2.32 lps. Effectiveness from coil curve [[0,0.3],[2,0.55],[5,0.75],[10,0.85]] via interp gives about 0.58. Heating elec = 1160 /0.58 /0.9 *0.05 ≈ 111 W. Fan power = 0.15*96.9 /0.65 ≈ 22.4 W. Weighted by hours in bin gives Wh contributions.
+
+This example shows how static reset shifts available static, which limits max flow, which interacts with minimum airflow choice, which determines coil heat and fan power simultaneously. Repeat similar logic for cooling mode with deltaT 11 K and required airflow formula, and for deadband floating mode.
+
 ## Functions to implement
 
 ```go
