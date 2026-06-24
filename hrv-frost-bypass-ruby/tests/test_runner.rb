@@ -2,6 +2,7 @@
 require 'minitest/autorun'
 require_relative '/app/hrv_sim'
 
+# Independent reference reimplemented from spec formulas, deliberately structured differently from oracle to verify spec correctness not byte reproduction
 module RefHRV
   def self.interp(x, curve)
     return 0.0 if curve.empty?
@@ -148,6 +149,11 @@ class TestHRV < Minitest::Test
   end
   def test_interp; assert_in_delta 50, HRVSim.interp(5,[[0,0],[10,100]]),1e-6; end
   def test_frost_point; fp=HRVSim.frost_point(0.003); assert fp<-5 && fp>-20; end
+  def test_stdlib_only
+    src=File.read("/app/hrv_sim.rb")
+    assert !src.match(/require\s+['"]\s*(?!csv|math|set|tempfile|json)/), "only csv and math allowed"
+  end
+
   def test_annual_hrv
     scenarios={"cold"=>make_temps(8760,-5,3),"mixed"=>make_temps(8760,5,8),"mild"=>make_temps(8760,12,4),"variable"=>make_temps(8784,2,12)}
     cfg=base_config

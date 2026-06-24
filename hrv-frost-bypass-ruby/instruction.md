@@ -2,7 +2,7 @@
 
 Implement a pure-Ruby numerical model of a heat recovery ventilator serving a commercial building ventilation system with frost control bypass damper, effectiveness derate curve, and supplementary heating to maintain supply temperature setpoint.
 
-Answer depends on four interacting features not scaffolding: bin method per occupancy state evaluating at bin center; time-varying indoor humidity generation schedule affecting frost point; bypass damper hysteresis state machine interacting with supply temperature maintenance; fan power rise with bypass position non-linear.
+Answer depends on four interacting features not scaffolding: bin method per occupancy state evaluating at bin center; indoor humidity generation schedule varying by occupancy state affecting frost point; bypass damper hysteresis state machine interacting with supply temperature maintenance; fan power rise with bypass position non-linear.
 
 These couple so single-miss drifts past tight tolerances 0.25% recovered and 2.5% supplementary.
 
