@@ -55,7 +55,7 @@ ABS = 1e-6
 # Annual energy is graded against a tight fractional tolerance. The interaction-misses
 # drift by far more than this (see the fail-signal tests), so only a correct bin (or
 # per-hour) integration with all four couplings clears it.
-ENERGY_REL = 2e-3   # 0.5%
+ENERGY_REL = 2e-3   # 0.2%
 
 
 def approx(x):
