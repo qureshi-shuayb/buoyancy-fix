@@ -2,7 +2,7 @@
 
 Implement pure-PHP numerical model of air-side economizer with enthalpy-based switchover, sensor bias, integrated blending, low ambient lockout.
 
-Answer depends on four interacting features not scaffolding: bin method per occupancy evaluating at bin average; enthalpy calculation via psychrometrics requiring Hyland-Wexler saturation pressure two-branch no closed form; sensor fault bias applied to control decision but true enthalpy used for energy; integrated blending non-linear dependent on enthalpy differential; low ambient lockout.
+Answer depends on four interacting features not scaffolding: bin method evaluating at bin average; enthalpy calculation via psychrometrics requiring Hyland-Wexler saturation pressure two-branch no closed form; sensor fault bias applied to control decision but true enthalpy used for energy; integrated blending non-linear dependent on enthalpy differential; low ambient lockout.
 
 These couple so single-miss drifts past tight 0.25% tolerance on net savings.
 
@@ -29,7 +29,7 @@ All parameters passed as single config associative array with exactly these keys
 annual_economizer must return associative array with exactly these keys:
 
 - "fan_extra_kwh" float total extra fan electrical energy consumed due to economizer operation in kWh
-- "compressor_saved_kwh" float total compressor electrical energy saved by using free cooling instead of mechanical cooling in kWh, baseline compressor power assumed 1000 W per hour when mechanical cooling active
+- "compressor_saved_kwh" float total compressor electrical energy saved by using free cooling instead of mechanical cooling in kWh, baseline compressor power assumed 1000 W when mechanical cooling active
 - "net_savings_kwh" float net savings = compressor_saved_kwh - fan_extra_kwh
 - "mode_hours" associative array with keys "economizer", "mechanical", "blending" each mapping to total hours count (float or int) spent in that mode across year weighted by bin counts
 
@@ -55,10 +55,10 @@ Mode selection logic per bin in order:
 - Else if h_out_perc < h_ret AND h_out_perc >= h_ret - differential_threshold then mode = blending (integrated partial).
 - Else mode = mechanical.
 
-**Energy calculation using true enthalpy:** baseline compressor power assumed 1000 W per hour when mechanical cooling would otherwise run. This constant 1000 W is part of specification and must be used for saved energy calculation to ensure deterministic outputs across implementations.
+**Energy calculation using true enthalpy:** baseline compressor power is 1000 W. Energy saved per hour of economizer operation is 1000 Wh, converted to kWh by dividing total Wh by 1000. This constant is part of specification and must be used to ensure deterministic outputs across implementations.
 
-- Economizer mode: compressor saved = 1000 W * hours, fan extra = fan_extra_power_w * hours.
-- Blending mode: blending ratio = max(0, min(1, (h_ret - h_out_true) / differential_threshold )). This linear ratio determines proportion of free cooling versus mechanical. Compressor saved = 1000 W * ratio * hours. Fan extra = fan_extra_power_w * ratio * hours.
+- Economizer mode: compressor saved = 1000 W × hours (Wh), fan extra = fan_extra_power_w × hours (Wh).
+- Blending mode: blending ratio = max(0, min(1, (h_ret - h_out_true) / differential_threshold )). This linear ratio determines proportion of free cooling versus mechanical. Compressor saved = 1000 W × ratio × hours (Wh). Fan extra = fan_extra_power_w × ratio × hours (Wh).
 - Mechanical mode: saved 0 fan extra 0.
 
 Sum across bins convert Wh to kWh dividing by 1000. Net savings = compressor saved - fan extra.
@@ -81,7 +81,7 @@ annual_economizer must return associative array with keys "fan_extra_kwh", "comp
 1. Language PHP 8+, standard library only.
 2. File location /app/econ_sim.php.
 3. Function signatures exactly as listed.
-4. Bin method per occupancy state at bin average (here per temperature bin, occupancy not used but keep API).
+4. Bin method at bin average per temperature bin. Function interp must implement linear interpolation with clamp as specified for API completeness; annual_economizer uses bin averaging not interp.
 5. Psychrometric enthalpy via Hyland-Wexler two-branch no closed form.
 6. Sensor bias applied to control decision only, true enthalpy used for energy.
 7. Integrated blending linear ratio formula as specified.
@@ -89,6 +89,7 @@ annual_economizer must return associative array with keys "fan_extra_kwh", "comp
 9. Units C kJ/kg W kWh hours. Reconcile conversions.
 10. Robust 8760 8784 handling skip malformed.
 11. Deterministic pure functions.
+12. Implementation must respect sensor_bias_db and sensor_bias_wb in control decision; test suite verifies that changing these parameters from baseline alters net savings by at least 1% relative to detect hardcoded outputs or ignored config.
 
 ## No cheating
 
