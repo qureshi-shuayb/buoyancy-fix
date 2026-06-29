@@ -4,7 +4,7 @@ Implement pure-PHP numerical model of air-side economizer with enthalpy-based sw
 
 Answer depends on four interacting features not scaffolding: bin method evaluating at bin average; enthalpy calculation via psychrometrics requiring Hyland-Wexler saturation pressure two-branch no closed form; sensor fault bias applied to control decision but true enthalpy used for energy; integrated blending non-linear dependent on enthalpy differential; low ambient lockout.
 
-These couple so single-miss drifts past tight 0.1% tolerance on net savings.
+These couple so single-miss drifts past tight 0.08% tolerance on net savings.
 
 Implement single file at `/app/econ_sim.php`, PHP standard library only. Expose exactly functions listed below.
 
