@@ -30,7 +30,7 @@ def simulate(dt,n_steps,pump_speed,steam_demand,initial_power,decay_heat_frac,M_
         Qsg=min(sd, Qsg_cap)
         dTso=(m*cp*(Tco_next-Tci)-Qsg)/(M_sg*cp)
         # SG outlet temperature evolves via explicit Euler
-        Tso = T_so[-1] + dt*(m*cp*(Tco_next - T_so[-1]) - Qsg)/(M_sg*cp)
+        Tso = T_so[-1] + dt*dTso
         # pressurizer simple
         Tavg=(Tco_next+Tso)/2
         Tavg_prev=(T_co[-1]+T_so[-1])/2
