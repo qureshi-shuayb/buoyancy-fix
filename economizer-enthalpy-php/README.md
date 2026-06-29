@@ -6,13 +6,13 @@ A pure-PHP numerical modeling task implementing air-side economizer with enthalp
 ## Completion Rates
 | Model | Pass Rate |
 |-------|-----------|
-| Oracle | 3/3 (100%) expected to hold |
+| Oracle | 3/3 (100%) |
 | Opus 4.6 | 0/5 (0%) post v1.1, pending v1.3 |
 | Sonnet 4.6 | _pending_ |
-| Avocado (Metacode) | 5/5 pre-v1.3, pending v1.3 tightening |
-| Codex (non-gating) | 2/5 pre-v1.3 |
+| Avocado (Metacode) | 5/5 pre-v1.3, 5/5 post-v1.3, pending v1.4 |
+| Codex (non-gating) | 2/5 |
 
-Oracle validated locally 5/5 via podman and 3/3 on Codimango cloud validation after v1.1 spec fix. Spec-test alignment fix applied in instruction.md v1.1 to resolve bin-average vs bin-center contradiction. v1.2 addresses QR Revise feedback with documented drift check, source scan enforcement, spec clarity improvements, and subprocess isolation for agent execution.
+Oracle validated locally via podman and 3/3 on Codimango cloud validation after v1.1 spec fix and after v1.3 tightening. Spec-test alignment fix applied in instruction.md v1.1 to resolve bin-average vs bin-center contradiction. v1.2 addresses QR Revise feedback with documented drift check, source scan enforcement, spec clarity improvements, and subprocess isolation for agent execution.
 
 ## Model Analysis
 
