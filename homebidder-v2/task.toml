@@ -2,6 +2,8 @@ schema_version = "1.1"
 
 [task]
 name = "codimango/homebidder-v2"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
 description = "Implement a TypeScript/Express property-marketplace REST API (Homebidder): users list properties and make offers; sellers accept/reject/counter; an alternating offer/counter chain where each counter rejects the prior offer and creates a new one with flipped party, a seller counter locks the listing (PENDING) until the buyer responds, accept marks the listing SOLD and cascade-rejects all other offers, and offers expire against a test-controlled virtual clock. Two coupled state machines, deterministic status-code grading."
 authors = []
 keywords = ["typescript", "express", "rest-api", "state-machine", "web-backend", "marketplace", "offers", "virtual-clock"]

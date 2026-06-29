@@ -2,6 +2,8 @@ schema_version = "1.1"
 
 [task]
 name = "codimango/thermostat-heatpump-v2"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
 description = "Implement a Python day-long simulation of a single-zone (1R1C) building heated by a deadband/hysteresis thermostat driving an air-source heat pump, with three interacting realism effects: anti-short-cycle minimum compressor run-time/off-time that overrides the bare deadband, periodic defrost cycles inside a defrost band (no useful heat delivered, degraded COP, backup fills the gap), and part-load cycling degradation PLF = 1 - Cd*(1 - PLR) on the effective COP. A heat-pump capacity limit plus backup resistance heat (COP=1) cover any shortfall, including defrost gaps. The simulator integrates the zone ODE with the exact analytic update, runs the coupled control/defrost/part-load state machine, accounts for heat-pump, defrost, and backup electricity, and reports total energy (kWh) and comfort violations (degree-hours outside the deadband). Deterministic numeric grading against an independent reference; naive implementations (instantaneous deadband, fixed/curve-only COP, no defrost, no Cd) drift well past tight energy and comfort tolerances."
 authors = []
 keywords = ["python", "simulation", "control-systems", "hvac", "heat-pump", "thermostat", "hysteresis", "defrost", "part-load", "anti-short-cycle", "state-machine", "numerical-integration", "energy"]

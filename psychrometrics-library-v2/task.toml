@@ -2,6 +2,8 @@ schema_version = "1.1"
 
 [task]
 name = "codimango/psychrometrics-library-v2"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
 description = "Implement a dependency-free Python psychrometrics library (SI units) exposing saturation vapor pressure, humidity ratio, relative humidity, dew point, moist-air enthalpy, and an iteratively-solved wet-bulb temperature at a configurable atmospheric pressure. Outputs are graded against an independent ASHRAE-based reference (psychrolib) across a grid of temperatures, humidities, and pressures including saturated, very-dry, and altitude edge cases; the wet-bulb solve has no closed form and the solution may not wrap a psychrometrics library."
 authors = []
 keywords = ["python", "psychrometrics", "hvac", "numerical-methods", "root-finding", "ashrae", "feature-implementation"]
