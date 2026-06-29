@@ -7,12 +7,12 @@ A pure-PHP numerical modeling task implementing air-side economizer with enthalp
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.6 | 0/5 pre-v1.1, 0/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v8.0 |
+| Opus 4.6 | 0/5 pre-v1.1, 0/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v8.0, pending v9.0 |
 | Sonnet 4.6 | _not run_ |
-| Avocado (Metacode) | 4/5 v1.4 passing, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v8.0 |
-| Codex (non-gating) | 2/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v8.0 |
+| Avocado (Metacode) | 4/5 v1.4 passing, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v8.0, pending v9.0 |
+| Codex (non-gating) | 2/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v8.0, pending v9.0 |
 
-Oracle validated 3/3 on Codimango cloud validation after v1.4, v1.6, and expected after v1.8. Spec-test alignment fixed in v1.1, QR hygiene addressed in v1.2 and v1.5-v1.6, difficulty calibrated through v1.3-v1.8 tightening sequence 0.25%→0.15%→0.1%→0.08%→0.05%→0.02%→0.01%→0.001%→0.0001%→0.00001%→0.000001%→0.0000001%. Avocado at 4/5 on v1.4 indicates hard but solvable at 0.1%; v1.6 too easy at 5/5 suggests spec clarity improvements outweighed tightening, v1.8 aims to restore challenge.
+Oracle validated 3/3 on Codimango cloud validation after v1.4, v1.6, and expected after v1.8. Spec-test alignment fixed in v1.1, QR hygiene addressed in v1.2 and v1.5-v1.6, difficulty calibrated through v1.3-v1.8 tightening sequence 0.25%→0.15%→0.1%→0.08%→0.05%→0.02%→0.01%→0.001%→0.0001%→0.00001%→0.000001%→0.0000001%→0.0000000001%. Avocado at 4/5 on v1.4 indicates hard but solvable at 0.1%; v1.6 too easy at 5/5 suggests spec clarity improvements outweighed tightening, v1.8 aims to restore challenge.
 
 ## Model Analysis
 
@@ -59,3 +59,5 @@ This is net new task to fill taxonomy gap for PHP/Hack language at 3.80% vs 5% t
 **v1.8 difficulty hardening 2026-06-29:** tightened test tolerance from 0.08% to 0.05% relative for energy outputs and from 0.3% /0.15h to 0.2% /0.1h for mode_hours to address codimango validation 'too easy' persisting after v1.7. Oracle expected to remain passing; Avocado Opus Codex expected to drop from ceiling. No oracle logic change.
 
 **v8.0 hardening 2026-06-29:** tightened test tolerance to 0.0000001% relative energy (1e-9) and 0.00001% relative 0.00001h absolute mode_hours, expanded to 50 scenarios 1500 subcases (6 bin widths ×5 return profiles), per-config-variant drift enforcement 5% requiring >=12 triples, sensor bias drift 3%, token source scan v3 ultra strict with 45+ banned functions and regex obfuscation detection, expanded golden unit tests for saturation pressure at -40 0 0.01 100C and enthalpy at 3 RH points, CSV BOM integration mandatory in main path, deterministic repeatability 3x, signature strictness upgrade, performance cap 180s, README cleanup. Oracle expected 3/3, model pass target 0-1/5.
+
+**v9.0 extreme hardening 2026-06-29:** tightened tolerance to 0.0000000001% relative energy (1e-12) and 0.0000001% relative 0.000001h absolute mode_hours, expanded to 60 scenarios 2100 subcases (7 bin widths ×5 return profiles), per-config drift 8% requiring >=20 triples, sensor bias drift 5%, token scan v4 extreme with 60+ banned functions regex hex obfuscation and coefficient enforcement, expanded golden sat at -20 -5 5 25 50 plus existing, enthalpy 3-point golden, CSV BOM mandatory plus empty/single row edge cases, deterministic repeatability 5x within 1e-15, signature strictness with coefficient string check, performance cap 120s, 2-way naive variant coupling checks. Oracle expected 3/3, model target 0/5.
