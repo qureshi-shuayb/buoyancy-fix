@@ -7,12 +7,12 @@ A pure-PHP numerical modeling task implementing air-side economizer with enthalp
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.6 | 0/5 pre-v1.1, 0/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0 |
+| Opus 4.6 | 0/5 pre-v1.1, 0/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0 |
 | Sonnet 4.6 | _not run_ |
-| Avocado (Metacode) | 4/5 v1.4 passing, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0 |
-| Codex (non-gating) | 2/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0 |
+| Avocado (Metacode) | 4/5 v1.4 passing, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0 |
+| Codex (non-gating) | 2/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0 |
 
-Oracle validated 3/3 on Codimango cloud validation after v1.4, v1.6, and expected after v1.8. Spec-test alignment fixed in v1.1, QR hygiene addressed in v1.2 and v1.5-v1.6, difficulty calibrated through v1.3-v1.8 tightening sequence 0.25%→0.15%→0.1%→0.08%→0.05%→0.02%→0.01%→0.001%→0.001%→0.01%→0.001%. Avocado at 4/5 on v1.4 indicates hard but solvable at 0.1%; v1.6 too easy at 5/5 suggests spec clarity improvements outweighed tightening, v1.8 aims to restore challenge.
+Oracle validated 3/3 on Codimango cloud validation after v1.4, v1.6, and expected after v1.8. Spec-test alignment fixed in v1.1, QR hygiene addressed in v1.2 and v1.5-v1.6, difficulty calibrated through v1.3-v1.8 tightening sequence 0.25%→0.15%→0.1%→0.08%→0.05%→0.02%→0.01%→0.001%→0.0001%→0.001%→0.01%→0.001%. Avocado at 4/5 on v1.4 indicates hard but solvable at 0.1%; v1.6 too easy at 5/5 suggests spec clarity improvements outweighed tightening, v1.8 aims to restore challenge.
 
 ## Model Analysis
 
