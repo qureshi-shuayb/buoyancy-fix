@@ -13,7 +13,7 @@ Create a single module at exactly:
 ```
 
 It must expose the six functions below as **module-level functions** with exactly
-these names and signatures.
+these names and signatures. Each function must accept either a scalar float/int **or** a list/tuple of numbers and return the same shape (scalar -> scalar float, list/tuple -> list of floats same length). Scalar arguments broadcast across list arguments elementwise. Use only Python standard library `math`, no numpy or similar.
 
 ## Units and conventions
 
@@ -48,6 +48,8 @@ def wet_bulb(t_db, rh, p=101325):
 ```
 
 ## Governing relations
+
+- **Vectorized API**: each function must accept scalar float/int or list/tuple and return same shape. If any argument is a list/tuple, apply elementwise with scalar broadcasting for other arguments. Use only `math` module, no numpy. Output type must match input container type shape: scalar in -> scalar float out, list/tuple in -> list out same length. This breaks standard single-value recall implementations from the web.
 
 - **Saturation pressure** `sat_pressure(t_db)` must follow the ASHRAE/Hyland–Wexler
   saturation-pressure correlation (a log-polynomial in absolute temperature) with
@@ -126,16 +128,16 @@ Your outputs are compared against an independent ASHRAE-based reference (`psychr
 with the task-specified enhancement factor applied, across a grid of dry-bulb
 temperatures, relative humidities, and pressures (including sea level 101325 Pa
 and ~90 kPa altitude case) plus edge cases (saturated air `rh=1.0`,
-very dry air `rh=0.05`). All three test groups must pass.
+very dry air `rh=0.05`). All four test groups must pass.
 
 **Explicit tolerances — restored to v1 proven difficulty calibration:**
 
 | Quantity | Tolerance |
 |----------|-----------|
-| Humidity ratio `W` | 5e-5 kg/kg |
-| Relative humidity  | 0.2% (0.002) |
-| Dew point          | 0.15 °C |
-| Enthalpy           | 0.15 kJ/kg |
-| Wet-bulb           | 0.15 °C |
+| Humidity ratio `W` | 2e-5 kg/kg |
+| Relative humidity  | 0.1% (0.001) |
+| Dew point          | 0.1 °C |
+| Enthalpy           | 0.1 kJ/kg |
+| Wet-bulb           | 0.1 °C |
 
-Grid evaluated: T in [-10,-5,0,10,20,25,30,35,40,45] °C, RH in [0.05,0.2,0.5,0.8,0.95,0.99], P in [70000,90000,101325,110000] Pa, plus fifteen edge cases covering saturated and very dry at sea level, altitude, high altitude 700hPa, sub-zero ice branch, and hot extremes. The three hard parts remain saturation pressure ASHRAE correlation with ice branch plus non-canonical enhancement factor, iterative wet-bulb solve at cold/dry edge and high altitude where models historically fail, and spec-following over recall with tightened tolerances.
+Grid evaluated: T in [-20,-10,-5,0,10,20,25,30,35,40,45,50] °C, RH in [0.01,0.05,0.2,0.5,0.8,0.95,0.99,0.999], P in [60000,70000,90000,101325,110000,120000] Pa, plus twenty-three edge cases covering saturated and very dry at sea level, altitude, high altitude 700hPa and very high altitude 600hPa, sub-zero ice branch down to -20C, and hot extremes to 50C. The four hard parts remain saturation pressure ASHRAE correlation with ice branch plus non-canonical enhancement factor, iterative wet-bulb solve at cold/dry edge and high altitude where models historically fail, and spec-following over recall with tightened tolerances.

@@ -4,9 +4,9 @@ schema_version = "1.1"
 name = "codimango/psychrometrics-library-v2"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
-description = "Implement a dependency-free Python psychrometrics library (SI units) exposing saturation vapor pressure with task-specified enhancement factor f_e(t)=1+A+B*t+C*t^2, humidity ratio, relative humidity, dew point, moist-air enthalpy, and iteratively-solved wet-bulb at configurable pressure. Enhancement factor is non-canonical and defined only in spec, forcing spec-following over recall. Outputs graded against ASHRAE base plus enhancement across grid including saturated, very-dry, altitude; wet-bulb has no closed form; solution may not wrap psychrometrics library."
+description = "Implement a dependency-free Python psychrometrics library (SI units) exposing saturation vapor pressure with task-specified enhancement factor f_e and vectorized scalar-or-sequence API f_e(t)=1+A+B*t+C*t^2, humidity ratio, relative humidity, dew point, moist-air enthalpy, and iteratively-solved wet-bulb at configurable pressure. Enhancement factor is non-canonical and defined only in spec, forcing spec-following over recall and vectorized API handling using only math. Outputs graded against ASHRAE base plus enhancement across grid including saturated, very-dry, altitude; wet-bulb has no closed form; solution may not wrap psychrometrics library."
 authors = []
-keywords = ["python", "psychrometrics", "hvac", "numerical-methods", "root-finding", "ashrae", "feature-implementation", "spec-following"]
+keywords = ["python", "psychrometrics", "hvac", "numerical-methods", "root-finding", "ashrae", "feature-implementation", "spec-following", "vectorized"]
 
 [metadata]
 difficulty = "medium"
