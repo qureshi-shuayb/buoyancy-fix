@@ -10,7 +10,7 @@ Implement single file at `/app/econ_sim.php`, PHP standard library only. Expose 
 
 ## Input CSV
 
-Hourly outdoor dry-bulb and wet-bulb temperature CSV with header hour,temp_db,temp_wb similar pattern, plus return air DB WB profiles passed as arrays to annual function. Normal year 8760 rows leap year 8784. Skip malformed rows gracefully keeping valid temperatures in order. Surviving row position defines hour-of-day as index %24.
+Hourly outdoor dry-bulb and wet-bulb temperature CSV with header hour,temp_db,temp_wb similar pattern, plus return air DB WB profiles passed as arrays to annual function. Normal year 8760 rows leap year 8784. Skip malformed rows gracefully keeping valid temperatures in order. Surviving row position defines hour-of-day as index %24. Header column name matching is case-insensitive; accepted dry-bulb column names are temp_db or temp_c. Malformed rows are those where dry-bulb field is missing, empty string, or non-numeric — skip them preserving order of remaining valid rows. Wet-bulb column is expected at index 2 by position in test data; read_temps function only needs to return dry-bulb array per required signature, though full CSV parsing robustness is encouraged.
 
 ## Configuration associative array schema
 
