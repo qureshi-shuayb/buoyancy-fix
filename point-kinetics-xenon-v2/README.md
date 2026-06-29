@@ -25,7 +25,7 @@ Plus contract checks and scalar-vs-list equivalence. Verifier writes `/logs/veri
 ## Completion Rates
 | Agent | Pass rate |
 |-------|-----------|
-| Oracle | 5/5 local validate.py |
+| Oracle | 3/3 codimango |
 | Sonnet | TBD |
 
 ## Anti-Cheating Analysis
