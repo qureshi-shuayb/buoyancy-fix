@@ -7,14 +7,16 @@ A pure-PHP numerical modeling task implementing air-side economizer with enthalp
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.6 | 0/5 pre-v1.1, 0/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v7.0, pending v6.0, pending v7.0 |
+| Opus 4.6 | 0/5 pre-v1.1, 0/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v8.0 |
 | Sonnet 4.6 | _not run_ |
-| Avocado (Metacode) | 4/5 v1.4 passing, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v7.0, pending v6.0, pending v7.0 |
-| Codex (non-gating) | 2/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v7.0, pending v6.0, pending v7.0 |
+| Avocado (Metacode) | 4/5 v1.4 passing, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v8.0 |
+| Codex (non-gating) | 2/5 v1.4, 5/5 v1.6 too easy, pending v1.8, pending v1.9, pending v2.0, pending v3.0, pending v4.0, pending v5.0, pending v6.0, pending v7.0, pending v8.0 |
 
-Oracle validated 3/3 on Codimango cloud validation after v1.4, v1.6, and expected after v1.8. Spec-test alignment fixed in v1.1, QR hygiene addressed in v1.2 and v1.5-v1.6, difficulty calibrated through v1.3-v1.8 tightening sequence 0.25%→0.15%→0.1%→0.08%→0.05%→0.02%→0.01%→0.001%→0.0001%→0.00001%→0.000001%→0.00001%→0.000001%→0.000001%→0.0001%→0.001%→0.01%→0.001%. Avocado at 4/5 on v1.4 indicates hard but solvable at 0.1%; v1.6 too easy at 5/5 suggests spec clarity improvements outweighed tightening, v1.8 aims to restore challenge.
+Oracle validated 3/3 on Codimango cloud validation after v1.4, v1.6, and expected after v1.8. Spec-test alignment fixed in v1.1, QR hygiene addressed in v1.2 and v1.5-v1.6, difficulty calibrated through v1.3-v1.8 tightening sequence 0.25%→0.15%→0.1%→0.08%→0.05%→0.02%→0.01%→0.001%→0.0001%→0.00001%→0.000001%→0.0000001%. Avocado at 4/5 on v1.4 indicates hard but solvable at 0.1%; v1.6 too easy at 5/5 suggests spec clarity improvements outweighed tightening, v1.8 aims to restore challenge.
 
 ## Model Analysis
+
+**v8.0 expectation:** near-zero model pass rate after tightening to 1e-9 relative tolerance, 50 scenarios 1500 subcases, per-config drift 5%, token regex scan, expanded golden, CSV main path, performance cap.
 
 ### Oracle
 3/3 passed on Codimango cloud validation across v1.1, v1.3, v1.4 commits. Local podman validation also passes consistently. Reference solution stable using bin-average representative temperature matching test_runner independent reference.
@@ -55,3 +57,5 @@ This is net new task to fill taxonomy gap for PHP/Hack language at 3.80% vs 5% t
 **v1.2 QR Revise address 2026-06-29:** instruction.md clarified Requirements 4 and 12 to document sensor bias drift check and remove vestigial occupancy wording, clarified 1000W baseline energy phrasing to Wh units. tests/test_runner.php adds source scan enforcement for stdlib-only and shell/network ban matching README claim, and isolates agent execution in subprocess via agent_annual() to address same-process oracle exposure C18 variant. README updated with post-fix Codimango rates Oracle 3/3 Opus 0/5 Avocado 5/5 Codex 2/5 and Model Analysis expanded. No change to oracle solution logic.
 
 **v1.8 difficulty hardening 2026-06-29:** tightened test tolerance from 0.08% to 0.05% relative for energy outputs and from 0.3% /0.15h to 0.2% /0.1h for mode_hours to address codimango validation 'too easy' persisting after v1.7. Oracle expected to remain passing; Avocado Opus Codex expected to drop from ceiling. No oracle logic change.
+
+**v8.0 hardening 2026-06-29:** tightened test tolerance to 0.0000001% relative energy (1e-9) and 0.00001% relative 0.00001h absolute mode_hours, expanded to 50 scenarios 1500 subcases (6 bin widths ×5 return profiles), per-config-variant drift enforcement 5% requiring >=12 triples, sensor bias drift 3%, token source scan v3 ultra strict with 45+ banned functions and regex obfuscation detection, expanded golden unit tests for saturation pressure at -40 0 0.01 100C and enthalpy at 3 RH points, CSV BOM integration mandatory in main path, deterministic repeatability 3x, signature strictness upgrade, performance cap 180s, README cleanup. Oracle expected 3/3, model pass target 0-1/5.
