@@ -32,18 +32,18 @@ foreach($scenarios as $name=>$tdb){
   $ref=ref_annual($tdb,$twb,$rdb,$rwb,$cfg);
   $got=agent_annual($tdb,$twb,$rdb,$rwb,$cfg);
   foreach(["fan_extra_kwh","compressor_saved_kwh","net_savings_kwh"] as $k){
-    if(!approx($got[$k],$ref[$k],0.0025)){echo "FAIL $name $k got {$got[$k]} want {$ref[$k]}\n"; $all_pass=false;}
+    if(!approx($got[$k],$ref[$k],0.0015)){echo "FAIL $name $k got {$got[$k]} want {$ref[$k]}\n"; $all_pass=false;}
   }
   // assert mode_hours keys exist and sum to total hours within tolerance
   if(!isset($got["mode_hours"]) || !isset($got["mode_hours"]["economizer"]) || !isset($got["mode_hours"]["mechanical"]) || !isset($got["mode_hours"]["blending"])){ echo "FAIL $name mode_hours missing keys\n"; $all_pass=false; } else {
     $sum = $got["mode_hours"]["economizer"] + $got["mode_hours"]["mechanical"] + $got["mode_hours"]["blending"];
     $expected = count($tdb);
     if(abs($sum-$expected)>1){ echo "FAIL $name mode_hours sum $sum vs $expected\n"; $all_pass=false; }
-    // compare mode_hours to reference within 2% relative or 1 hour absolute
+    // compare mode_hours to reference within 1% relative or 0.5 hour absolute
     foreach(["economizer","mechanical","blending"] as $mk){
         $rv = $ref["mode_hours"][$mk] ?? 0;
         $gv = $got["mode_hours"][$mk] ?? 0;
-        if(!approx($gv,$rv,0.02,1.0)){ echo "FAIL $name mode_hours $mk got $gv want $rv\n"; $all_pass=false; }
+        if(!approx($gv,$rv,0.01,0.5)){ echo "FAIL $name mode_hours $mk got $gv want $rv\n"; $all_pass=false; }
     }
   }
   // fail signal naive drift check comparing reference to reference to prove problem space drift exists, and also compare agent to naive to ensure agent not implementing naive shortcut
