@@ -156,3 +156,18 @@ def test_banned_interpolator():
     banned_sub = ["griddata","LinearNDInterpolator","CloughTocher","NearestNDInterpolator","RBFInterpolator","interp2d","RegularGridInterpolator"]
     for b in banned_sub:
         assert b not in src, f"banned interpolator {b} found"
+def test_clamp():
+    # clamp branch must be exercised with out-of-range eta values in hill
+    hill = [(0.4,60,1.5),(0.5,62,0.9),(0.6,71,-0.3),(0.7,73,0.85)]
+    # query near first point should interpolate >1 then clamp to 1.0, near third point clamp to 0.0
+    v1 = agent.interp_hill(0.4,60,hill)
+    assert 0.0 <= v1 <= 1.0
+    # force out of hull returns 0 already tested, now test in-hull clamp
+    # create hill where barycentric would exceed without clamp via extreme values
+    hill2 = [(0.0,0.0,2.0),(1.0,0.0,2.0),(0.0,1.0,2.0)]
+    v2 = agent.interp_hill(0.33,0.33,hill2)
+    assert v2 == 1.0
+    hill3 = [(0.0,0.0,-1.0),(1.0,0.0,-1.0),(0.0,1.0,-1.0)]
+    v3 = agent.interp_hill(0.33,0.33,hill3)
+    assert v3 == 0.0
+

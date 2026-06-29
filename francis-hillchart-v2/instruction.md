@@ -34,38 +34,28 @@ Create `/app/francis_hill.py` with exactly these signatures.
 
 ### interp_hill(q11: float, n11: float, hill: list) -> float
 
-Barycentric interpolation on Delaunay triangulation.
+Spatial interpolation on scattered hill chart data.
 
 * `hill` : list of tuples `(q11_i, n11_i, eta_i)` length 30 to 80 deterministic per test seed.
-* Must use `scipy.spatial.Delaunay` for triangulation. Do not use `LinearNDInterpolator`, `griddata`, `CloughTocher`, `NearestNDInterpolator`, `RBFInterpolator`, `interp2d`, `RegularGridInterpolator`, sklearn, or other interpolators. Only Delaunay-based barycentric weights are accepted within 1e-6 tolerance.
-* Algorithm requirements:
-  - Construct Delaunay triangulation from hill points interpreted as 2D coordinates (q11, n11) with associated eta values.
-  - Locate the simplex containing query point (q11, n11) using the triangulation's point-location method. If outside convex hull, return 0.0 without extrapolation.
-  - Compute barycentric weights for the three vertices of containing triangle using the triangulation's affine transform. Interpolate eta as weighted sum of vertex eta values.
-  - Clamp result to [0.0, 1.0] range.
+* Must use `scipy.spatial.Delaunay` for triangulation. Do not use `LinearNDInterpolator`, `griddata`, `CloughTocher`, `NearestNDInterpolator`, `RBFInterpolator`, `interp2d`, `RegularGridInterpolator`, sklearn, or other interpolators. Only Delaunay-based interpolation is accepted within 1e-6 tolerance against reference.
+* Requirements: construct Delaunay triangulation from hill points as 2D coordinates with associated eta values. Locate containing simplex for query point using point-location. If outside convex hull return 0.0 without extrapolation. Interpolate eta via barycentric weights of triangle vertices and clamp result to [0.0, 1.0] range before returning.
 * Return 0.0 if outside convex hull. Do not extrapolate.
-* Tests enforce 1e-6 absolute accuracy against independent reference using same Delaunay barycentric method, so alternative interpolators will deviate beyond tolerance.
+* Tests enforce 1e-6 absolute accuracy against independent reference, so alternative interpolators will deviate beyond tolerance.
 
 ### find_bep(H: float, P_req: float, hill: list, limits: dict) -> dict
 
-Find operating point meeting power request at maximum efficiency using nested golden-section search.
+Find operating point meeting power request at maximum efficiency.
 
 `limits` dict keys: `D`, `Qmin`, `Qmax`, `nmin`, `nmax`, `rho` default 1000, `g` default 9.81, `sigma_crit`, `Hs`.
 
-Golden-section requirements:
-* Use golden ratio phi = (1+sqrt(5))/2 and resphi = 2-phi for interval shrinkage.
-* Perform exactly 40 iterations per search level to achieve required 1% precision on Q and n.
-* Inner level maximizes eta over n for fixed Q. Outer level minimizes absolute power error |P(Q)-P_req| over Q.
-
-Algorithm outline:
-1. For a given discharge Q, compute unit discharge Q11. Define inner objective over speed n that computes unit speed n11, calls interp_hill to get eta, and returns eta for maximization.
-2. Run golden-section search over n in [nmin, nmax] for 40 iterations to find n maximizing eta. Return best n and corresponding eta.
-3. Compute power P = rho * g * H * Q * eta for that Q.
-4. Define outer objective as absolute difference between P(Q) and P_req. Run golden-section search over Q in [Qmin, Qmax] for 40 iterations minimizing this error.
-5. After convergence obtain Q_opt, then recompute n_opt and eta_opt via inner search, compute P_opt.
-6. Compute Q11_opt and n11_opt using unit formulas.
-7. Compute cavitation margin via cavitation_margin function. If margin < 0, set eta_opt to 0.0 and recompute P_opt as zero to signal unsafe condition, but still return full dict structure without raising exception.
-8. Return dict with float values for keys Q, n, eta, P, Q11, n11 in that exact set.
+Task requirements:
+* For a given discharge Q, determine speed n within [nmin,nmax] that maximizes efficiency eta obtained via interp_hill at corresponding unit values Q11 and n11.
+* Compute power P = rho * g * H * Q * eta for that Q using best n.
+* Find Q within [Qmin,Qmax] minimizing absolute difference between P(Q) and P_req to within 1% relative tolerance on Q and n.
+* Use nested one-dimensional optimization with sufficient iterations to achieve required precision; reference implementation uses golden-section search.
+* After convergence obtain Q_opt, n_opt, eta_opt, P_opt. Compute Q11_opt and n11_opt using unit formulas.
+* Compute cavitation margin via cavitation_margin function. If margin < 0 set eta_opt to 0.0 and P_opt to 0 to signal unsafe condition, but still return full dict structure without raising exception.
+* Return dict with float values for keys Q, n, eta, P, Q11, n11 in that exact set.
 
 Tolerances for grading: Q within 1% relative, n within 1% relative, eta within 0.005 absolute, P within 2% relative.
 
@@ -87,16 +77,18 @@ Allowed libraries: python standard library, numpy, scipy.spatial only. Do not im
 * Qmin 10 Qmax 200 scaled per case, nmin 100 nmax 600 rpm
 * hill points 30-80 per case generated deterministically per seed with eta in 0.7-0.94 and single smooth peak near Q11~0.6 n11~70
 * Randomized seeds prevent hardcoding.
+* Tests enforce 1e-6 interpolation accuracy, 1% Q/n, 0.005 eta, 2% P tolerances. Sufficient optimization iterations required to meet these tolerances; reference uses 40 iterations per level.
 
 ## Naive Failure Modes Tests Catch
 
 * Nearest-neighbor instead of barycentric -> eta error >0.01 off grid
 * Using scipy griddata or LinearNDInterpolator -> weight difference beyond tolerance and banned import check fails
 * Constant eta assumption -> power error >10%
-* Ignoring cavitation margin check -> unsafe point not flagged in separate test
+* Ignoring cavitation margin check -> unsafe point not flagged in separate test including unsafe margin case expecting eta 0
 * Wrong Q11 or n11 formula missing D or sqrt(H) -> systematic bias >5%
-* Golden-section fewer than 40 iterations -> insufficient 1% precision
+* Insufficient optimization iterations -> insufficient 1% precision
 * Extrapolating outside hull instead of returning 0 -> false efficiency
+* Missing clamp to [0,1] -> out of range eta fails clamp test with out-of-range hill values
 
 ## Example Usage
 
@@ -111,6 +103,7 @@ margin = cavitation_margin(95.0, out["Q"], out["n"], 0.08, -2.5, 3.2)
 ## Anti-Cheating Notes
 
 * Hill chart randomized per test seed; hard-coded outputs fail.
-* Barycentric weights via Delaunay transform required for 1e-6 accuracy; alternative interpolators deviate beyond tolerance and are banned via import check.
-* Golden-section 40 iterations required for 1% precision; coarse search fails tolerance.
-* Cavitation check enforced in separate test with varied Hs and sigma_crit including unsafe margin case.
+* Barycentric interpolation via Delaunay required for 1e-6 accuracy; alternative interpolators deviate beyond tolerance and are banned via AST import whitelist check.
+* Sufficient optimization iterations required for 1% precision; coarse search fails tolerance.
+* Cavitation check enforced in separate test with varied Hs and sigma_crit including unsafe margin case expecting eta zero.
+* Clamp behavior tested separately with out-of-range hill values.
