@@ -24,8 +24,8 @@ BASE=dict(dt=1.0,n_steps=100,initial_power=1e8,decay_heat_frac=None,M_core=2e4,M
 def assert_m(o,r):
     for k in ("T_core_out","T_sg_out","flow","pressure"): assert len(o[k])==len(r[k])
     for key in ("T_core_out","T_sg_out","flow","pressure"):
-        for a,b in zip(o[key],r[key]): assert math.isclose(a,b,rel_tol=2e-2,abs_tol=1)
-    assert math.isclose(o["peak_T_core_out"],r["peak_T_core_out"],rel_tol=2e-2); assert math.isclose(o["min_flow"],r["min_flow"],rel_tol=2e-2)
+        for a,b in zip(o[key],r[key]): assert math.isclose(a,b,rel_tol=5e-3,abs_tol=0.5)
+    assert math.isclose(o["peak_T_core_out"],r["peak_T_core_out"],rel_tol=5e-3); assert math.isclose(o["min_flow"],r["min_flow"],rel_tol=5e-3)
 tests=[("normal",dict(BASE,pump_speed=1.0,steam_demand=1e8)),("pump_trip",dict(BASE,n_steps=200,pump_speed=[1.0]*50+[0.0]*150,steam_demand=1e8,trip_time=50)),("steam_step",dict(BASE,steam_demand=[1e8]*50+[1.2e8]*50,pump_speed=1.0)),("loss_feed",dict(BASE,n_steps=150,T_sg_secondary=570,pump_speed=1.0,steam_demand=1e8))]
 ok=True
 for name,p in tests:

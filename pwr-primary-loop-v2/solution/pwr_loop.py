@@ -22,7 +22,7 @@ def simulate(dt,n_steps,pump_speed,steam_demand,initial_power,decay_heat_frac,M_
         Tci=T_so[-1]; Tco=T_co[-1]
         dTco=(Q - m*cp*(Tco-Tci))/(M_core*cp)
         Tco_next=Tco+dt*dTco
-        # SG LMTD simplified
+        # SG LMTD calculation
         dT1=Tco_next-T_sg_secondary; dT2=Tci-T_sg_secondary
         if abs(dT1-dT2)<1e-3: lmtd=(dT1+dT2)/2
         else: lmtd=(dT1-dT2)/math.log(max(dT1,1e-3)/max(dT2,1e-3))

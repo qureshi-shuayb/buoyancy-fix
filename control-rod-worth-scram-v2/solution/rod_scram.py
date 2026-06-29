@@ -21,7 +21,7 @@ def simulate(dt,n_steps,rod_position,rod_total_worth,H,scram_start,scram_duratio
         zp=_at(rod_position,step)
         t=step*dt
         if scram_start is not None and t>=scram_start:
-            frac=min(1.0,(t-scram_start)/scram_duration); zp=H*(1-frac)  # linear drop simplified
+            frac=min(1.0,(t-scram_start)/scram_duration); zp=H*(1-frac)  # linear drop defined
         rho_ext=worth(zp)
         rho_f= alpha_doppler*math.log(max(Tf,1)/T_f0) if use_doppler else 0.0
         rho=rho_ext+rho_f
