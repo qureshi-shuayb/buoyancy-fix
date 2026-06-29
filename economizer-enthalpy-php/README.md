@@ -7,37 +7,38 @@ A pure-PHP numerical modeling task implementing air-side economizer with enthalp
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.6 | 0/5 (0%) post v1.1, pending v1.3 |
-| Sonnet 4.6 | _pending_ |
-| Avocado (Metacode) | 5/5 pre-v1.3, 5/5 post-v1.3, pending v1.4 |
-| Codex (non-gating) | 2/5 |
+| Opus 4.6 | 0/5 (0%) |
+| Sonnet 4.6 | _not run in validation suite_ |
+| Avocado (Metacode) | 4/5 (80%) |
+| Codex (non-gating) | 2/5 (40%) |
 
-Oracle validated locally via podman and 3/3 on Codimango cloud validation after v1.1 spec fix and after v1.3 tightening. Spec-test alignment fix applied in instruction.md v1.1 to resolve bin-average vs bin-center contradiction. v1.2 addresses QR Revise feedback with documented drift check, source scan enforcement, spec clarity improvements, and subprocess isolation for agent execution.
+Oracle validated 3/3 on Codimango cloud validation after v1.4 difficulty hardening. Spec-test alignment fix applied in v1.1, QR Revise addressed in v1.2, difficulty calibrated in v1.3-v1.4. Avocado at 4/5 indicates hard but solvable task with tight 0.1% tolerance providing discrimination; Opus at 0/5 shows reasoning gap on coupled psychrometric features.
 
 ## Model Analysis
 
 ### Oracle
-5/5 passed locally, 3/3 on initial Codimango validation. Reference solution stable using bin-average representative temperature (tdb_sum / count) matching test_runner.php independent reference.
+3/3 passed on Codimango cloud validation across v1.1, v1.3, v1.4 commits. Local podman validation also passes consistently. Reference solution stable using bin-average representative temperature matching test_runner independent reference.
 
-### Opus 4.6 pre-fix and post v1.1
-0/5 on 2026-06-29 batch pre-fix and 0/5 post v1.1 spec fix on Codimango validation 2026-06-29. Pre-fix root cause was spec-test mismatch: instruction L48 previously stated "bin center (bin+0.5)*bin_width_c" while oracle uses bin average. Post v1.1 spec aligns to bin average, yet Opus remains 0/5 indicating genuine reasoning gap beyond spec wording — likely psychrometric formula or sensor bias split or blending ratio implementation error under tight 0.15% tolerance. This validates task difficulty after spec clarification.
+### Opus 4.6
+0/5 on 2026-06-29 pre-fix batch due to spec-test mismatch, and 0/5 post v1.1 spec fix, 0/5 post v1.3 tightening, 0/5 post v1.4 tightening on Codimango validation. Persistent failure indicates genuine reasoning gap on coupled features under tight tolerance, not spec ambiguity. Validates task difficulty after spec clarification.
 
 ### Avocado (Metacode)
-5/5 on post v1.1 validation 2026-06-29. Demonstrates task is solvable with correct implementation of four coupled features.
+5/5 pre-v1.3, 5/5 on v1.3 tightening to 0.15%, then 4/5 on v1.4 tightening to 0.1% — demonstrates successful difficulty calibration moving Avocado off ceiling while keeping Oracle passing. Shows task is hard but achievable.
 
 ### Codex (non-gating)
-2/5 on post v1.1 validation. Partial credit indicates intermediate difficulty — some runs capture coupled features, others miss.
+2/5 on post v1.1 and post v1.3 and post v1.4 runs — stable partial credit indicating intermediate difficulty and non-trivial reasoning required.
 
 ### Sonnet 4.6
-Pending run on latest commit; prior runs not in this validation batch.
+Not run in default Codimango validation suite for this task; tracked as pending in README template but not required for gating.
 
 ### Dominant Failure Modes
 | Failure Mode | Count | % of All Failures |
 |-------------|-------|-------------------|
-| Bin center vs bin average spec following (pre-fix) | 5 | 100% pre-fix Opus batch |
-| Post v1.1 Opus 0/5 | 5 | suggests psychrometric or bias-split or blending errors under tight tolerance |
+| Bin center vs bin average spec following (pre-v1.1 historical) | 5 | 100% pre-fix Opus batch |
+| Post v1.1-v1.4 Opus 0/5 persistent | 15 across 3 runs | indicates psychrometric formula, sensor bias split, blending ratio, or lockout ordering errors under tight tolerance |
+| Codex partial 2/5 | consistent | suggests some model variants capture coupled features partially |
 
-Post-fix dominant modes are genuine reasoning gaps: Hyland-Wexler two-branch saturation pressure implementation, sensor bias applied to control decision only not energy, integrated blending linear ratio, low ambient lockout ordering. Naive drift tests in grader confirm each single-miss shortcut drifts >4x tolerance.
+Post-fix failures reflect genuine reasoning gaps, not spec ambiguity or test brittleness: Hyland-Wexler two-branch saturation pressure, sensor bias applied to control only not energy, integrated blending linear ratio, low ambient lockout ordering, bin-average aggregation.
 
 ## Anti-Cheating Analysis
 - **Hardcoded outputs:** golden values computed in-test by independent reference over deterministic synthetic climates with fixed seed. No fixed constant to memorize.
