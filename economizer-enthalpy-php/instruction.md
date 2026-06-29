@@ -2,7 +2,7 @@
 
 Implement pure-PHP numerical model of air-side economizer with enthalpy-based switchover, sensor bias, integrated blending, low ambient lockout.
 
-Answer depends on four interacting features not scaffolding: bin method per occupancy evaluating at bin center; enthalpy calculation via psychrometrics requiring Hyland-Wexler saturation pressure two-branch no closed form; sensor fault bias applied to control decision but true enthalpy used for energy; integrated blending non-linear dependent on enthalpy differential; low ambient lockout.
+Answer depends on four interacting features not scaffolding: bin method per occupancy evaluating at bin average; enthalpy calculation via psychrometrics requiring Hyland-Wexler saturation pressure two-branch no closed form; sensor fault bias applied to control decision but true enthalpy used for energy; integrated blending non-linear dependent on enthalpy differential; low ambient lockout.
 
 These couple so single-miss drifts past tight 0.25% tolerance on net savings.
 
@@ -45,7 +45,7 @@ Mode hours keys must be exactly those three strings.
 
 **Interpolation helper:** sort curve by x ascending, linear interpolate between surrounding points, clamp to endpoint y below first or above last.
 
-**Bin method:** group hours into temperature bins width bin_width_c using floor(temp_db / bin_width_c). Bin representative temperature is bin center (bin+0.5)*bin_width_c similarly for wet-bulb averaged within bin. Evaluate each bin cell weighted by count of hours.
+**Bin method:** group hours into temperature bins width bin_width_c using floor(temp_db / bin_width_c). Bin representative temperature is the arithmetic mean of dry-bulb temperatures within the bin (tdb_sum / count), similarly for wet-bulb, return dry-bulb and return wet-bulb averaged within bin. Evaluate each bin cell weighted by count of hours.
 
 **Control decision with sensor bias:** perceived outdoor DB = true DB + sensor_bias_db, perceived WB = true WB + sensor_bias_wb. Compute perceived outdoor enthalpy h_out_perc using perceived DB WB via humidity ratio then enthalpy formula. Compute true outdoor enthalpy h_out_true using true DB WB similarly for energy calculation. Compute return enthalpy h_ret from return DB WB profiles averaged per bin (return profiles passed as arrays same length as outdoor or shorter cycled).
 
@@ -81,7 +81,7 @@ annual_economizer must return associative array with keys "fan_extra_kwh", "comp
 1. Language PHP 8+, standard library only.
 2. File location /app/econ_sim.php.
 3. Function signatures exactly as listed.
-4. Bin method per occupancy state at bin center (here per temperature bin, occupancy not used but keep API).
+4. Bin method per occupancy state at bin average (here per temperature bin, occupancy not used but keep API).
 5. Psychrometric enthalpy via Hyland-Wexler two-branch no closed form.
 6. Sensor bias applied to control decision only, true enthalpy used for energy.
 7. Integrated blending linear ratio formula as specified.

@@ -11,7 +11,7 @@ function ref_annual($tdb_arr,$twb_arr,$rdb_arr,$rwb_arr,$cfg){$bw=$cfg["bin_widt
 function approx($a,$b,$rel,$abs=1e-6){$d=abs($a-$b);return $d<=$abs || $d<=$rel*max(abs($a),abs($b));}
 function base_cfg(){return ["bin_width_c"=>1.0,"sensor_bias_db"=>2.0,"sensor_bias_wb"=>1.5,"changeover_enthalpy"=>55,"differential_threshold"=>5,"low_ambient_lockout_c"=>2,"fan_extra_power_w"=>200];}
 function make_temps($n,$base,$amp){$out=[];for($i=0;$i<$n;$i++){$hod=$i%24;$out[]= $base+$amp*sin(2*M_PI*$hod/24);} return $out;}
-$scenarios=["cold"=>make_temps(8760,-2,3),"mixed"=>make_temps(8760,10,8),"hot"=>make_temps(8760,25,4),"variable"=>make_temps(8784,12,12)];
+$scenarios=["cold"=>make_temps(8760,-2,3),"mixed"=>make_temps(8760,10,8),"hot"=>make_temps(8760,18,4),"variable"=>make_temps(8784,12,12)];
 $cfg=base_cfg();
 $all_pass=true;
 
