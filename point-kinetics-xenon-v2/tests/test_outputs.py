@@ -158,9 +158,9 @@ def assert_matches(out, ref):
     # compare trajectories with tolerance tightened to 1% to catch missing physics yet allow numeric drift
     for key in ("power","xenon","iodine","reactivity"):
         for i,(a,b) in enumerate(zip(out[key], ref[key])):
-            assert math.isclose(float(a), float(b), rel_tol=1e-4, abs_tol=1e-4), f"{key}[{i}] {a} vs {b}"
-    assert math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-4, abs_tol=1e-4)
-    assert math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-4, abs_tol=1e-4)
+            assert math.isclose(float(a), float(b), rel_tol=1e-5, abs_tol=1e-5), f"{key}[{i}] {a} vs {b}"
+    assert math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-5, abs_tol=1e-5)
+    assert math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-5, abs_tol=1e-5)
 
 def test_step_insertion():
     agent=load_agent(); p=scen_step(); ref=ref_simulate(**p); out=run_agent(agent,p); assert_matches(out,ref)

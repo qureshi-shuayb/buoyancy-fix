@@ -74,11 +74,11 @@ def assert_matches(out, ref):
     assert len(out["power"])==len(ref["power"])
     for key in ("power","xenon","iodine","reactivity"):
         for i,(a,b) in enumerate(zip(out[key], ref[key])):
-            if not math.isclose(float(a),float(b),rel_tol=1e-4,abs_tol=1e-4):
+            if not math.isclose(float(a),float(b),rel_tol=1e-5,abs_tol=1e-5):
                 raise AssertionError(f"{key}[{i}] {a} vs {b}")
-    if not math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-4, abs_tol=1e-4):
+    if not math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-5, abs_tol=1e-5):
         raise AssertionError("peak mismatch")
-    if not math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-4, abs_tol=1e-4):
+    if not math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-5, abs_tol=1e-5):
         raise AssertionError("final xenon mismatch")
 
 scenarios=[("step",scen_step()),("ramp",scen_ramp()),("withdrawal",scen_withdrawal()),("iodine_pit",scen_iodine_pit())]
