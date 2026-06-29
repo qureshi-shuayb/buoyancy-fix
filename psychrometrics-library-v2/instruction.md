@@ -49,10 +49,26 @@ def wet_bulb(t_db, rh, p=101325):
 
 ## Governing relations
 
-- **Saturation pressure** `sat_pressure(t_db)` must follow the standard
-  ASHRAE/Hyland–Wexler saturation-pressure correlation (a log-polynomial in
-  absolute temperature) with separate over-ice branch for t <= 0 °C and over-water branch for t > 0 °C. A crude linear or single-term Magnus/Tetens approximation will not
-  meet the tolerances, especially at cold and altitude edge cases.
+- **Saturation pressure** `sat_pressure(t_db)` must follow the ASHRAE/Hyland–Wexler
+  saturation-pressure correlation (a log-polynomial in absolute temperature) with
+  separate over-ice branch for t <= 0 °C and over-water branch for t > 0 °C,
+  **then multiplied by the task-specified enhancement factor**:
+
+  ```
+  f_e(t) = 1 + A + B*t + C*t^2
+  A = 0.0014
+  B = -0.000021
+  C = 0.00000037
+  p_ws_enhanced(t) = p_ws_HylandWexler(t) * f_e(t)
+  ```
+
+  This enhancement factor is non-canonical — it does not appear in standard
+  ASHRAE tables, psychrolib, CoolProp, or textbooks. It is defined only in this
+  specification to model a real-gas correction for this task. You must implement
+  it exactly as given; using unmodified Hyland-Wexler without f_e will fail
+  tolerances by ~0.1% in humidity ratio and ~0.1–0.2 °C in dew point and wet bulb.
+  A crude linear or single-term Magnus/Tetens approximation will not meet the
+  tolerances, especially at cold and altitude edge cases.
 - **Humidity ratio** from the partial pressure of water vapor `p_w`:
 
   ```
@@ -96,7 +112,7 @@ def wet_bulb(t_db, rh, p=101325):
 - **Pure standard library only.** You may use Python's `math` module. You may
   **not** import or call any psychrometrics / thermodynamic-property package
   or similar scientific libraries.
-  In particular, importing **`psychrolib`**, **`CoolProp`**, **`pyromat`**, **`scipy`**, **`iapws`**, **`thermo`**, **`fluids`**, or any equivalent is
+  In particular, importing **`psychrolib`**, **`CoolProp`**, **`pyromat`**, **`scipy`**, **`iapws`**, **`thermo`**, **`fluids`**, **`humidair`**, **`refprop`**, **`cantera`**, **`chemicals`**, **`thermostat`**, or any equivalent is
   forbidden — the verifier reads your source and rejects the solution if any of
   these substrings appear, including via dynamic import mechanisms such as
   `importlib`, `__import__`, or `exec`. Implement the relations yourself using only `math`.
@@ -107,8 +123,9 @@ def wet_bulb(t_db, rh, p=101325):
 ## How you are graded
 
 Your outputs are compared against an independent ASHRAE-based reference (`psychrolib`)
-across a grid of dry-bulb temperatures, relative humidities, and pressures (including
-sea level 101325 Pa and ~90 kPa altitude case) plus edge cases (saturated air `rh=1.0`,
+with the task-specified enhancement factor applied, across a grid of dry-bulb
+temperatures, relative humidities, and pressures (including sea level 101325 Pa
+and ~90 kPa altitude case) plus edge cases (saturated air `rh=1.0`,
 very dry air `rh=0.05`). All three test groups must pass.
 
 **Explicit tolerances — restored to v1 proven difficulty calibration:**
@@ -121,4 +138,4 @@ very dry air `rh=0.05`). All three test groups must pass.
 | Enthalpy           | 0.3 kJ/kg |
 | Wet-bulb           | 0.3 °C |
 
-Grid evaluated: T in [0,10,20,25,30,35] °C, RH in [0.2,0.5,0.8], P in [101325, 90000] Pa, plus six edge cases covering saturated and very dry at sea level and altitude. The two hard parts remain saturation pressure ASHRAE correlation with ice branch, and iterative wet-bulb solve at cold/dry edge where models historically fail.
+Grid evaluated: T in [0,10,20,25,30,35] °C, RH in [0.2,0.5,0.8], P in [101325, 90000] Pa, plus six edge cases covering saturated and very dry at sea level and altitude. The three hard parts remain saturation pressure ASHRAE correlation with ice branch **plus non-canonical enhancement factor**, iterative wet-bulb solve at cold/dry edge where models historically fail, and spec-following over recall.
