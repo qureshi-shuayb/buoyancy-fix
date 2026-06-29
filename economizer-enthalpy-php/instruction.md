@@ -94,3 +94,5 @@ annual_economizer must return associative array with keys "fan_extra_kwh", "comp
 ## No cheating
 
 Grader held out not in /app. It checks fan_extra_kwh compressor_saved_kwh net_savings_kwh mode_hours against independent reference over several scenarios cold mixed hot variable. Do not hard-code.
+
+Verifier performs source scan on /app/econ_sim.php to enforce standard library only policy: the following are forbidden and cause immediate failure — shell_exec, exec, system, proc_open, popen, passthru, pcntl_*, curl_*, backticks, and any network fetch via http://, https://, or ftp:// URLs including via file_get_contents fopen readfile copy rename unlink with remote URLs. Only PHP standard library functions for math, arrays, strings, file I/O on local paths, and JSON are allowed. This matches README anti-cheating claim and is enforced at test time.
