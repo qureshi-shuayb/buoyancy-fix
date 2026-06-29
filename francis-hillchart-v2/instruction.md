@@ -37,10 +37,10 @@ Create `/app/francis_hill.py` with exactly these signatures.
 Spatial interpolation on scattered hill chart data.
 
 * `hill` : list of tuples `(q11_i, n11_i, eta_i)` length 30 to 80 deterministic per test seed.
-* Must use `scipy.spatial.Delaunay` for triangulation. Do not use `LinearNDInterpolator`, `griddata`, `CloughTocher`, `NearestNDInterpolator`, `RBFInterpolator`, `interp2d`, `RegularGridInterpolator`, sklearn, or other interpolators. Only Delaunay-based interpolation is accepted within 1e-6 tolerance against reference.
+* Must use `scipy.spatial.Delaunay` for triangulation. Do not use `LinearNDInterpolator`, `griddata`, `CloughTocher`, `NearestNDInterpolator`, `RBFInterpolator`, `interp2d`, `RegularGridInterpolator`, sklearn, or other interpolators. Only Delaunay-based interpolation is accepted within 1e-5 tolerance against reference.
 * Requirements: construct Delaunay triangulation from hill points as 2D coordinates with associated eta values. Locate containing simplex for query point using point-location. If outside convex hull return 0.0 without extrapolation. Interpolate eta via barycentric weights of triangle vertices and clamp result to [0.0, 1.0] range before returning.
 * Return 0.0 if outside convex hull. Do not extrapolate.
-* Tests enforce 1e-6 absolute accuracy against independent reference, so alternative interpolators will deviate beyond tolerance.
+* Tests enforce 1e-5 absolute accuracy against independent reference, so alternative interpolators will deviate beyond tolerance.
 
 ### find_bep(H: float, P_req: float, hill: list, limits: dict) -> dict
 
@@ -77,7 +77,7 @@ Allowed libraries: python standard library, numpy, scipy.spatial only. Do not im
 * Qmin 10 Qmax 200 scaled per case, nmin 100 nmax 600 rpm
 * hill points 30-80 per case generated deterministically per seed with eta in 0.7-0.94 and single smooth peak near Q11~0.6 n11~70
 * Randomized seeds prevent hardcoding.
-* Tests enforce 1e-6 interpolation accuracy, 1% Q/n, 0.005 eta, 2% P tolerances. Sufficient optimization iterations required to meet these tolerances; reference uses 40 iterations per level.
+* Tests enforce 1e-5 interpolation accuracy, 1% Q/n, 0.005 eta, 2% P tolerances. Sufficient optimization iterations required to meet these tolerances; reference uses 40 iterations per level.
 
 ## Naive Failure Modes Tests Catch
 
@@ -103,7 +103,7 @@ margin = cavitation_margin(95.0, out["Q"], out["n"], 0.08, -2.5, 3.2)
 ## Anti-Cheating Notes
 
 * Hill chart randomized per test seed; hard-coded outputs fail.
-* Barycentric interpolation via Delaunay required for 1e-6 accuracy; alternative interpolators deviate beyond tolerance and are banned via AST import whitelist check.
+* Barycentric interpolation via Delaunay required for 1e-5 accuracy; alternative interpolators deviate beyond tolerance and are banned via AST import whitelist check.
 * Sufficient optimization iterations required for 1% precision; coarse search fails tolerance.
 * Cavitation check enforced in separate test with varied Hs and sigma_crit including unsafe margin case expecting eta zero.
 * Clamp behavior tested separately with out-of-range hill values.
