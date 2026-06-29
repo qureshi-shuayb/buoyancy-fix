@@ -13,7 +13,6 @@ The hard part is assembling several coupled physics correctly:
 
 A naive scaffold omitting xenon feedback, temperature coefficients, implicit solver, or equilibrium initialization drifts well past tight tolerances.
 
-## Grading
 `tests/test_outputs.py` imports agent's `/app/reactor_kinetics.py` and compares outputs against independent reference over four scenarios:
 - **step reactivity insertion** – small positive step, power excursion limited by Doppler,
 - **ramp load-follow** – power ramp down then up, xenon transient overshoot,
@@ -23,13 +22,29 @@ A naive scaffold omitting xenon feedback, temperature coefficients, implicit sol
 Plus contract checks and scalar-vs-list equivalence. Verifier writes `/logs/verifier/reward.txt`.
 
 ## Completion Rates
-| Agent | Pass rate |
+
+| Model | Pass Rate |
 |-------|-----------|
-| Oracle | 3/3 codimango |
-| Sonnet | TBD |
+| Oracle | 3/3 (100%) |
+| Sonnet 4.6 | _not yet run_ |
+| Opus 4.6 | _not yet run_ |
+| Avocado | _not yet run_ |
+
+## Model Analysis
+
+No model evaluation runs found. Run models with:
+
+```bash
+codimango bench run -p point-kinetics-xenon-v2 -a claude-code -m claude-sonnet-4-6 -k 5
+codimango bench run -p point-kinetics-xenon-v2 -a claude-code -m claude-opus-4-6 -k 5
+codimango bench run -p point-kinetics-xenon-v2 -a metacode -m meta/avocado_dvsc_tester -k 5
+```
 
 ## Anti-Cheating Analysis
+
 Outputs depend on continuous physical inputs across four distinct transient scenarios with stateful stiff ODE coupling; no small constant to memorize. Grader runs out-of-process not in `/app`. Reference recomputed independently; matching requires full specified model.
 
-## v2 Note
-Initial scaffold for nuclear plant simulator task suite.
+- **Hardcoded outputs**: Tests use continuous physical parameters and four distinct transient scenarios generated at runtime with tight 1e-7 tolerance; pre-computed answers cannot match without implementing the full coupled ODE system.
+- **Overfitting to visible tests**: Test inputs are parameterized across step, ramp, withdrawal, and iodine-pit regimes covering edge cases of stiff kinetics, xenon feedback, and thermal lag; no single constant passes.
+- **Modifying test files**: Tests are mounted read-only by Codimango at `/tests/` — agent cannot modify them.
+- **Bypassing intended solution path**: Tests verify full trajectories of power, xenon, iodine, and reactivity at every time step plus peak power and final xenon, not just final output, so shortcutting the implicit solver or equilibrium initialization is detected by numeric drift.

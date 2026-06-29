@@ -11,11 +11,12 @@ def simulate(dt,n_steps,pump_speed,steam_demand,initial_power,decay_heat_frac,M_
         C=pump_head_coeff*ps*ps
         m=flow[-1]
         for _ in range(3):
-            pump_h=C*max(0,1-(m/flow_rated)**2)
+            pump_h=C*(1-(m/flow_rated)**2)
             f=pump_h+nc_h-K_loop*m*abs(m)
-            df=-2*C*m/flow_rated**2-2*K_loop*abs(m)-1e-9
+            df=-2*C*m/flow_rated**2-2*K_loop*abs(m)
+            if abs(df) < 1e-12:
+                break
             m=m-f/df
-        if m<1e-3: m=1e-3
         Tci=T_so[-1]; Tco=T_co[-1]
         dTco=(Q - m*cp*(Tco-Tci))/(M_core*cp)
         Tco_next=Tco+dt*dTco
@@ -29,7 +30,6 @@ def simulate(dt,n_steps,pump_speed,steam_demand,initial_power,decay_heat_frac,M_
         Tavg=(Tco_next+Tso)/2
         Tavg_prev=(T_co[-1]+T_so[-1])/2
         V_s = V_s + beta_thermal*(Tavg-Tavg_prev)*(M_core+M_sg)/rho0
-        V_s=max(min(V_s,V_pressurizer*0.9),V_pressurizer*0.1)
         P_next=pressure_setpoint*V_pressurizer_steam0/max(V_s,1e-3)
         if P_next < pressure_setpoint-pressure_deadband/2:
             P_next += pressurizer_heater_power*dt*0.01
