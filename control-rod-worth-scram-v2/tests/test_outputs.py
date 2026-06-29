@@ -35,6 +35,9 @@ def ref(dt,n_steps,rod_position,rod_total_worth,H,scram_start,scram_duration,ini
 BASE=dict(dt=0.01,n_steps=200,rod_total_worth=0.05,H=3.7,scram_start=None,scram_duration=1.0,initial_power=1e8,beta=0.0065,beta_groups=[0.0065*0.033,0.0065*0.219,0.0065*0.196,0.0065*0.395,0.0065*0.115,0.0065*0.042],lambda_groups=[0.0124,0.0305,0.111,0.301,1.14,3.01],Lambda=0.001,alpha_doppler=-0.002,T_f0=600,tau_f=5,k_f=1e-6,use_doppler=True)
 def run(a,p): return a.simulate(**p)
 def assert_m(o,r):
+    expected_keys = {"power","reactivity","period","shutdown_margin","peak_power"}
+    assert isinstance(o, dict)
+    assert set(o.keys()) == expected_keys, f"output keys must be exactly {expected_keys}, got {set(o.keys())}"
     for k in ("power","reactivity","period"): assert len(o[k])==len(r[k])
     for key in ("power","reactivity","period"):
         for a,b in zip(o[key],r[key]): assert math.isclose(a,b,rel_tol=1e-2,abs_tol=1e-2)
@@ -47,3 +50,27 @@ def test_scram_hzp():
     a=load(); p=dict(BASE); p.update(initial_power=1e3,use_doppler=False,n_steps=400,rod_position=3.7,scram_start=1.0); r=ref(**p); o=run(a,p); assert_m(o,r)
 def test_rod_drop():
     a=load(); p=dict(BASE); p.update(n_steps=200,rod_position=[3.7]*10+[0.0]*190); r=ref(**p); o=run(a,p); assert_m(o,r)
+
+
+def test_stdlib_only():
+    """Ensure agent solution uses only Python standard library per spec."""
+    import pathlib, ast, os
+    agent_path = "/app/rod_scram.py"
+    if not os.path.exists(agent_path):
+        candidates = list(pathlib.Path(__file__).parent.parent.glob('solution/*.py'))
+        if candidates:
+            agent_path = str(candidates[0])
+        else:
+            return
+    src = pathlib.Path(agent_path).read_text()
+    tree = ast.parse(src)
+    allowed = {"math","sys","os","json","typing","collections","itertools","functools","heapq","bisect","random","statistics","decimal","fractions","datetime"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root = alias.name.split('.')[0]
+                assert root in allowed, f"disallowed import {alias.name}"
+        if isinstance(node, ast.ImportFrom):
+            root = (node.module or '').split('.')[0]
+            assert root in allowed, f"disallowed import from {node.module}"
+
