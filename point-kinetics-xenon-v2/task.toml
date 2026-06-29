@@ -1,0 +1,34 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/point-kinetics-xenon-v2"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
+description = "Implement a Python simulation of point reactor kinetics with six delayed neutron groups coupled to iodine-135 and xenon-135 dynamics, with Doppler and moderator temperature feedback and xenon poisoning reactivity. The simulator uses backward Euler implicit integration for the stiff 7x7 kinetics system solved via Gaussian elimination each step, and explicit Euler for slow iodine, xenon, and thermal dynamics. It returns power, xenon, iodine, and reactivity trajectories, peak power, and final xenon concentration. Deterministic numeric grading against independent reference; naive implementations omitting xenon feedback, temperature feedback, implicit kinetics solver, or correct initial equilibrium fail tight tolerances across step insertion, load-follow xenon transient, Doppler-limited rod withdrawal, and iodine pit restart scenarios."
+authors = []
+keywords = ["python", "simulation", "nuclear", "reactor", "point-kinetics", "xenon", "iodine", "delayed-neutrons", "doppler", "reactivity-feedback", "stiff-ode", "implicit-euler", "gaussian-elimination"]
+
+[metadata]
+difficulty = "hard"
+category = "feature-implementation"
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 240.0
+
+[verifier]
+timeout_sec = 300.0
+
+[agent]
+timeout_sec = 1800.0
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[verifier.env]
+[environment.env]
+[solution.env]
