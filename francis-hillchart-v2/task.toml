@@ -5,7 +5,7 @@ name = "codimango/francis-hillchart-v2"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
 description = "Implement Francis turbine hill-chart interpolation and best efficiency point solver. Given head, power request, and hill chart points [Q11,n11,eta], find discharge Q, speed n, and efficiency eta meeting power target within operating limits and cavitation sigma constraint using barycentric interpolation on Delaunay triangulation and golden-section search."
-authors = ["Shuayb Qureshi"]
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
 keywords = ["python", "hydropower", "francis-turbine", "hill-chart", "interpolation", "barycentric", "delaunay", "golden-section", "cavitation", "simulation-modeling"]
 
 [metadata]

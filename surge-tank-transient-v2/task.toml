@@ -5,7 +5,7 @@ name = "codimango/surge-tank-transient-v2"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
 description = "Implement rigid water-column ODE simulation of surge tank mass oscillation after turbine load rejection. Solve dV/dt and dZ/dt with Darcy-Weisbach Swamee-Jain friction, turbine flow closure ramp, return peak surge level, minimum level, damping time, and steady state."
-authors = ["Shuayb Qureshi"]
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
 keywords = ["python", "hydropower", "surge-tank", "water-hammer", "mass-oscillation", "ode", "darcy-weisbach", "swamee-jain", "transient-simulation", "civil-engineering"]
 
 [metadata]

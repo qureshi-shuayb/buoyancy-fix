@@ -5,7 +5,7 @@ name = "codimango/pelton-penstock-v2"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
 description = "Implement Pelton turbine penstock head-loss and governor equilibrium solver. Given gross head, penstock geometry, nozzle parameters, compute net head via Darcy-Weisbach Colebrook-White fixed-point iteration, jet velocity, discharge, Pelton Euler power, and governor droop equilibrium speed after load step with deadband and rate limit."
-authors = ["Shuayb Qureshi"]
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
 keywords = ["python", "hydropower", "pelton-turbine", "penstock", "darcy-weisbach", "colebrook-white", "governor", "droop-control", "steady-state", "mechanical-engineering"]
 
 [metadata]
