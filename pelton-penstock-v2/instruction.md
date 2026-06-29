@@ -35,7 +35,6 @@ Governor droop equilibrium after load step:
 * Rated power Prated [W], rated speed Nrated [rpm] from steady operating point.
 * Droop R per unit e.g. 0.05 for 5%
 * Deadband db [rpm], rate limit rl [rpm/s], load step dP [W] positive = load increase, negative = load rejection.
-* Clamp effective power to avoid negative: Pr_eff = max(Prated + dP, 1.0)
 * Speed deviation steady-state without limits: delta_N_ss = - R * Nrated * dP / Prated
 * Apply deadband: if abs(delta_N_ss) < db then delta_target = 0 else delta_target = delta_N_ss
 * Apply rate limit via discrete simulation pinned: dt=1.0 s, max_iter=60, start delta=0. For step in 1..max_iter: step_change = max(-rl*dt, min(rl*dt, delta_target - delta)); delta += step_change; if abs(delta - delta_target) < 0.1 break. Return iterations = step count.

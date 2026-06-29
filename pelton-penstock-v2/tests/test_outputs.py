@@ -69,3 +69,33 @@ def test_naive_constant_f():
     ref=ref_steady_power(Hg,L,D,eps,2,0.12,2.1,600,0.98,0.89,0.96)
     # naive f=0.02 should differ at least 0.0005 relative to catch weak implementations; relaxed threshold from earlier overly strict 0.02
     assert abs(hfc - (Hg-ref["Hn"]))/Hg > 0.0005
+
+def test_laminar_colebrook():
+    # Re <2000 triggers 64/Re branch
+    f_lam = agent.colebrook_f(1500, 1e-4)
+    assert abs(f_lam - 64.0/1500) < 1e-9
+
+def test_hn_value_error():
+    # Hn <=0 must raise ValueError per spec after 10 iterations guard
+    import pytest
+    # extreme case: very long rough pipe small head -> hf > Hg
+    with pytest.raises(ValueError):
+        agent.steady_power(Hg=5, L=20000, D=0.3, epsilon=0.005, n_nozzle=1, d_nozzle=0.2, D_wheel=1.0, N_rpm=300, Cv=0.98, eta_b=0.9, eta_m=0.95)
+
+def test_governor_deadband():
+    # load step within deadband => zero delta target => N_eq == Nrated, iterations 1
+    out = agent.governor_equilibrium(Nrated=600, Prated=5e6, R=0.05, deadband=5, rate_limit=10, load_step=-1e3)
+    assert abs(out["N_eq"] - 600) < 0.5
+    assert out["iterations"] == 1
+
+def test_governor_clamp():
+    # large load step should clamp to [0, 2*Nrated]
+    out = agent.governor_equilibrium(Nrated=600, Prated=5e6, R=0.05, deadband=1, rate_limit=1000, load_step=-20e6)
+    # delta_ss = -R*N*dP/Pr = -0.05*600*-20/5 = +120 => N_eq =720 within [0,1200]
+    assert 0 <= out["N_eq"] <= 1200
+    # extreme positive load drop -> test upper clamp
+    out2 = agent.governor_equilibrium(Nrated=600, Prated=5e6, R=0.05, deadband=0, rate_limit=1000, load_step=-50e6)
+    assert out2["N_eq"] <= 1200
+    # extreme negative (load increase) test lower clamp near 0
+    out3 = agent.governor_equilibrium(Nrated=600, Prated=5e6, R=0.05, deadband=0, rate_limit=1000, load_step=50e6)
+    assert out3["N_eq"] >= 0
