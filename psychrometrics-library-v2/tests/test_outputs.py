@@ -54,13 +54,13 @@ def dew_point_enh(t_db, rh, p):
     if pw <= 0:
         return -100.0
     lo, hi = -100.0, t_db
-    for _ in range(80):
+    for _ in range(120):
         mid = 0.5 * (lo + hi)
         if sat_pressure_enhanced(mid) < pw:
             lo = mid
         else:
             hi = mid
-        if hi - lo < 1e-7:
+        if hi - lo < 1e-9:
             break
     return 0.5 * (lo + hi)
 
@@ -83,39 +83,48 @@ def wet_bulb_enh(t_db, rh, p):
         return t_db
     t_dp = dew_point_enh(t_db, rh, p)
     lo, hi = t_dp, t_db
-    for _ in range(100):
+    for _ in range(150):
         mid = 0.5 * (lo + hi)
         w_star = _w_from_tdb_twb_enh(t_db, mid, p)
         if w_star > w:
             hi = mid
         else:
             lo = mid
-        if hi - lo < 1e-7:
+        if hi - lo < 1e-9:
             break
     return 0.5 * (lo + hi)
 
 APP_MODULE = "/app/psychrometrics.py"
 
 # Tolerances (per task spec) - restored to v1 proven difficulty calibration
-TOL_W = 1e-4          # humidity ratio [kg/kg]
-TOL_RH = 0.005        # relative humidity (0.5%)
-TOL_DEW = 0.3         # dew point [degC]
-TOL_ENTH = 0.3        # enthalpy [kJ/kg dry air]
-TOL_WB = 0.3          # wet bulb [degC]
+TOL_W = 5e-5          # humidity ratio [kg/kg] tightened v2.2
+TOL_RH = 0.002        # relative humidity (0.2%)
+TOL_DEW = 0.15         # dew point [degC]
+TOL_ENTH = 0.15        # enthalpy [kJ/kg dry air]
+TOL_WB = 0.15          # wet bulb [degC]
 
-# Condition grid - v1 proven grid focusing on critical cold/dry edge
-T_GRID = [0.0, 10.0, 20.0, 25.0, 30.0, 35.0]
-RH_GRID = [0.2, 0.5, 0.8]
-P_GRID = [101325.0, 90000.0]   # sea level + ~altitude
+# Condition grid - v2.2 hardened grid with sub-zero ice branch, hot extreme, high altitude, very dry and near-saturated
+T_GRID = [-10.0, -5.0, 0.0, 10.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0]
+RH_GRID = [0.05, 0.2, 0.5, 0.8, 0.95, 0.99]
+P_GRID = [70000.0, 90000.0, 101325.0, 110000.0]   # high altitude ~3000m to slight overpressure
 
-# Edge cases: (t_db, rh, p) -- saturated, very dry, altitude+dry, altitude+saturated
+# Edge cases: expanded v2.2 covering ice branch sub-zero, hot extreme, high altitude low pressure, near saturation
 EDGE_CASES = [
-    (25.0, 1.00, 101325.0),   # saturated air
-    (35.0, 1.00, 101325.0),   # saturated, warm
-    (30.0, 0.05, 101325.0),   # very dry air
-    (20.0, 0.05, 90000.0),    # very dry at altitude
+    (25.0, 1.00, 101325.0),   # saturated air sea level
+    (35.0, 1.00, 101325.0),   # saturated warm sea level
+    (45.0, 0.80, 101325.0),   # hot humid sea level extreme
+    (40.0, 0.95, 101325.0),   # hot near saturated
+    (30.0, 0.05, 101325.0),   # very dry air sea level
+    (-5.0, 1.00, 101325.0),   # sub-zero saturated ice branch sea level
+    (-10.0, 0.80, 101325.0),  # cold humid ice branch
+    (-10.0, 0.05, 101325.0),  # cold dry ice branch extreme
+    (20.0, 0.05, 90000.0),    # very dry at altitude 900hPa
     (25.0, 1.00, 90000.0),    # saturated at altitude
     (10.0, 0.50, 90000.0),    # mild at altitude
+    (0.0, 0.20, 70000.0),     # freezing dry high altitude 700hPa
+    (15.0, 0.99, 70000.0),    # near saturated high altitude
+    (35.0, 0.50, 110000.0),   # warm overpressure
+    (-5.0, 0.20, 70000.0),    # cold dry high altitude ice branch hardest
 ]
 
 

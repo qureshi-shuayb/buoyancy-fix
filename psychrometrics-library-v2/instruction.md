@@ -132,10 +132,10 @@ very dry air `rh=0.05`). All three test groups must pass.
 
 | Quantity | Tolerance |
 |----------|-----------|
-| Humidity ratio `W` | 1e-4 kg/kg |
-| Relative humidity  | 0.5% (0.005) |
-| Dew point          | 0.3 °C |
-| Enthalpy           | 0.3 kJ/kg |
-| Wet-bulb           | 0.3 °C |
+| Humidity ratio `W` | 5e-5 kg/kg |
+| Relative humidity  | 0.2% (0.002) |
+| Dew point          | 0.15 °C |
+| Enthalpy           | 0.15 kJ/kg |
+| Wet-bulb           | 0.15 °C |
 
-Grid evaluated: T in [0,10,20,25,30,35] °C, RH in [0.2,0.5,0.8], P in [101325, 90000] Pa, plus six edge cases covering saturated and very dry at sea level and altitude. The three hard parts remain saturation pressure ASHRAE correlation with ice branch **plus non-canonical enhancement factor**, iterative wet-bulb solve at cold/dry edge where models historically fail, and spec-following over recall.
+Grid evaluated: T in [-10,-5,0,10,20,25,30,35,40,45] °C, RH in [0.05,0.2,0.5,0.8,0.95,0.99], P in [70000,90000,101325,110000] Pa, plus fifteen edge cases covering saturated and very dry at sea level, altitude, high altitude 700hPa, sub-zero ice branch, and hot extremes. The three hard parts remain saturation pressure ASHRAE correlation with ice branch plus non-canonical enhancement factor, iterative wet-bulb solve at cold/dry edge and high altitude where models historically fail, and spec-following over recall with tightened tolerances.
