@@ -32,16 +32,24 @@ def ref(dt,n_steps,rod_position,rod_total_worth,H,scram_start,scram_duration,ini
         if step>0: dP=(P_next-power[-1])/dt; per=P_next/dP if abs(dP)>1e-9 else 1e9
         power.append(P_next); react.append(rho); period.append(per); n,c,Tf=n_next,c_next,Tf_next
     return {"power":power,"reactivity":react,"period":period,"shutdown_margin":-rod_total_worth,"peak_power":max(power)}
-BASE=dict(dt=0.01,n_steps=200,rod_total_worth=0.05,H=3.7,scram_start=None,scram_duration=1.0,initial_power=1e8,beta=0.0065,beta_groups=[0.0065*0.033,0.0065*0.219,0.0065*0.196,0.0065*0.395,0.0065*0.115,0.0065*0.042],lambda_groups=[0.0124,0.0305,0.111,0.301,1.14,3.01],Lambda=0.001,alpha_doppler=-0.002,T_f0=600,tau_f=5,k_f=1e-6,use_doppler=True)
-def assert_m(o,r):
+BASE=dict(dt=0.01,n_steps=200,rod_total_worth=0.003,H=3.7,scram_start=None,scram_duration=1.0,initial_power=1e8,beta=0.0065,beta_groups=[0.0065*0.033,0.0065*0.219,0.0065*0.196,0.0065*0.395,0.0065*0.115,0.0065*0.042],lambda_groups=[0.0124,0.0305,0.111,0.301,1.14,3.01],Lambda=0.001,alpha_doppler=-0.002,T_f0=600,tau_f=5,k_f=1e-6,use_doppler=True)
+def assert_dynamics(o,r):
     for k in ("power","reactivity","period"): assert len(o[k])==len(r[k])
-    for key in ("power","reactivity","period"):
-        for a,b in zip(o[key],r[key]): assert math.isclose(a,b,rel_tol=2e-1,abs_tol=2e-1)
-    assert math.isclose(o["peak_power"],r["peak_power"],rel_tol=2e-1); assert math.isclose(o["shutdown_margin"],r["shutdown_margin"],rel_tol=2e-1)
-tests=[("slow",dict(BASE,n_steps=300,rod_position=[3.7*min(1,i/300) for i in range(300)])),("scram_hfp",dict(BASE,n_steps=400,rod_position=3.7,scram_start=1.0,scram_duration=0.5)),("scram_hzp",dict(BASE,initial_power=1e3,use_doppler=False,n_steps=400,rod_position=3.7,scram_start=1.0)),("rod_drop",dict(BASE,n_steps=200,rod_position=[3.7]*10+[0.0]*190))]
+    for key in ("power","reactivity"):
+        for a,b in zip(o[key],r[key]): assert math.isclose(a,b,rel_tol=2e-2,abs_tol=1e-2)
+    for v in o["period"]: assert isinstance(v,(int,float)) and not math.isnan(v)
+    assert math.isclose(o["peak_power"],r["peak_power"],rel_tol=2e-2); assert math.isclose(o["shutdown_margin"],r["shutdown_margin"],rel_tol=1e-2,abs_tol=1e-6)
+def assert_period(o,r):
+    for i in range(300,401): assert math.isclose(o["period"][i],r["period"][i],rel_tol=5e-2,abs_tol=1e-2)
+tests=[("period_calibration",dict(BASE,n_steps=400,rod_position=3.7),"period"),
+       ("slow",dict(BASE,n_steps=300,rod_position=[3.7*min(1,i/300) for i in range(300)]),"dyn"),
+       ("scram_hfp",dict(BASE,n_steps=400,rod_position=3.7,scram_start=1.0,scram_duration=0.5),"dyn"),
+       ("scram_hzp",dict(BASE,initial_power=1e3,use_doppler=False,n_steps=400,rod_position=3.7,scram_start=1.0),"dyn"),
+       ("rod_drop",dict(BASE,n_steps=200,rod_position=[3.7]*10+[0.0]*190),"dyn")]
 ok=True
-for name,p in tests:
+for name,p,mode in tests:
     r=ref(**p); o=agent.simulate(**p)
-    try: assert_m(o,r); print(name,"PASS")
+    try:
+        assert_period(o,r) if mode=="period" else assert_dynamics(o,r); print(name,"PASS")
     except Exception as e: print(name,"FAIL",e); ok=False
 print("ORACLE PASS" if ok else "ORACLE FAIL"); sys.exit(0 if ok else 1)

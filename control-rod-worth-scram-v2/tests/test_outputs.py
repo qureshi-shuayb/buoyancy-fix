@@ -32,26 +32,43 @@ def ref(dt,n_steps,rod_position,rod_total_worth,H,scram_start,scram_duration,ini
         if step>0: dP=(P_next-power[-1])/dt; per=P_next/dP if abs(dP)>1e-9 else 1e9
         power.append(P_next); react.append(rho); period.append(per); n,c,Tf=n_next,c_next,Tf_next
     return {"power":power,"reactivity":react,"period":period,"shutdown_margin":-rod_total_worth,"peak_power":max(power)}
-BASE=dict(dt=0.01,n_steps=200,rod_total_worth=0.05,H=3.7,scram_start=None,scram_duration=1.0,initial_power=1e8,beta=0.0065,beta_groups=[0.0065*0.033,0.0065*0.219,0.0065*0.196,0.0065*0.395,0.0065*0.115,0.0065*0.042],lambda_groups=[0.0124,0.0305,0.111,0.301,1.14,3.01],Lambda=0.001,alpha_doppler=-0.002,T_f0=600,tau_f=5,k_f=1e-6,use_doppler=True)
+# Sub-prompt-critical regime (worth 0.003 << beta 0.0065): all convergent integrators agree to <1%,
+# so the spec's 2% tolerance is satisfiable by any correct ODE solver rather than only the reference's
+# exact discretization. Independent integrators (backward-Euler vs RK4) verified to agree to 0.1-0.5%.
+BASE=dict(dt=0.01,n_steps=200,rod_total_worth=0.003,H=3.7,scram_start=None,scram_duration=1.0,initial_power=1e8,beta=0.0065,beta_groups=[0.0065*0.033,0.0065*0.219,0.0065*0.196,0.0065*0.395,0.0065*0.115,0.0065*0.042],lambda_groups=[0.0124,0.0305,0.111,0.301,1.14,3.01],Lambda=0.001,alpha_doppler=-0.002,T_f0=600,tau_f=5,k_f=1e-6,use_doppler=True)
 def run(a,p): return a.simulate(**p)
-def assert_m(o,r):
+def _keys(o):
     expected_keys = {"power","reactivity","period","shutdown_margin","peak_power"}
     assert isinstance(o, dict)
     assert set(o.keys()) == expected_keys, f"output keys must be exactly {expected_keys}, got {set(o.keys())}"
-    for k in ("power","reactivity","period"): assert len(o[k])==len(r[k])
-    for key in ("power","reactivity","period"):
-        for a,b in zip(o[key],r[key]): assert math.isclose(a,b,rel_tol=2e-1,abs_tol=2e-1)
-    assert math.isclose(o["peak_power"],r["peak_power"],rel_tol=2e-1); assert math.isclose(o["shutdown_margin"],r["shutdown_margin"],rel_tol=2e-1)
+def _len(o,r):
+    for k in ("power","reactivity","period"): assert len(o[k])==len(r[k]), f"{k} length {len(o[k])} != {len(r[k])}"
+def _traj(o,r,keys,rel=2e-2,ab=1e-2):
+    for key in keys:
+        for i,(a,b) in enumerate(zip(o[key],r[key])):
+            assert math.isclose(a,b,rel_tol=rel,abs_tol=ab), f"{key}[{i}]={a} != ref {b}"
+def _finite(o):
+    for v in o["period"]:
+        assert isinstance(v,(int,float)) and not math.isnan(v), f"period contains invalid value {v}"
+def assert_dynamics(o,r):
+    _keys(o); _len(o,r); _traj(o,r,("power","reactivity")); _finite(o)
+    assert math.isclose(o["peak_power"],r["peak_power"],rel_tol=2e-2)
+    assert math.isclose(o["shutdown_margin"],r["shutdown_margin"],rel_tol=1e-2,abs_tol=1e-6)
+def test_contract():
+    a=load(); p=dict(BASE); p.update(n_steps=50,rod_position=1.5); r=ref(**p); o=run(a,p); _keys(o); _len(o,r)
+def test_period_calibration():
+    a=load(); p=dict(BASE); p.update(n_steps=400,rod_position=3.7); r=ref(**p); o=run(a,p)
+    _keys(o); _len(o,r)
+    for i in range(300,401):
+        assert math.isclose(o["period"][i],r["period"][i],rel_tol=5e-2,abs_tol=1e-2), f"period[{i}]={o['period'][i]} != ref {r['period'][i]}"
 def test_slow():
-    a=load(); p=dict(BASE); p.update(n_steps=300,rod_position=[3.7*min(1,i/300) for i in range(300)]); r=ref(**p); o=run(a,p); assert_m(o,r)
+    a=load(); p=dict(BASE); p.update(n_steps=300,rod_position=[3.7*min(1,i/300) for i in range(300)]); r=ref(**p); o=run(a,p); assert_dynamics(o,r)
 def test_scram_hfp():
-    a=load(); p=dict(BASE); p.update(n_steps=400,rod_position=3.7,scram_start=1.0,scram_duration=0.5); r=ref(**p); o=run(a,p); assert_m(o,r)
+    a=load(); p=dict(BASE); p.update(n_steps=400,rod_position=3.7,scram_start=1.0,scram_duration=0.5); r=ref(**p); o=run(a,p); assert_dynamics(o,r)
 def test_scram_hzp():
-    a=load(); p=dict(BASE); p.update(initial_power=1e3,use_doppler=False,n_steps=400,rod_position=3.7,scram_start=1.0); r=ref(**p); o=run(a,p); assert_m(o,r)
+    a=load(); p=dict(BASE); p.update(initial_power=1e3,use_doppler=False,n_steps=400,rod_position=3.7,scram_start=1.0); r=ref(**p); o=run(a,p); assert_dynamics(o,r)
 def test_rod_drop():
-    a=load(); p=dict(BASE); p.update(n_steps=200,rod_position=[3.7]*10+[0.0]*190); r=ref(**p); o=run(a,p); assert_m(o,r)
-
-
+    a=load(); p=dict(BASE); p.update(n_steps=200,rod_position=[3.7]*10+[0.0]*190); r=ref(**p); o=run(a,p); assert_dynamics(o,r)
 def test_stdlib_only():
     """Ensure agent solution uses only Python standard library per spec."""
     import pathlib, ast, os
@@ -73,4 +90,3 @@ def test_stdlib_only():
         if isinstance(node, ast.ImportFrom):
             root = (node.module or '').split('.')[0]
             assert root in allowed, f"disallowed import from {node.module}"
-
