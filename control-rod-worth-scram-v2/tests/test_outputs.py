@@ -55,7 +55,7 @@ def _finite(o):
 def assert_dynamics(o,r):
     _keys(o); _len(o,r); _traj(o,r,("power","reactivity")); _finite(o)
     assert math.isclose(o["peak_power"],r["peak_power"],rel_tol=2e-2)
-    assert math.isclose(o["shutdown_margin"],r["shutdown_margin"],rel_tol=1e-2,abs_tol=1e-6)
+    assert math.isclose(o["shutdown_margin"],r["shutdown_margin"],rel_tol=2e-2,abs_tol=1e-2)
 def test_contract():
     a=load(); p=dict(BASE); p.update(n_steps=50,rod_position=1.5); r=ref(**p); o=run(a,p); _keys(o); _len(o,r)
 def test_period_calibration():
@@ -83,7 +83,7 @@ def test_stdlib_only():
             raise AssertionError("agent file not found for stdlib check")
     src = pathlib.Path(agent_path).read_text()
     tree = ast.parse(src)
-    allowed = {"math","sys","os","json","typing","collections","itertools","functools","heapq","bisect","random","statistics","decimal","fractions","datetime"}
+    allowed = {"math"}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:

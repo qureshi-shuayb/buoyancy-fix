@@ -177,9 +177,9 @@ def assert_matches(out, ref):
     # compare trajectories with tolerance tightened to 1e-12 to catch missing physics and numeric drift; increased difficulty from 1e-7 to reduce 5/5 pass rate
     for key in ("power","xenon","iodine","reactivity"):
         for i,(a,b) in enumerate(zip(out[key], ref[key])):
-            assert math.isclose(float(a), float(b), rel_tol=1e-12, abs_tol=1e-12), f"{key}[{i}] {a} vs {b}"
-    assert math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-12, abs_tol=1e-12)
-    assert math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-12, abs_tol=1e-12)
+            assert math.isclose(float(a), float(b), rel_tol=1e-14, abs_tol=1e-14), f"{key}[{i}] {a} vs {b}"
+    assert math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-14, abs_tol=1e-14)
+    assert math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-14, abs_tol=1e-14)
 
 def test_step_insertion():
     agent=load_agent(); p=scen_step(); ref=ref_simulate(**p); out=run_agent(agent,p); assert_matches(out,ref)
@@ -218,7 +218,7 @@ def test_stdlib_only():
             raise AssertionError("agent file not found for stdlib check")
     src = pathlib.Path(agent_path).read_text()
     tree = ast.parse(src)
-    allowed = {"math","sys","os","json","typing","collections","itertools","functools","heapq","bisect","random","statistics","decimal","fractions","datetime"}
+    allowed = {"math"}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
