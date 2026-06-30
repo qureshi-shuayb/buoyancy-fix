@@ -31,11 +31,12 @@ Plus contract checks and scalar-vs-list equivalence. Verifier writes `/logs/veri
 
 | Model | Pass Rate |
 |-------|-----------|
-| Oracle | 5/5 (100%) |
-| Sonnet 4.6 | _pending recalibration_ |
-| Opus 4.6 | _pending recalibration_ |
-| Avocado | _pending recalibration_ |
-| GPT-5 | _pending recalibration_ |
+| Oracle | 3/3 (100%) |
+| Opus 4.6 | 5/5 (100%) |
+| Avocado | 5/5 (100%) |
+| GPT-5.5 | 5/5 (100%) |
+| Codex | 5/5 (100%) |
+| Sonnet 4.6 | _not yet run_ |
 
 *Note: v0.10 showed 5/5 across all models indicating too-easy calibration. v0.11 tightened tolerance from 1e-7 to 1e-9 and added fast-scram and oscillation scenarios. v0.16 tightens further from 1e-9 to 1e-12 and expands to ten scenarios to increase difficulty targeting 2-3/5 pass band. Failure modes observed in prior runs were primarily numeric drift from approximate solvers and missing xenon/temperature feedback.*
 

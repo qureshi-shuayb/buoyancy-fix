@@ -13,7 +13,7 @@ Implement pure-PHP numerical model of air-side economizer with enthalpy-based sw
 | GPT-5 | TBD |
 | Gemini 2.5 Pro | TBD |
 
-*Note: v10 hardens specification with explicit six-function API ban, BOM handling, ice branch <=0 consistency, and 1e-9 tolerance to target 2-3/5 difficulty band. Prior v9 showed 5/5 indicating too easy; v10 calibration pending.*
+*Note: v10 hardens specification with explicit six-function API ban, BOM handling, ice branch <=0 consistency, and 1e-9 tolerance to target 2-3/5 difficulty band. Prior v9 showed 5/5 indicating too easy; v10 calibration _not yet run_.*
 
 ## Model Analysis
 
