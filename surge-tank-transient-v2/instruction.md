@@ -90,17 +90,17 @@ Compute damping_time by scanning forward: find smallest i such that max_{j=i..n_
 ## Deliverable
 Only `/app/surge_transient.py` is graded. Function must match name and signature exactly.
 
-Allowed libraries: python standard library math, numpy optional. Do not use scipy.integrate or ODE solvers.
+Allowed libraries: python standard library math, numpy optional. Do not use scipy.integrate or ODE solvers. Pure standard-library Python only per spec; no file IO via open(), no eval(), no exec() per pure deterministic no file access requirement and C18 mitigation. Allowed imports are math, sys, os, json, typing, collections, itertools, functools, heapq, bisect, random, statistics, decimal, fractions, datetime.
 
 ## Test Constraints
 * dt 0.1 to 0.5 s pinned per test case
 * n_steps 600 to 2400 => total 60 to 600 s simulation
 * L 200-1200 m, D 2-6 m, A_surge 20-200 m2, A_tunnel either given or computed as pi*D**2/4 consistent per case
-* Q0 10-80 m3/s
+* Q0 10-150 m3/s  # expanded range to cover edge-case test scenarios including 120 and 150 m3/s for high-flow regime testing per v0.21 hardening
 * t_trip 5-20 s, tau_close 3-15 s
 * roughness 0.0001 to 0.001 m
 * Randomized per seed.
-* Tolerances: peak_Z within 0.5 m absolute or 2% relative whichever larger, min_Z within 0.5 m, steady_Z within 0.05 m absolute, damping_time within 2*dt.
+* Tolerances: peak_Z within 0.3 m absolute or 1% relative whichever larger, min_Z within 0.3 m absolute, steady_Z within 0.03 m absolute, damping_time within 1.5*dt. These tightened tolerances increase sensitivity to numerical order errors and friction mis-modeling compared to earlier looser specification, aligning spec text with actual test enforcement to resolve spec-test contradiction per AI feedback.
 
 ## Naive Failure Modes Tests Catch
 * Ignoring friction setting f=0 -> over-predicts amplitude >30%

@@ -87,6 +87,10 @@ def test_ke_branch():
     assert out1["peak_Z"] < out0["peak_Z"] - 0.01
     assert len(out1["Z"]) == ns+1
 
+def test_laminar():
+    # specifically exercise Swamee-Jain laminar branch Re<2000 per AI Low feedback about uncovered laminar branch
+    a=_load(); p=dict(BASE); p.update(dt=0.2,n_steps=800,L=200,D=6.0,A_surge=200.0,A_tunnel=28.274333882308138,H_res=100,Q0=10,t_trip=10,tau_close=8,roughness=0.001,g=9.81,nu=0.01,Ke=0.0); r=ref_simulate(**p); o=run(a,p); assert_dynamics(o,r)
+
 def test_stdlib_only():
     """Ensure agent solution uses only Python standard library per spec. Enhanced to detect dynamic imports and open()."""
     import pathlib, ast, os
