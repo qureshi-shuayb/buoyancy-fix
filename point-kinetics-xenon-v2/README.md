@@ -13,13 +13,17 @@ The hard part is assembling several coupled physics correctly:
 
 A naive scaffold omitting xenon feedback, temperature coefficients, implicit solver, or equilibrium initialization drifts well past tight tolerances.
 
-`tests/test_outputs.py` imports agent's `/app/reactor_kinetics.py` and compares outputs against independent reference over six scenarios:
+`tests/test_outputs.py` imports agent's `/app/reactor_kinetics.py` and compares outputs against independent reference over ten scenarios:
 - **step reactivity insertion** – small positive step, power excursion limited by Doppler,
 - **ramp load-follow** – power ramp down then up, xenon transient overshoot,
 - **rod withdrawal** – rapid withdrawal with Doppler limiting peak,
 - **iodine pit restart** – shutdown then attempted restart into xenon peak, power suppressed,
 - **fast scram** – sudden large negative insertion testing stiff solver stability at small dt,
-- **oscillation** – sinusoidal rod oscillation testing feedback coupling and numeric stability.
+- **oscillation** – sinusoidal rod oscillation testing feedback coupling and numeric stability,
+- **extreme insertion** – 500 pcm step testing Doppler limiting at very small dt,
+- **long xenon** – 40-hour multi-stage transient stressing long-term stability,
+- **ultra-fast** – 1 ms dt transient testing pivot handling,
+- **power ramp** – slow multi-frequency ramp testing equilibrium drift.
 
 Plus contract checks and scalar-vs-list equivalence. Verifier writes `/logs/verifier/reward.txt`.
 
@@ -27,17 +31,17 @@ Plus contract checks and scalar-vs-list equivalence. Verifier writes `/logs/veri
 
 | Model | Pass Rate |
 |-------|-----------|
-| Oracle | 3/3 (100%) |
-| Sonnet 4.6 | _not yet run_ |
-| Opus 4.6 | 5/5 (100%) _prior version too easy_ |
-| Avocado | 5/5 (100%) _prior version too easy_ |
-| GPT-5.5 | 5/5 (100%) _prior version too easy_ |
+| Oracle | 5/5 (100%) |
+| Sonnet 4.6 | _pending recalibration_ |
+| Opus 4.6 | _pending recalibration_ |
+| Avocado | _pending recalibration_ |
+| GPT-5 | _pending recalibration_ |
 
-*Note: v0.10 showed 5/5 across all models indicating too-easy calibration. v0.11 tightens tolerance from 1e-7 to 1e-9 to 1e-9 across versions and adds fast-scram and oscillation scenarios to increase difficulty targeting 2-3/5 pass band. Failure modes observed in prior runs were primarily numeric drift from approximate solvers and missing xenon/temperature feedback.*
+*Note: v0.10 showed 5/5 across all models indicating too-easy calibration. v0.11 tightened tolerance from 1e-7 to 1e-9 and added fast-scram and oscillation scenarios. v0.16 tightens further from 1e-9 to 1e-12 and expands to ten scenarios to increase difficulty targeting 2-3/5 pass band. Failure modes observed in prior runs were primarily numeric drift from approximate solvers and missing xenon/temperature feedback.*
 
 ## Model Analysis
 
-Model evaluation runs show prior versions too easy at 5/5; v0.15 adds 4 extra scenarios and tightens to 1e-9 targeting 2-3/5 band. Run models with:
+Model evaluation runs show prior versions too easy at 5/5; v0.15 added 4 extra scenarios and tightened to 1e-9. v0.16 tightens to 1e-12 targeting 2-3/5 band. Run models with:
 
 ```bash
 codimango bench run -p point-kinetics-xenon-v2 -a claude-code -m claude-sonnet-4-6 -k 5
@@ -45,13 +49,13 @@ codimango bench run -p point-kinetics-xenon-v2 -a claude-code -m claude-opus-4-6
 codimango bench run -p point-kinetics-xenon-v2 -a metacode -m meta/avocado_dvsc_tester -k 5
 ```
 
-Prior v0.10 failure analysis: all models passed due to clear spec and moderate tolerance. Tightening to 1e-9 and adding two edge-case scenarios expected to differentiate implementations with subtle numeric errors in Gaussian elimination pivoting or explicit Euler ordering.
+Prior v0.10 failure analysis: all models passed due to clear spec and moderate tolerance. Tightening to 1e-12 and adding ten edge-case scenarios expected to differentiate implementations with subtle numeric errors in Gaussian elimination pivoting or explicit Euler ordering.
 
 ## Anti-Cheating Analysis
 
-Outputs depend on continuous physical inputs across six distinct transient scenarios with stateful stiff ODE coupling; no small constant to memorize. Grader runs out-of-process not in `/app`. Reference recomputed independently; matching requires full specified model.
+Outputs depend on continuous physical inputs across ten distinct transient scenarios with stateful stiff ODE coupling; no small constant to memorize. Grader runs out-of-process not in `/app`. Reference recomputed independently; matching requires full specified model.
 
-- **Hardcoded outputs**: Tests use continuous physical parameters and six distinct transient scenarios generated at runtime with tight 1e-9 tolerance (tightened from 1e-9 in v0.11); pre-computed answers cannot match without implementing the full coupled ODE system.
-- **Overfitting to visible tests**: Test inputs are parameterized across step, ramp, withdrawal, iodine-pit, fast-scram, and oscillation regimes covering edge cases of stiff kinetics, xenon feedback, thermal lag, and numeric stability; no single constant passes.
-- **Modifying test files**: Tests are mounted read-only by Codimango at `/tests/` — agent cannot modify them. test.sh applies chmod 700 defense during pytest to mitigate C18 in-process oracle surface.
-- **Bypassing intended solution path**: Tests verify full trajectories of power, xenon, iodine, and reactivity at every time step plus peak power and final xenon, not just final output, so shortcutting the implicit solver or equilibrium initialization is detected by numeric drift. Stdlib-only check enhanced to detect dynamic imports via __import__ and importlib.
+- **Hardcoded outputs**: Tests use continuous physical parameters and ten distinct transient scenarios generated at runtime with tight 1e-12 tolerance (tightened from 1e-7 in v0.11 to 1e-9 in v0.15 to 1e-12 in v0.16); pre-computed answers cannot match without implementing the full coupled ODE system.
+- **Overfitting to visible tests**: Test inputs are parameterized across step, ramp, withdrawal, iodine-pit, fast-scram, oscillation, extreme, long-xenon, ultra-fast, and power-ramp regimes covering edge cases of stiff kinetics, xenon feedback, thermal lag, and numeric stability; no single constant passes.
+- **Modifying test files**: Tests are mounted read-only by Codimango at `/tests/` — agent cannot modify them. test.sh applies chmod 700 defense during pytest to mitigate C18 in-process oracle surface, and test_stdlib AST check fully blocks open(), builtins.open, io.open, os.open, pathlib read methods, file(), eval, and exec to prevent same-process oracle reads.
+- **Bypassing intended solution path**: Tests verify full trajectories of power, xenon, iodine, and reactivity at every time step plus peak power and final xenon, not just final output, so shortcutting the implicit solver or equilibrium initialization is detected by numeric drift. Stdlib-only check enhanced to detect dynamic imports via __import__ and importlib and fully block filesystem access.

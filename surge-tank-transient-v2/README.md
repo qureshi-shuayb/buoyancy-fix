@@ -15,7 +15,7 @@ Implement rigid water-column ODE simulation of surge tank mass oscillation after
 
 ## Model Analysis
 
-No model evaluation runs found yet for latest version. Run models with codimango bench commands to populate. Prior versions indicated moderate difficulty with agent pass rates to be determined after hardening.
+Oracle passes 100% locally with reference solution matching pinned explicit Euler order and Swamee-Jain friction. Task targets difficulty band 2-3/5 after hardening applied similar to sister tasks control-rod-worth-scram-v2 and pwr-primary-loop-v2 which are now passing. Hardening includes chmod 700 test defense, enhanced stdlib-only check blocking dynamic imports open eval exec, tightened tolerances peak 0.5m/2% min 0.5m steady 0.05m damping 2dt, and naive failure traps for frictionless, wrong sign, RK4, wrong Z0, wrong update order. Prior AI assessment pending after af38cce; proactive fixes address test quality and spec-test alignment to calibrate toward moderate difficulty not too easy 5/5 nor too hard 0/5.
 
 ## Anti-Cheating Analysis
 

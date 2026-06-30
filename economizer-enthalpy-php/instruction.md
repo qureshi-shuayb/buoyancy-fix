@@ -4,9 +4,9 @@ Implement pure-PHP numerical model of air-side economizer with enthalpy-based sw
 
 Answer depends on four interacting features not scaffolding: bin method evaluating at bin average; enthalpy calculation via psychrometrics requiring Hyland-Wexler saturation pressure two-branch no closed form; sensor fault bias applied to control decision but true enthalpy used for energy; integrated blending non-linear dependent on enthalpy differential; low ambient lockout.
 
-These couple so single-miss drifts past tight 0.0000000001% tolerance on net savings.
+These couple so single-miss drifts past tight tolerance on net savings.
 
-Implement single file at `/app/econ_sim.php`, PHP standard library only. Expose exactly functions listed below.
+Implement single file at `/app/econ_sim.php`, PHP standard library only. Expose exactly six functions listed below and no others.
 
 ## Input CSV
 
@@ -70,6 +70,8 @@ Sum across bins convert Wh to kWh dividing by 1000. Net savings = compressor sav
 ```php
 function read_temps($csv_path)
 function interp($x, $curve)
+function sat_pressure($t)
+function humidity_ratio($tdb, $twb)
 function enthalpy($tdb, $w)
 function annual_economizer($temps_db, $temps_wb, $return_db, $return_wb, $config)
 ```
@@ -78,15 +80,9 @@ annual_economizer must return associative array with keys "fan_extra_kwh", "comp
 
 ## Requirements
 
-**Function signature strictness:** You must define exactly the six functions listed in the Functions to implement section and no others. Helper functions beyond these six allowed names will cause test failure because the test suite enforces exact public API surface to prevent hidden state leakage. Implement helper logic inline within required functions, not as separate top-level named functions.
+**Function signature strictness:** You must define exactly the six functions listed in the Functions to implement section and no others. Helper functions beyond these six allowed names will cause test failure because the test suite enforces exact public API surface to prevent hidden state leakage. Implement helper logic inline within required functions, not as separate top-level named functions or as anonymous closures assigned to variables that become global functions.
 
-**CSV handling:** Input CSV files may contain UTF-8 BOM prefix. Your read_temps function must handle BOM gracefully stripping BOM if present at start of file. Test suite includes BOM-prefixed CSV expecting exactly 72 valid rows after skipping malformed to verify robustness.
-
-**Grading tolerance:** Grader uses tight numeric tolerances rel_tol=1e-9 abs_tol=1e-9 for summed energy to ensure deterministic grading while allowing small floating-point differences across valid implementations.
-
-**Function signature strictness:** You must define exactly the six functions listed in the Functions to implement section and no others. Helper functions beyond these six allowed names will cause test failure because the test suite enforces an exact public API surface to prevent hidden state leakage. If you need helper logic, implement it inline within the required functions or as anonymous closures, not as top-level named functions.
-
-**CSV handling:** Input CSV files may contain UTF-8 BOM prefix and malformed rows. Your read_temps function must handle BOM gracefully (strip BOM if present at start of file) and skip malformed rows as specified. Test suite includes BOM-prefixed CSV with exactly 72 valid rows after skipping malformed to verify robustness.
+**CSV handling:** Input CSV files may contain UTF-8 BOM prefix and malformed rows. Your read_temps function must handle BOM gracefully stripping BOM if present at start of file and skip malformed rows as specified. Test suite includes BOM-prefixed CSV expecting exactly 72 valid rows after skipping malformed to verify robustness.
 
 **Ice branch boundary:** Saturation pressure uses Hyland-Wexler over ice for t <= 0 exactly matching specification text 'over ice t<=0', and over water for t > 0. Ensure boundary at exactly 0 uses ice branch to match reference implementation and avoid divergence at exactly t=0.
 
@@ -94,16 +90,17 @@ annual_economizer must return associative array with keys "fan_extra_kwh", "comp
 
 1. Language PHP 8+, standard library only.
 2. File location /app/econ_sim.php.
-3. Function signatures exactly as listed.
+3. Function signatures exactly as listed, six total, no extra top-level functions.
 4. Bin method at bin average per temperature bin. Function interp must implement linear interpolation with clamp as specified for API completeness; annual_economizer uses bin averaging not interp.
-5. Psychrometric enthalpy via Hyland-Wexler two-branch no closed form.
+5. Psychrometric enthalpy via Hyland-Wexler two-branch no closed form, ice branch t<=0.
 6. Sensor bias applied to control decision only, true enthalpy used for energy.
 7. Integrated blending linear ratio formula as specified.
 8. Low ambient lockout as specified.
 9. Units C kJ/kg W kWh hours. Reconcile conversions.
-10. Robust 8760 8784 handling skip malformed.
+10. Robust 8760 8784 handling skip malformed, handle BOM.
 11. Deterministic pure functions.
 12. Implementation must respect sensor_bias_db and sensor_bias_wb in control decision; test suite verifies that changing these parameters from baseline alters net savings by at least 1% relative to detect hardcoded outputs or ignored config.
+
 
 ## No cheating
 

@@ -10,7 +10,7 @@ def _gauss(A,b):
     n=len(b); M=[A[i][:]+[b[i]] for i in range(n)]
     for col in range(n):
         piv_row=max(range(col,n), key=lambda r: abs(M[r][col]))
-        if abs(M[piv_row][col])<1e-14: continue
+        if abs(M[piv_row][col])<1e-9: continue
         M[col],M[piv_row]=M[piv_row],M[col]; piv=M[col][col]
         for j in range(col,n+1): M[col][j]/=piv
         for r in range(n):
@@ -45,10 +45,10 @@ def ref_simulate(dt,n_steps,rod_rho,initial_power,beta,beta_groups,lambda_groups
     return {"power":power,"xenon":xenon,"iodine":iodine,"reactivity":reactivity,"peak_power":max(power),"final_xenon":xenon[-1]}
 
 BETA_GROUPS_FRAC=[0.033,0.219,0.196,0.395,0.115,0.042]; LAMBDA_GROUPS=[0.0124,0.0305,0.111,0.301,1.14,3.01]; BETA_TOTAL=0.0065
-BASE=dict(dt=1.0,n_steps=3600,initial_power=3e8,beta=BETA_TOTAL,beta_groups=[BETA_TOTAL*f for f in BETA_GROUPS_FRAC],lambda_groups=LAMBDA_GROUPS,Lambda=0.001,gamma_I=0.061,gamma_Xe=0.003,lambda_I=2.93e-5,lambda_Xe=2.09e-5,sigma_Xe=1e-18,Sigma_f_phi_coeff=1e-13,nu_Sigma_f=1e-12,alpha_f=-2.5e-5,alpha_m=-5e-5,T_f0=600.0,T_m0=580.0,tau_f=6.0,tau_m=12.0,k_f=1e-6,k_m=5e-7)
+BASE=dict(dt=1.0,n_steps=3600,initial_power=3e8,beta=BETA_TOTAL,beta_groups=[BETA_TOTAL*f for f in BETA_GROUPS_FRAC],lambda_groups=LAMBDA_GROUPS,Lambda=0.001,gamma_I=0.061,gamma_Xe=0.003,lambda_I=2.93e-5,lambda_Xe=2.09e-5,sigma_Xe=1e-18,Sigma_f_phi_coeff=1e-13,nu_Sigma_f=1e-9,alpha_f=-2.5e-5,alpha_m=-5e-5,T_f0=600.0,T_m0=580.0,tau_f=6.0,tau_m=12.0,k_f=1e-6,k_m=5e-7)
 
 def scen_step():
-    p=dict(BASE); p.update(n_steps=600,dt=0.5); rod=[0.0]*p["n_steps"]; 
+    p=dict(BASE); p.update(n_steps=600,dt=0.5); rod=[0.0]*p["n_steps"];
     for i in range(10,110): rod[i]=0.002
     p["rod_rho"]=rod; return p
 def scen_ramp():
@@ -67,6 +67,35 @@ def scen_iodine_pit():
     for i in range(100,7200): rod[i]=-0.05
     for i in range(7200,p["n_steps"]): rod[i]=0.0
     p["rod_rho"]=rod; return p
+def scen_fast_scram():
+    p=dict(BASE); p.update(n_steps=2000,dt=0.1); rod=[0.0]*p["n_steps"]
+    for i in range(100,p["n_steps"]): rod[i]=-0.08 if i<110 else -0.04
+    p["rod_rho"]=rod; return p
+def scen_oscillation():
+    p=dict(BASE); p.update(n_steps=3600,dt=0.5); rod=[0.0]*p["n_steps"]
+    import math
+    for i in range(p["n_steps"]): rod[i]=0.0015*math.sin(2*math.pi*i/600)
+    p["rod_rho"]=rod; return p
+def scen_extreme():
+    p=dict(BASE); p.update(n_steps=100,dt=0.01); rod=[0.0]*p["n_steps"]
+    for i in range(5,55): rod[i]=0.005
+    p["rod_rho"]=rod; return p
+def scen_long_xenon():
+    p=dict(BASE); p.update(n_steps=28800,dt=5.0); rod=[0.0]*p["n_steps"]
+    for i in range(200,6200): rod[i]=-0.002
+    for i in range(6200,12200): rod[i]=0.001
+    for i in range(12200,18200): rod[i]=-0.0015
+    for i in range(18200,p["n_steps"]): rod[i]=0.0005
+    p["rod_rho"]=rod; return p
+def scen_extreme2():
+    p=dict(BASE); p.update(n_steps=50,dt=0.001); rod=[0.0]*p["n_steps"]
+    for i in range(5,25): rod[i]=0.007
+    p["rod_rho"]=rod; return p
+def scen_power_ramp():
+    p=dict(BASE); p.update(n_steps=10000,dt=2.0); rod=[0.0]*p["n_steps"]
+    import math
+    for i in range(p["n_steps"]): rod[i]=0.0008*math.sin(2*math.pi*i/2500)+0.0003*math.cos(2*math.pi*i/800)
+    p["rod_rho"]=rod; return p
 
 def assert_matches(out, ref):
     for k in ("power","xenon","iodine","reactivity","peak_power","final_xenon"):
@@ -74,14 +103,14 @@ def assert_matches(out, ref):
     assert len(out["power"])==len(ref["power"])
     for key in ("power","xenon","iodine","reactivity"):
         for i,(a,b) in enumerate(zip(out[key], ref[key])):
-            if not math.isclose(float(a),float(b),rel_tol=1e-7,abs_tol=1e-7):
+            if not math.isclose(float(a),float(b),rel_tol=1e-12,abs_tol=1e-12):
                 raise AssertionError(f"{key}[{i}] {a} vs {b}")
-    if not math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-7, abs_tol=1e-7):
+    if not math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-12, abs_tol=1e-12):
         raise AssertionError("peak mismatch")
-    if not math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-7, abs_tol=1e-7):
+    if not math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-12, abs_tol=1e-12):
         raise AssertionError("final xenon mismatch")
 
-scenarios=[("step",scen_step()),("ramp",scen_ramp()),("withdrawal",scen_withdrawal()),("iodine_pit",scen_iodine_pit())]
+scenarios=[("step",scen_step()),("ramp",scen_ramp()),("withdrawal",scen_withdrawal()),("iodine_pit",scen_iodine_pit()),("fast_scram",scen_fast_scram()),("oscillation",scen_oscillation()),("extreme",scen_extreme()),("long_xenon",scen_long_xenon()),("extreme2",scen_extreme2()),("power_ramp",scen_power_ramp())]
 all_pass=True
 for name,p in scenarios:
     ref=ref_simulate(**p)
