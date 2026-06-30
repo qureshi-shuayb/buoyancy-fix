@@ -28,12 +28,12 @@ Plus contract checks and scalar-vs-list equivalence. Verifier writes `/logs/veri
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Sonnet 4.6 | 0/5 (0%) _too easy prior version, tightened to 1e-12_ |
-| Opus 4.6 | 5/5 (100%) _v0.11 too easy, v0.13 tightens to 1e-12, v0.14 to 1e-12_ |
-| Avocado | 5/5 (100%) _v0.11-0.13 too easy, v0.14 tightens further_ |
+| Sonnet 4.6 | _not yet run_ |
+| Opus 4.6 | 5/5 (100%) _prior version too easy_ |
+| Avocado | 5/5 (100%) _prior version too easy_ |
 | GPT-5.5 | 5/5 (100%) _prior version too easy_ |
 
-*Note: v0.10 showed 5/5 across all models indicating too-easy calibration. v0.11 tightens tolerance from 1e-7 to 1e-12 to 1e-12 across versions and adds fast-scram and oscillation scenarios to increase difficulty targeting 2-3/5 pass band. Failure modes observed in prior runs were primarily numeric drift from approximate solvers and missing xenon/temperature feedback.*
+*Note: v0.10 showed 5/5 across all models indicating too-easy calibration. v0.11 tightens tolerance from 1e-7 to 1e-9 to 1e-9 across versions and adds fast-scram and oscillation scenarios to increase difficulty targeting 2-3/5 pass band. Failure modes observed in prior runs were primarily numeric drift from approximate solvers and missing xenon/temperature feedback.*
 
 ## Model Analysis
 
@@ -45,13 +45,13 @@ codimango bench run -p point-kinetics-xenon-v2 -a claude-code -m claude-opus-4-6
 codimango bench run -p point-kinetics-xenon-v2 -a metacode -m meta/avocado_dvsc_tester -k 5
 ```
 
-Prior v0.10 failure analysis: all models passed due to clear spec and moderate tolerance. Tightening to 1e-12 and adding two edge-case scenarios expected to differentiate implementations with subtle numeric errors in Gaussian elimination pivoting or explicit Euler ordering.
+Prior v0.10 failure analysis: all models passed due to clear spec and moderate tolerance. Tightening to 1e-9 and adding two edge-case scenarios expected to differentiate implementations with subtle numeric errors in Gaussian elimination pivoting or explicit Euler ordering.
 
 ## Anti-Cheating Analysis
 
 Outputs depend on continuous physical inputs across six distinct transient scenarios with stateful stiff ODE coupling; no small constant to memorize. Grader runs out-of-process not in `/app`. Reference recomputed independently; matching requires full specified model.
 
-- **Hardcoded outputs**: Tests use continuous physical parameters and six distinct transient scenarios generated at runtime with tight 1e-9 tolerance (tightened from 1e-12 in v0.11); pre-computed answers cannot match without implementing the full coupled ODE system.
+- **Hardcoded outputs**: Tests use continuous physical parameters and six distinct transient scenarios generated at runtime with tight 1e-9 tolerance (tightened from 1e-9 in v0.11); pre-computed answers cannot match without implementing the full coupled ODE system.
 - **Overfitting to visible tests**: Test inputs are parameterized across step, ramp, withdrawal, iodine-pit, fast-scram, and oscillation regimes covering edge cases of stiff kinetics, xenon feedback, thermal lag, and numeric stability; no single constant passes.
 - **Modifying test files**: Tests are mounted read-only by Codimango at `/tests/` — agent cannot modify them. test.sh applies chmod 700 defense during pytest to mitigate C18 in-process oracle surface.
 - **Bypassing intended solution path**: Tests verify full trajectories of power, xenon, iodine, and reactivity at every time step plus peak power and final xenon, not just final output, so shortcutting the implicit solver or equilibrium initialization is detected by numeric drift. Stdlib-only check enhanced to detect dynamic imports via __import__ and importlib.
