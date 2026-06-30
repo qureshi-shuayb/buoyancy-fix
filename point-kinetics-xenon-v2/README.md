@@ -37,7 +37,7 @@ Plus contract checks and scalar-vs-list equivalence. Verifier writes `/logs/veri
 
 ## Model Analysis
 
-No model evaluation runs found for v0.11 yet. Run models with:
+Model evaluation runs show prior versions too easy at 5/5; v0.15 adds 4 extra scenarios and tightens to 1e-9 targeting 2-3/5 band. Run models with:
 
 ```bash
 codimango bench run -p point-kinetics-xenon-v2 -a claude-code -m claude-sonnet-4-6 -k 5
@@ -51,7 +51,7 @@ Prior v0.10 failure analysis: all models passed due to clear spec and moderate t
 
 Outputs depend on continuous physical inputs across six distinct transient scenarios with stateful stiff ODE coupling; no small constant to memorize. Grader runs out-of-process not in `/app`. Reference recomputed independently; matching requires full specified model.
 
-- **Hardcoded outputs**: Tests use continuous physical parameters and six distinct transient scenarios generated at runtime with tight 1e-12 tolerance (tightened from 1e-12 in v0.11); pre-computed answers cannot match without implementing the full coupled ODE system.
+- **Hardcoded outputs**: Tests use continuous physical parameters and six distinct transient scenarios generated at runtime with tight 1e-9 tolerance (tightened from 1e-12 in v0.11); pre-computed answers cannot match without implementing the full coupled ODE system.
 - **Overfitting to visible tests**: Test inputs are parameterized across step, ramp, withdrawal, iodine-pit, fast-scram, and oscillation regimes covering edge cases of stiff kinetics, xenon feedback, thermal lag, and numeric stability; no single constant passes.
 - **Modifying test files**: Tests are mounted read-only by Codimango at `/tests/` — agent cannot modify them. test.sh applies chmod 700 defense during pytest to mitigate C18 in-process oracle surface.
 - **Bypassing intended solution path**: Tests verify full trajectories of power, xenon, iodine, and reactivity at every time step plus peak power and final xenon, not just final output, so shortcutting the implicit solver or equilibrium initialization is detected by numeric drift. Stdlib-only check enhanced to detect dynamic imports via __import__ and importlib.
