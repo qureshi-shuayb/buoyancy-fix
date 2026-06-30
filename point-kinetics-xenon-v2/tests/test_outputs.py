@@ -337,9 +337,7 @@ def test_stdlib_only():
                     # Spec says pure deterministic no file access, so block to align spec-test and mitigate C18
                     raise AssertionError(f"file read method {node.func.attr}() not allowed per pure deterministic no file access spec and C18 mitigation")
                 # block importlib dynamic import
-                if isinstance(node.func, ast.Name):
-                    pass # already handled above
-                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and node.func.value.id == 'importlib' and node.func.attr == 'import_module':
+                if isinstance(node.func.value, ast.Name) and node.func.value.id == 'importlib' and node.func.value.attr == 'import_module':
                     raise AssertionError("importlib dynamic import not allowed per stdlib-only policy")
             if isinstance(node.func, ast.Name) and node.func.id == '__import__':
                 raise AssertionError("dynamic __import__ not allowed per stdlib-only policy")

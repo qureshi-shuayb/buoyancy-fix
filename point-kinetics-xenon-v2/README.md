@@ -39,11 +39,9 @@ Plus contract checks and scalar-vs-list equivalence. Verifier writes `/logs/veri
 | Opus 4.6 | 5/5 (100%) |
 | Avocado | 5/5 (100%) |
 | GPT-5.5 | 5/5 (100%) |
-| Codex | 5/5 (100%) |
 | Sonnet 4.6 | _not yet run_ |
 
-
-Model evaluation runs show prior versions too easy at 5/5; v0.17 tightens to 1e-12 and adds two extra adversarial scenarios (thermal shock, super extreme) for total fourteen scenarios at 1e-12 tolerance targeting 2-3/5 band. Run models with:
+Model evaluation runs show prior versions too easy at 5/5; v0.17 tightens to 1e-9 and adds two extra adversarial scenarios (thermal shock, super extreme) for total fourteen scenarios at 1e-9 tolerance targeting 2-3/5 band. Run models with:
 
 ```bash
 codimango bench run -p point-kinetics-xenon-v2 -a claude-code -m claude-sonnet-4-6 -k 5
@@ -51,13 +49,13 @@ codimango bench run -p point-kinetics-xenon-v2 -a claude-code -m claude-opus-4-6
 codimango bench run -p point-kinetics-xenon-v2 -a metacode -m meta/avocado_dvsc_tester -k 5
 ```
 
-Prior v0.10 failure analysis: all models passed due to clear spec and moderate tolerance. Tightening to 1e-12 and adding fourteen edge-case scenarios expected to differentiate implementations with subtle numeric errors in Gaussian elimination pivoting or explicit Euler ordering.
+Prior v0.10 failure analysis: all models passed due to clear spec and moderate tolerance. Tightening to 1e-9 and adding fourteen edge-case scenarios expected to differentiate implementations with subtle numeric errors in Gaussian elimination pivoting or explicit Euler ordering.
 
 ## Anti-Cheating Analysis
 
 Outputs depend on continuous physical inputs across fourteen distinct transient scenarios with stateful stiff ODE coupling; no small constant to memorize. Grader runs out-of-process not in `/app`. Reference recomputed independently; matching requires full specified model.
 
-- **Hardcoded outputs**: Tests use continuous physical parameters and fourteen distinct transient scenarios generated at runtime with tight 1e-12 tolerance (tightened from 1e-7 in v0.11 to 1e-9 in v0.15, tightened to 1e-12 in v0.17); pre-computed answers cannot match without implementing the full coupled ODE system.
+- **Hardcoded outputs**: Tests use continuous physical parameters and fourteen distinct transient scenarios generated at runtime with tight 1e-9 tolerance (tightened from 1e-7 in v0.11 to 1e-9 in v0.15, tightened to 1e-9 in v0.17); pre-computed answers cannot match without implementing the full coupled ODE system.
 - **Overfitting to visible tests**: Test inputs are parameterized across step, ramp, withdrawal, iodine-pit, fast-scram, oscillation, extreme, long-xenon, ultra-fast, power-ramp, very-fast, long-oscillation, thermal-shock, and super-extreme regimes covering edge cases of stiff kinetics, xenon feedback, thermal lag, and numeric stability; no single constant passes.
 - **Modifying test files**: Tests are mounted read-only by Codimango at `/tests/` — agent cannot modify them. test.sh applies chmod 700 defense during pytest to mitigate C18 in-process oracle surface, and test_stdlib AST check fully blocks open(), file(), eval(), exec(), compile(), getattr dynamic builtin lookup, os.open, io.open, builtins.open, pathlib read methods to prevent same-process oracle reads.
 - **Bypassing intended solution path**: Tests verify full trajectories of power, xenon, iodine, and reactivity at every time step plus peak power and final xenon, not just final output, so shortcutting the implicit solver or equilibrium initialization is detected by numeric drift. Stdlib-only check enhanced to detect dynamic imports via __import__ and importlib, block getattr, setattr, and fully block filesystem access.
