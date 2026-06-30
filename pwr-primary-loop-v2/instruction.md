@@ -81,6 +81,8 @@ Explicit Euler for T_core_out, T_sg_out, V_steam. Flow solved algebraically each
 
 Pure stdlib Python, math only, deterministic, no randomness.
 
+**Grading tolerance:** The grader uses moderate numeric tolerances rel_tol=5e-2 abs_tol=0.5 for all trajectory comparisons to ensure deterministic grading while allowing small floating-point differences across valid implementations. Your implementation must reproduce the specified pinned formulas within these tolerances to pass.
+
 ## No cheating
 
 Grader checks against independent reference over scenarios: steady state normal operation, pump trip coastdown to natural circulation, steam demand step increase, loss of feedwater heating (secondary temperature step). Implement model as specified.
