@@ -8,14 +8,14 @@ Implement rigid water-column ODE simulation of surge tank mass oscillation after
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.6 | _not yet run_ |
-| Avocado | _not yet run_ |
-| GPT-5.5 | _not yet run_ |
+| Opus 4.6 | 5/5 (100%) |
+| Avocado | 5/5 (100%) |
+| GPT-5.5 | 5/5 (100%) |
 | Sonnet 4.6 | _not yet run_ |
 
 ## Model Analysis
 
-Oracle passes 100% locally with reference solution matching pinned explicit Euler order and Swamee-Jain friction. Task targets difficulty band 2-3/5 after hardening applied similar to sister tasks control-rod-worth-scram-v2 and pwr-primary-loop-v2 which are now passing. Hardening includes chmod 700 test defense, enhanced stdlib-only check blocking dynamic imports open eval exec, tightened tolerances peak 0.5m/2% min 0.5m steady 0.05m damping 2dt, and naive failure traps for frictionless, wrong sign, RK4, wrong Z0, wrong update order. Prior AI assessment _not yet run_ after af38cce; proactive fixes address test quality and spec-test alignment to calibrate toward moderate difficulty not too easy 5/5 nor too hard 0/5.
+Oracle passes 3/3 locally with reference solution matching pinned explicit Euler order and Swamee-Jain friction. Codimango validation at f3558ea shows AI Accept C0 H0 M0 L2 with Low issues on undocumented test bans and completion table completeness, and agent pass rate 5/5 too easy across Opus, Avocado, GPT indicating difficulty below target 2-3/5 band. Hardening applied addresses Low feedback and difficulty calibration: README completion rates updated to reflect actual per-model outcomes from Codimango history (Oracle 3/3, Opus 5/5, Avocado 5/5, GPT 5/5), instruction spec-test contract alignment noted for stdlib-only enforcement blocking open eval exec dynamic imports, test suite expanded from 3 to 5 scenarios including high-friction low-surge-area edge case and long-tunnel slow-closure regime, tolerances tightened from peak 0.5m/2% to 0.3m/1% min 0.5 to 0.3 steady 0.05 to 0.03 damping 2dt to 1.5dt to increase sensitivity to numerical order errors and friction mis-modeling. Test defense includes chmod 700 C18 mitigation, enhanced stdlib-only check, naive failure traps for frictionless, wrong sign, RK4, wrong Z0, wrong update order, Ke branch coverage. Expected post-hardening difficulty targets 2-3/5 band similar to point-kinetics-v2 calibration pattern.
 
 ## Anti-Cheating Analysis
 

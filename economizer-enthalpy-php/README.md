@@ -1,19 +1,21 @@
 # economizer-enthalpy-php
 
 ## Description
-Implement pure-PHP numerical model of air-side economizer with enthalpy-based switchover, sensor bias, integrated blending, low ambient lockout. Bin method evaluating at bin average; enthalpy calculation via psychrometrics requiring Hyland-Wexler saturation pressure two-branch no closed form; sensor fault bias applied to control decision but true enthalpy used for energy; integrated blending non-linear dependent on enthalpy differential; low ambient lockout. These couple so single-miss drifts past tight tolerances on net savings.
+Implement pure-PHP numerical model of air-side economizer with enthalpy-based switchover, sensor bias, integrated blending, and low ambient lockout.
+
+Key difficulty comes from four interacting features: bin method evaluating at bin average; enthalpy calculation via psychrometrics requiring Hyland-Wexler saturation pressure two-branch; sensor fault bias applied to control decision but true enthalpy used for energy; integrated blending non-linear dependent on enthalpy differential; low ambient lockout. These couple so single miss drifts past tight tolerances on net savings.
 
 ## Completion Rates
 
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.6 | 5/5 (100%) |
+| Opus 4.6 | 2-3/5 target |
 | Sonnet 4 | TBD |
 | GPT-5 | TBD |
 | Gemini 2.5 Pro | TBD |
 
-*Note: v10 hardens specification with explicit six-function API ban, BOM handling, ice branch <=0 consistency, and 1e-9 tolerance to target 2-3/5 difficulty band. Prior v9 showed 5/5 indicating too easy; v10 calibration _not yet run_.*
+*Note: v11 hardens specification with explicit six-function API ban, BOM handling, ice branch <=0 consistency, verbatim coefficient requirement, wet-bulb offset conventions, interp empty-curve behavior, and 1e-9 tolerance to target 2-3/5 difficulty band. Prior v9 showed 5/5 indicating too easy; v10 calibration showed oracle failure due to test parse error now fixed in v11; v11 targets 2-3/5 after spec-test alignment fixes.*
 
 ## Model Analysis
 

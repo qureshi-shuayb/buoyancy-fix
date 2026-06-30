@@ -96,6 +96,23 @@ def scen_power_ramp():
     import math
     for i in range(p["n_steps"]): rod[i]=0.0008*math.sin(2*math.pi*i/2500)+0.0003*math.cos(2*math.pi*i/800)
     p["rod_rho"]=rod; return p
+def scen_very_fast():
+    p=dict(BASE); p.update(n_steps=20,dt=0.0005); rod=[0.0]*p["n_steps"]
+    for i in range(2,12): rod[i]=0.008
+    p["rod_rho"]=rod; return p
+def scen_long_oscillation():
+    p=dict(BASE); p.update(n_steps=20000,dt=1.0); rod=[0.0]*p["n_steps"]
+    import math
+    for i in range(p["n_steps"]): rod[i]=0.0012*math.sin(2*math.pi*i/1200)+0.0004*math.sin(2*math.pi*i/300)
+    p["rod_rho"]=rod; return p
+def scen_thermal_shock():
+    p=dict(BASE); p.update(n_steps=4000,dt=0.05); rod=[0.0]*p["n_steps"]
+    for i in range(p["n_steps"]): rod[i]=0.002 if (i//20)%2==0 else -0.002
+    p["rod_rho"]=rod; return p
+def scen_super_extreme():
+    p=dict(BASE); p.update(n_steps=100,dt=0.0001); rod=[0.0]*p["n_steps"]
+    for i in range(10,60): rod[i]=0.01
+    p["rod_rho"]=rod; return p
 
 def assert_matches(out, ref):
     for k in ("power","xenon","iodine","reactivity","peak_power","final_xenon"):
@@ -103,14 +120,14 @@ def assert_matches(out, ref):
     assert len(out["power"])==len(ref["power"])
     for key in ("power","xenon","iodine","reactivity"):
         for i,(a,b) in enumerate(zip(out[key], ref[key])):
-            if not math.isclose(float(a),float(b),rel_tol=1e-9,abs_tol=1e-9):
+            if not math.isclose(float(a),float(b),rel_tol=1e-12,abs_tol=1e-12):
                 raise AssertionError(f"{key}[{i}] {a} vs {b}")
-    if not math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-9, abs_tol=1e-9):
+    if not math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-12, abs_tol=1e-12):
         raise AssertionError("peak mismatch")
-    if not math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-9, abs_tol=1e-9):
+    if not math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-12, abs_tol=1e-12):
         raise AssertionError("final xenon mismatch")
 
-scenarios=[("step",scen_step()),("ramp",scen_ramp()),("withdrawal",scen_withdrawal()),("iodine_pit",scen_iodine_pit()),("fast_scram",scen_fast_scram()),("oscillation",scen_oscillation()),("extreme",scen_extreme()),("long_xenon",scen_long_xenon()),("extreme2",scen_extreme2()),("power_ramp",scen_power_ramp())]
+scenarios=[("step",scen_step()),("ramp",scen_ramp()),("withdrawal",scen_withdrawal()),("iodine_pit",scen_iodine_pit()),("fast_scram",scen_fast_scram()),("oscillation",scen_oscillation()),("extreme",scen_extreme()),("long_xenon",scen_long_xenon()),("extreme2",scen_extreme2()),("power_ramp",scen_power_ramp()),("very_fast",scen_very_fast()),("long_oscillation",scen_long_oscillation()),("thermal_shock",scen_thermal_shock()),("super_extreme",scen_super_extreme())]
 all_pass=True
 for name,p in scenarios:
     ref=ref_simulate(**p)
