@@ -38,9 +38,10 @@ Plus contract checks and scalar-vs-list equivalence. Verifier writes `/logs/veri
 | Oracle | 3/3 (100%) |
 | Opus 4.6 | 5/5 (100%) |
 | Avocado | 5/5 (100%) |
-| GPT-5 | 5/5 (100%) |
+| GPT-5.5 | 5/5 (100%) |
 | Codex | 5/5 (100%) |
-| Sonnet 4 | _not yet run_ |
+| Sonnet 4.6 | _not yet run_ |
+
 
 Model evaluation runs show prior versions too easy at 5/5; v0.17 tightens to 1e-12 and adds two extra adversarial scenarios (thermal shock, super extreme) for total fourteen scenarios at 1e-12 tolerance targeting 2-3/5 band. Run models with:
 

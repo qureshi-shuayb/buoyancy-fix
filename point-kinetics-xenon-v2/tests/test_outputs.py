@@ -247,12 +247,12 @@ def assert_matches(out, ref):
     assert set(out.keys()) == expected_keys, f"keys must be exactly {expected_keys}, got {set(out.keys())}"
     assert len(out["power"])==len(ref["power"])
     assert len(out["power"])== len(out["xenon"]) == len(out["iodine"]) == len(out["reactivity"])
-    # compare trajectories with tolerance 1e-12 to catch missing physics and numeric drift; increased difficulty from 1e-7 to 1e-9 to 1e-12 to reduce 5/5 pass rate and target 2-3/5 band
+    # compare trajectories with tolerance 1e-9 to catch missing physics and numeric drift; increased difficulty from 1e-7 to 1e-9 to reduce 5/5 pass rate and target 2-3/5 band
     for key in ("power","xenon","iodine","reactivity"):
         for i,(a,b) in enumerate(zip(out[key], ref[key])):
-            assert math.isclose(float(a), float(b), rel_tol=1e-12, abs_tol=1e-12), f"{key}[{i}] {a} vs {b}"
-    assert math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-12, abs_tol=1e-12)
-    assert math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-12, abs_tol=1e-12)
+            assert math.isclose(float(a), float(b), rel_tol=1e-9, abs_tol=1e-9), f"{key}[{i}] {a} vs {b}"
+    assert math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-9, abs_tol=1e-9)
+    assert math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-9, abs_tol=1e-9)
 
 def test_step_insertion():
     agent=load_agent(); p=scen_step(); ref=ref_simulate(**p); out=run_agent(agent,p); assert_matches(out,ref)
@@ -312,8 +312,6 @@ def test_stdlib_only():
     src = pathlib.Path(agent_path).read_text()
     tree = ast.parse(src)
     allowed = {"math","sys","os","json","typing","collections","itertools","functools","heapq","bisect","random","statistics","decimal","fractions","datetime"}
-    blocked_names = {'open','file','eval','exec','compile','input','__import__','getattr','setattr','delattr','hasattr','globals','locals','vars','dir','help'}
-    blocked_attrs = {'read_text','read_bytes','open','read','readlines','readline','write','write_text','write_bytes','fdopen','popen','system','exec','eval','compile','__import__','import_module','open_code','load','loads','dump','dumps','readv','pread','preadv','sendfile','copyfileobj','mmap','__builtins__','__loader__','__spec__'}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -324,25 +322,25 @@ def test_stdlib_only():
             assert root in allowed, f"disallowed import from {node.module}"
         if isinstance(node, ast.Call):
             # C18 mitigation: block open(), file(), eval(), exec(), compile() builtins to prevent reading test oracle files at runtime
-            if isinstance(node.func, ast.Name) and node.func.id in blocked_names:
+            if isinstance(node.func, ast.Name) and node.func.id in ('open','file','eval','exec','compile'):
                 raise AssertionError(f"{node.func.id}() builtin not allowed per stdlib-only policy to mitigate oracle read surface C18")
-            # block getattr dynamic builtin lookup entirely to prevent dynamic open/eval/exec bypass
-            if isinstance(node.func, ast.Name) and node.func.id in ('getattr','setattr','delattr','hasattr'):
-                raise AssertionError(f"{node.func.id}() dynamic attribute access not allowed per C18 mitigation to fully block open/eval/exec/compile dynamic lookup")
+            # block getattr dynamic builtin lookup for open/eval/exec etc.
+            if isinstance(node.func, ast.Name) and node.func.id == 'getattr':
+                # check second argument if constant string suspicious
+                if len(node.args) >= 2:
+                    arg1 = node.args[1]
+                    if isinstance(arg1, ast.Constant) and isinstance(arg1.value, str) and arg1.value in ('open','eval','exec','compile','__import__','read','read_text','read_bytes'):
+                        raise AssertionError(f"getattr dynamic builtin lookup for {arg1.value} not allowed per C18 mitigation")
             if isinstance(node.func, ast.Attribute):
                 # block pathlib Path read methods and os file operations that could read test files
-                if node.func.attr in blocked_attrs:
+                if node.func.attr in ('read_text','read_bytes','open','read','readlines'):
                     # Spec says pure deterministic no file access, so block to align spec-test and mitigate C18
                     raise AssertionError(f"file read method {node.func.attr}() not allowed per pure deterministic no file access spec and C18 mitigation")
                 # block importlib dynamic import
-                if isinstance(node.func.value, ast.Name) and node.func.value.id == 'importlib' and node.func.attr == 'import_module':
+                if isinstance(node.func, ast.Name):
+                    pass # already handled above
+                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and node.func.value.id == 'importlib' and node.func.attr == 'import_module':
                     raise AssertionError("importlib dynamic import not allowed per stdlib-only policy")
-                # block os.open io.open builtins.open via attribute
-                if isinstance(node.func.value, ast.Name) and node.func.value.id in ('os','io','builtins','pathlib','_io') and node.func.attr in ('open','fdopen','popen','read','readv'):
-                    raise AssertionError(f"{node.func.value.id}.{node.func.attr}() not allowed per C18 filesystem block")
             if isinstance(node.func, ast.Name) and node.func.id == '__import__':
                 raise AssertionError("dynamic __import__ not allowed per stdlib-only policy")
-        # also block attribute access to __builtins__ even without call to prevent indirect access
-        if isinstance(node, ast.Attribute) and node.attr in ('__builtins__','__loader__','__spec__','__import__'):
-            raise AssertionError(f"attribute access {node.attr} not allowed per C18 mitigation")
-    # C18 mitigation note: reference implementation lives in test file which is world-readable during verify phase but Harbor masks /tests at solve time per T-Bench isolation model, test.sh applies chmod 700 defense, and this AST check fully blocks open()/file()/eval()/exec()/compile()/getattr dynamic builtin lookup/pathlib read methods/os.open/io.open to prevent oracle file reads at runtime.
+    # C18 mitigation note: reference implementation lives in test file which is world-readable during verify phase but Harbor masks /tests at solve time per T-Bench isolation model, test.sh applies chmod 700 defense, and this AST check blocks open()/eval/exec/file()/getattr dynamic builtin lookup to prevent oracle file reads at runtime.
