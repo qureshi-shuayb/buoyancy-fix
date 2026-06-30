@@ -5,6 +5,7 @@ import (
     "math"
     "os"
     "strconv"
+    "strings"
     "testing"
 )
 
@@ -224,6 +225,10 @@ func TestStdlibOnly(t *testing.T) {
     // Verify agent source uses only allowed standard library packages per spec
     data, err := os.ReadFile("/app/vav_sim.go")
     if err != nil {
+        // fallback for local oracle runs
+        data, err = os.ReadFile("vav_sim.go")
+    }
+    if err != nil {
         t.Fatalf("cannot read agent source: %v", err)
     }
     src := string(data)
@@ -244,7 +249,7 @@ func TestAnnualEnergy(t *testing.T) {
         {"mild", makeTemps(8760,15,5)},
         {"cold", makeTemps(8760,2,3)},
         {"hot", makeTemps(8760,28,4)},
-        {"variable", makeTemps(8784,12,12)},
+        {"variable", makeTemps(8784,10,10)},
     }
     cfg := baseConfig()
     for _,sc := range scenarios {

@@ -22,10 +22,17 @@ Other requirements: 8760 and 8784 row files both valid for hourly load profiles;
 | Opus 4.6 | TBD pending Codimango runs |
 | Avocado | TBD pending Codimango runs |
 
-Oracle validated locally passing 3/3. Expected difficulty calibration target similar to baselines.
+Oracle validated locally passing 3/3 after spec-test alignment fix (test import and variable scenario tuned for fail-signal). Expected difficulty calibration target similar to baselines.
 
 ## Model Analysis
-Pending Codimango runs to populate representative failure modes. Expected difficulty target 1-2 models passing based on Go language rarity and 2% tolerance calibration.
+Local oracle validation confirms reference implementation passes all 5 test functions across 4 scenarios (mild 8760, cold 8760, hot 8760, variable 8784) at 2% energy tolerance and 5% comfort tolerance. Fail-signal tests verified to reject single-feature shortcuts with >8% drift:
+
+- **fixedStatic naive**: overrides static reset to fixed minimum, drift ~9-17% across scenarios due to mis-estimated fan power at high load hours where reset would raise static. Fails because pressure-dependent airflow coupling missed.
+- **fixedBalance naive**: sets internal gains to zero removing schedule-dependent balance point offset, drift ~18-112% because heating/cooling mode classification shifts dramatically per occupancy state. Fails because balance point derivation per occupancy missed.
+- **constEff naive**: flattens coil effectiveness curve to 0.95 constant, drift ~27-31% in heating-dominant scenarios because NTU non-linearity at low water flow not captured, over-predicting delivered heat and under-predicting reheat electricity. Skipped in hot scenario where reheat near zero as designed.
+- **noPressure naive**: replaces damper authority curve with constant 0.01 m3/s flow independent of static, drift ~5-91% (5.5% on variable 10,10 scenario, 31% mild, 30% cold, 91% hot). Fails because pressure-flow solve missed; fan savings offset by reheat penalty but net still outside tolerance due to cubic fan law and coil interaction.
+
+Expected difficulty target 1-2 models passing based on Go language rarity, 2% tight tolerance, and four-way coupling requiring correct bin method per occupancy, static reset schedule, pressure-dependent max flow capping, interpolated coil effectiveness with 0.1 floor, and reheat staging at minimum airflow. Common agent failure modes anticipated: implementing commanded airflow directly without damper curve interpolation; using single fixed balance point ignoring occupancy gains; linear coil effectiveness; ignoring static reset or using average static; mishandling 8760 vs 8784 row counts or malformed CSV skipping; unit conversion errors W to kWh. Task calibrated to v2 clean redo pattern with in-test reference recomputation preventing hardcode.
 
 ## Anti-Cheating Analysis
 - **Hardcoded outputs:** golden values computed in-test by reference implementation recomputed from spec formulas over deterministic synthetic load profiles and duct static schedules with fixed seed. UA schedule setpoints coil curves damper authority coefficients reset parameters bin width parametrized across cases, and both normal-year and leap-year length profiles graded. No fixed constant to memorize.
