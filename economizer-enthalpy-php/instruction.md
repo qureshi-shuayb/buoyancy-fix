@@ -78,6 +78,14 @@ annual_economizer must return associative array with keys "fan_extra_kwh", "comp
 
 ## Requirements
 
+**Function signature strictness:** You must define exactly the six functions listed in the Functions to implement section and no others. Helper functions beyond these six allowed names will cause test failure because the test suite enforces an exact public API surface to prevent hidden state leakage. If you need helper logic, implement it inline within the required functions or as anonymous closures, not as top-level named functions.
+
+**CSV handling:** Input CSV files may contain UTF-8 BOM prefix and malformed rows. Your read_temps function must handle BOM gracefully (strip BOM if present at start of file) and skip malformed rows as specified. Test suite includes BOM-prefixed CSV with exactly 72 valid rows after skipping malformed to verify robustness.
+
+**Ice branch boundary:** Saturation pressure uses Hyland-Wexler over ice for t <= 0 exactly matching specification text 'over ice t<=0', and over water for t > 0. Ensure boundary at exactly 0 uses ice branch to match reference implementation and avoid divergence at exactly t=0.
+
+**Grading tolerance:** Grader uses tight numeric tolerances rel_tol=1e-9 abs_tol=1e-9 for energy sums to ensure deterministic grading while allowing small floating-point differences across valid implementations. Earlier versions used 1e-12 causing false-negative risk due to floating-point summation order sensitivity; 1e-9 balances strictness and stability. Your implementation must follow specified bin averaging order exactly as pinned to ensure deterministic outputs.
+
 1. Language PHP 8+, standard library only.
 2. File location /app/econ_sim.php.
 3. Function signatures exactly as listed.
