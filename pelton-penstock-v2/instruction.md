@@ -7,45 +7,37 @@ This is a mechanical engineering simulation task combining fluid mechanics (Darc
 
 ## Physical Background
 
-A Pelton impulse turbine is fed by a circular penstock of length L, diameter D, roughness epsilon, carrying gross head Hg. Kinematic viscosity nu = 1.004e-6 m2/s, gravity g=9.81 m/s2, water density rho defaults to 1000 kg/m3.
+A Pelton impulse turbine is fed by a circular penstock carrying gross head Hg. Water properties use standard kinematic viscosity and gravity, density defaults to 1000 kg/m3. The penstock geometry is defined by length, diameter and absolute roughness.
 
-Penstock area A = pi D^2 /4. Mean velocity V = Q / A. Reynolds number Re = V D / nu.
+Flow in the penstock is characterized by cross-sectional area, mean velocity derived from discharge, and Reynolds number based on diameter and viscosity. Friction factor follows the Colebrook-White implicit relationship between relative roughness and Reynolds number, solved iteratively via fixed-point using base-10 logarithm. For laminar regime apply the classical inverse Reynolds scaling.
 
-Friction factor f follows Colebrook-White implicit relation:
-  1/sqrt(f) = -2 log10( epsilon/(3.7 D) + 2.51/(Re sqrt(f)) )
-Solve by fixed-point iteration from initial guess 0.02 for exactly 5 iterations using math.log10. Apply laminar override f = 64 / Re when Re < 2000.
+Head loss along the penstock follows Darcy-Weisbach proportional to friction factor, length-to-diameter ratio and velocity head. Net head available at the nozzle is gross head minus friction loss. The implementation must raise ValueError when net head is non-positive after convergence.
 
-Darcy-Weisbach head loss hf = f L/D V^2 / (2g). Net head Hn = Hg - hf. Raise ValueError if Hn is not positive.
+The Pelton nozzle assembly converts net head to jet kinetic energy via a velocity coefficient accounting for nozzle losses. Total jet area aggregates multiple identical nozzles. Jet velocity derives from Torricelli-type square root relationship with net head. Discharge is jet area times jet velocity.
 
-Pelton nozzle assembly: n_nozzle nozzles of diameter d_nozzle, velocity coefficient Cv. Jet area per nozzle Aj = pi d_nozzle^2 /4, total Aj_tot = n_nozzle * Aj. Jet velocity Vj = Cv sqrt(2 g Hn). Discharge Q = Aj_tot * Vj.
+Because head loss depends on discharge which itself depends on net head, the system is implicit. Solve by outer fixed-point iteration starting from gross-head estimate, then repeatedly update velocity, Reynolds number, friction factor, head loss, net head and discharge until stable. Guard against non-physical intermediate net head during iteration but enforce positivity check at the end.
 
-Because hf depends on Q, Q is implicit. Solve with outer fixed-point loop of exactly 10 iterations: initialize Q from gross head, then each iteration recompute V, Re, f, hf, Hn, and update Q. Clamp Hn to at least 1e-6 during iteration to avoid sqrt domain error; final Hn must still be checked for positivity.
-
-Wheel tangential speed U = pi D_wheel N / 60 where N is rpm.
-
-Pelton shaft power from Euler turbine equation: P = rho * Q * U * (Vj - U) * 2 * eta_b * eta_m. Use this exact form.
+Wheel tangential speed converts rotational speed in rpm to linear rim speed using wheel diameter. Pelton shaft power follows Euler turbine equation for impulse machines, incorporating mass flow rate, change in tangential momentum between jet and bucket speed, bucket efficiency and mechanical efficiency. The factor accounting for jet turning angle near 180 degrees must be included.
 
 ## Governor Model
 
-Droop governor with permanent droop R, rated speed Nrated rpm, rated power Prated W, deadband db rpm, rate limit rpm/s.
+Droop governor with permanent droop coefficient, rated speed, rated power, speed deadband and slew rate limit.
 
-For a load step dP (positive = load increase, negative = load decrease):
- steady speed deviation delta_N_ss = - R * Nrated * dP / Prated
- deadband logic: if |delta_N_ss| < db then target delta = 0 else target = delta_N_ss
+For a load step, compute steady-state speed deviation proportional to droop, rated speed and per-unit load change, with sign convention such that load increase reduces speed. Apply deadband: small deviations within band produce zero target change, otherwise target equals steady deviation.
 
-Simulate discrete approach with timestep dt=1.0 s up to max_iter=60 steps. Each step change is limited in magnitude to rate_limit*dt toward target. Stop early when within 0.1 rpm of target. Return final equilibrium speed N_eq = Nrated + delta, clamped to [0, 2*Nrated], along with iteration count and final delta.
+Simulate discrete-time approach to target with fixed timestep defaulting to one second and configurable maximum steps. At each step the speed change is limited in magnitude by rate limit times timestep, moving toward target without overshoot. Terminate early when sufficiently close to target. Return equilibrium speed as rated plus accumulated delta, clamped to physical bounds between zero and twice rated, along with iteration count used and final delta achieved.
 
 ## Required API in /app/pelton_power.py
 
 ```python
 def colebrook_f(Re: float, epsilon_D: float) -> float
 ```
-epsilon_D is epsilon/D. Return friction factor after 5 fixed-point iterations then laminar check.
+epsilon_D is epsilon/D. Return friction factor using Colebrook fixed-point then laminar check.
 
 ```python
 def steady_power(Hg: float, L: float, D: float, epsilon: float, n_nozzle: int, d_nozzle: float, D_wheel: float, N_rpm: float, Cv: float, eta_b: float, eta_m: float, rho: float=1000.0, g: float=9.81) -> dict
 ```
-Return dict with keys Hn, Q, P, Vj, U, f computed via 10-iteration outer loop. Raise ValueError on non-positive Hn.
+Return dict with keys Hn, Q, P, Vj, U, f computed via outer fixed-point loop. Raise ValueError on non-positive Hn.
 
 ```python
 def governor_equilibrium(Nrated: float, Prated: float, R: float, deadband: float, rate_limit: float, load_step: float, dt: float=1.0, max_iter: int=60) -> dict
@@ -60,6 +52,6 @@ Input ranges typical for high-head Pelton plants:
  Cv 0.97-0.99, eta_b 0.85-0.92, eta_m 0.94-0.98
  R 0.04-0.06, deadband 2-10 rpm, rate_limit 5-20 rpm/s, load_step within +-30% Prated
 
-Tolerances for grading: Hn 1% relative, Q 1.5%, P 2%, Vj 1%, U 1%, f 2%, N_eq 0.5 rpm absolute, iterations exact match.
+Tolerances for grading: Hn 0.3% relative, Q 0.5%, P 0.7%, Vj 0.3%, U 0.3%, f 0.5%, N_eq 0.1 rpm absolute, iterations exact match.
 
 Geometries are randomized per test seed to prevent hard-coding. Implement general physics, not case-specific constants.

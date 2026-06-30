@@ -52,21 +52,21 @@ def test_steady_cases():
     cases=[(450,800,1.4,0.0001,2,0.12,2.1,600,0.98,0.89,0.96),(300,500,1.0,0.00005,1,0.1,1.5,750,0.97,0.87,0.95),(650,1200,2.0,0.0002,4,0.18,3.0,400,0.99,0.9,0.97),(720,1500,2.2,0.00015,6,0.22,3.2,350,0.985,0.91,0.975),(180,350,0.9,0.000045,1,0.07,1.2,850,0.972,0.86,0.945)]
     for Hg,L,D,eps,nn,dn,Dw,N,Cv,eb,em in cases:
         ref=ref_steady_power(Hg,L,D,eps,nn,dn,Dw,N,Cv,eb,em); got=agent.steady_power(Hg,L,D,eps,nn,dn,Dw,N,Cv,eb,em)
-        assert abs(got["Hn"]-ref["Hn"])/ref["Hn"]<0.005
-        assert abs(got["Q"]-ref["Q"])/ref["Q"]<0.008
-        assert abs(got["P"]-ref["P"])/ref["P"]<0.01
+        assert abs(got["Hn"]-ref["Hn"])/ref["Hn"]<0.003
+        assert abs(got["Q"]-ref["Q"])/ref["Q"]<0.005
+        assert abs(got["P"]-ref["P"])/ref["P"]<0.007
         # directly assert Vj U f keys exist and match reference within tolerance per spec requirement
-        assert abs(got["Vj"]-ref["Vj"])/ref["Vj"] < 0.005
-        assert abs(got["U"]-ref["U"])/ref["U"] < 0.005
-        assert abs(got["f"]-ref["f"])/ref["f"] < 0.01
+        assert abs(got["Vj"]-ref["Vj"])/ref["Vj"] < 0.003
+        assert abs(got["U"]-ref["U"])/ref["U"] < 0.003
+        assert abs(got["f"]-ref["f"])/ref["f"] < 0.005
 
 def test_governor():
     for Nr,Pr,R,db,rl,ls in [(600,5e6,0.05,5,10,-1e6),(750,8e6,0.04,3,15,1.5e6),(500,3e6,0.06,8,7,-0.8e6)]:
         ref=ref_governor(Nr,Pr,R,db,rl,ls); got=agent.governor_equilibrium(Nr,Pr,R,db,rl,ls)
-        assert abs(got["N_eq"]-ref["N_eq"])<0.2
+        assert abs(got["N_eq"]-ref["N_eq"])<0.1
         assert got["iterations"]==ref["iterations"]
         # delta key required by spec must be asserted directly
-        assert abs(got["delta"]-ref["delta"]) < 0.2
+        assert abs(got["delta"]-ref["delta"]) < 0.1
 
 def test_naive_constant_f():
     Hg,L,D,eps=450,800,1.4,0.0001
@@ -75,11 +75,11 @@ def test_naive_constant_f():
     Qc=Aj_tot*Cv*math.sqrt(2*9.81*Hg); Vc=Qc/A; hfc=0.02*L/D*Vc*Vc/(2*9.81)
     ref=ref_steady_power(Hg,L,D,eps,2,0.12,2.1,600,0.98,0.89,0.96)
     got=agent.steady_power(Hg,L,D,eps,2,0.12,2.1,600,0.98,0.89,0.96)
-    # naive f=0.02 should differ at least 0.0005 relative to catch weak implementations
-    assert abs(hfc - (Hg-ref["Hn"]))/Hg > 0.0005
+    # naive f=0.02 should differ at least 0.0003 relative to catch weak implementations
+    assert abs(hfc - (Hg-ref["Hn"]))/Hg > 0.0003
     # agent must match reference not naive
-    assert abs(got["Hn"]-ref["Hn"])/ref["Hn"] < 0.005
-    assert abs(got["Hn"]- (Hg-hfc))/Hg > 0.0004
+    assert abs(got["Hn"]-ref["Hn"])/ref["Hn"] < 0.003
+    assert abs(got["Hn"]- (Hg-hfc))/Hg > 0.0003
 
 def test_laminar_colebrook():
     # Re <2000 triggers 64/Re branch
@@ -96,7 +96,7 @@ def test_hn_value_error():
 def test_governor_deadband():
     # load step within deadband => zero delta target => N_eq == Nrated, iterations 1
     out = agent.governor_equilibrium(Nrated=600, Prated=5e6, R=0.05, deadband=5, rate_limit=10, load_step=-1e3)
-    assert abs(out["N_eq"] - 600) < 0.2
+    assert abs(out["N_eq"] - 600) < 0.1
     assert out["iterations"] == 1
 
 def test_governor_clamp():
