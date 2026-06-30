@@ -15,7 +15,7 @@ Key difficulty comes from four interacting features: bin method evaluating at bi
 | GPT-5 | TBD |
 | Gemini 2.5 Pro | TBD |
 
-*Note: v11 hardens specification with explicit six-function API ban, BOM handling, ice branch <=0 consistency, verbatim coefficient requirement, wet-bulb offset conventions, interp empty-curve behavior, and 1e-9 tolerance to target 2-3/5 difficulty band. Prior v9 showed 5/5 indicating too easy; v10 calibration showed oracle failure due to test parse error now fixed in v11; v11 targets 2-3/5 after spec-test alignment fixes.*
+*Note: v11 specification includes explicit six-function API, BOM handling, ice branch t<=0, verbatim Hyland-Wexler coefficients, wet-bulb offset conventions, interp empty-curve behavior, and 1e-9 tolerance targeting 2-3/5 difficulty.*
 
 ## Model Analysis
 
