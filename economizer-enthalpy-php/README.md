@@ -8,7 +8,7 @@ Implement pure-PHP numerical model of air-side economizer with enthalpy-based sw
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.1 | TBD |
+| Opus 4.6 | 5/5 (100%) |
 | Sonnet 4 | TBD |
 | GPT-5 | TBD |
 | Gemini 2.5 Pro | TBD |
