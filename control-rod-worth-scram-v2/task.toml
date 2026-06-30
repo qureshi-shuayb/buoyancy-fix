@@ -4,7 +4,7 @@ name="codimango/control-rod-worth-scram-v2"
 format="terminal_bench_single_turn"
 workstream = "swe_public_repo"
 description="Implement Python point kinetics 6-group simulation responding to time-varying control rod reactivity following S-curve integral worth and SCRAM drop profile with gravity dashpot. Optional Doppler feedback limits power excursion. Returns power trajectory, reactivity trajectory, period, shutdown margin, peak power. Deterministic numeric grading against independent reference; naive implementations omitting S-curve nonlinearity, SCRAM profile discontinuity, implicit kinetics solver, or Doppler feedback fail tight tolerances across slow withdrawal calibration, SCRAM hot full power, SCRAM hot zero power, and rod drop accident scenarios."
-authors=["shuaybqureshi"]
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
 keywords=["python","simulation","nuclear","point-kinetics","control-rod","scram","reactivity","doppler","s-curve","delayed-neutrons"]
 
 [metadata]

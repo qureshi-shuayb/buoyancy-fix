@@ -5,7 +5,7 @@ name = "codimango/pwr-primary-loop-v2"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
 description = "Implement Python lumped-parameter PWR primary loop simulation with core heat source, steam generator heat sink, pressurizer pressure control, pump coastdown and natural circulation transition. Explicit Euler for temperatures and pressurizer, algebraic Newton solve for flow each step balancing pump head plus buoyancy against loop resistance. Returns core outlet temperature, SG outlet temperature, flow, pressure trajectories, peak temperature and minimum flow. Deterministic numeric grading against independent reference; naive implementations omitting natural circulation head, pressurizer coupling, LMTD SG model, or decay heat curve fail moderate tolerances across pump trip, steam demand step, loss of feedwater, and normal operation scenarios."
-authors = ["shuaybqureshi"]
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
 keywords = ["python","simulation","nuclear","pwr","thermal-hydraulics","natural-circulation","pressurizer","pump","steam-generator","lumped-parameter"]
 
 [metadata]
