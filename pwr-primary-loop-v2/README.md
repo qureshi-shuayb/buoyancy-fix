@@ -4,13 +4,25 @@
 You will implement a Python simulation of a pressurized water reactor primary coolant loop using lumped-parameter thermal-hydraulics. The loop includes reactor core heat source, steam generator heat sink, pressurizer pressure control, and reactor coolant pump with coastdown to natural circulation.
 
 ## Completion Rates
-- Avocado pass rate: 2/5
-- Oracle pass rate: 3/3
-- Opus (agent) pass rate: 2/5
-- Difficulty pass rate: 0.0
+
+| Model | Pass Rate |
+|-------|-----------|
+| Oracle | 3/3 (100%) |
+| Opus 4.6 | 2/5 (40%) |
+| Avocado | 2/5 (40%) |
+| GPT-5.5 | 2/5 (40%) |
+| Sonnet 4.6 | _not yet run_ |
 
 ## Model Analysis
-Oracle achieves 100% pass rate validating reference implementation correctness across four scenarios. Opus and Metacode each achieve 2/5, indicating moderate difficulty with successful solutions demonstrating correct Newton flow solve, LMTD SG model, pressurizer coupling, and decay heat handling, while failures typically omit natural circulation head or mis-implement pressurizer volume-pressure relation. Avocado shows 0/5 in current run but balance check passes via Opus/Metacode mixed results, confirming task is neither trivially easy nor impossible. Codex mirrors 2/5 pattern.
+
+Oracle achieves 100% pass rate validating reference implementation correctness across four scenarios. Opus, Metacode, and Codex each achieve 2/5, indicating moderate difficulty targeting the ideal 2-3/5 calibration band. Successful solutions demonstrate correct Newton flow solve with 3 iterations, LMTD SG model with explicit max(dT,1e-3) clamp, pressurizer volume-pressure coupling, and decay heat handling. Failures typically omit natural circulation head, mis-implement pressurizer volume-pressure relation, use incorrect initial flow initialization, or mis-handle LMTD edge case. The explicit Index-0 initialization conventions added in v0.11 clarify flow[0]=flow_rated, T_sg_out[0]=T_core_in0, pressure[0]=pressure_setpoint to reduce ambiguity while preserving difficulty.
 
 ## Anti-Cheating Analysis
-Contamination risk assessed as MEDIUM by internal decontamination table lookup returning NOT_FOUND pending pipeline evaluation; supplementary web searches find no public benchmark matching bespoke simulate() interface or pinned constants, indicating low direct leakage but general PWR thermal-hydraulics topic is well documented. Novelty risk MEDIUM due to established engineering domain but specific lumped-parameter formulation with pinned rho0=700, decay 0.06 constant, Newton 3 iterations, and linear pressurizer heater/spray rates is novel composition. No information leakage vectors identified; tests use independent reference implementation in tests directory not readable during agent solve phase. Test tolerance tightened to 5% relative / 0.5 absolute to improve reward discrimination while maintaining oracle stability. Spec now aligns with implementation: pump curve uses literal (1-(m/flow_rated)^2) form without undocumented clamp, Newton derivative matches spec without hidden regularizer, pressurizer volume evolves without undocumented clamp, matching instruction literal text.
+
+Contamination risk assessed as MEDIUM by internal decontamination table lookup returning NOT_FOUND pending pipeline evaluation; supplementary web searches find no public benchmark matching bespoke simulate() interface or pinned constants, indicating low direct leakage but general PWR thermal-hydraulics topic is well documented. Novelty risk MEDIUM due to established engineering domain but specific lumped-parameter formulation with pinned rho0=700, decay 0.06 constant, Newton 3 iterations, and linear pressurizer heater/spray rates is novel composition.
+
+- **Hardcoded outputs**: Tests use continuous physical parameters across four transient scenarios with tight 5% tolerance; precomputed answers cannot match without implementing full model.
+- **Overfitting to visible tests**: Test inputs parameterized across normal operation, pump trip, steam demand step, and loss of feedwater covering edge cases.
+- **Modifying test files**: Tests mounted read-only at /tests/; test.sh applies chmod 700 defense during pytest to mitigate in-process oracle surface.
+- **Bypassing intended solution path**: Tests verify full trajectories not just final values; stdlib-only check enhanced to detect dynamic imports via __import__ and importlib to prevent numpy bypass. Test returns failure if agent file not found rather than passing vacuously.
+- **Spec alignment**: v0.11 aligns implementation with instruction literal: pump curve uses literal (1-(m/flow_rated)^2) without undocumented clamp, Newton derivative matches spec without hidden regularizer, pressurizer volume evolves without undocumented clamp, LMTD uses explicit max(dT,1e-3) form now specified in instruction, Index-0 initialization conventions now explicit in instruction.

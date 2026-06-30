@@ -44,7 +44,7 @@ def test_steam_step():
 def test_loss_feed():
     a=load_agent(); p=dict(BASE); p.update(n_steps=150,T_sg_secondary=570); p["pump_speed"]=1.0; p["steam_demand"]=1e8; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_stdlib_only():
-    """Ensure agent solution uses only Python standard library per spec."""
+    """Ensure agent solution uses only Python standard library per spec. Enhanced to detect dynamic imports and require file existence."""
     import pathlib, ast, os
     agent_path = "/app/pwr_loop.py"
     if not os.path.exists(agent_path):
@@ -52,7 +52,7 @@ def test_stdlib_only():
         if candidates:
             agent_path = str(candidates[0])
         else:
-            return
+            raise AssertionError("agent file not found for stdlib check")
     src = pathlib.Path(agent_path).read_text()
     tree = ast.parse(src)
     allowed = {"math","sys","os","json","typing","collections","itertools","functools","heapq","bisect","random","statistics","decimal","fractions","datetime"}
@@ -64,3 +64,21 @@ def test_stdlib_only():
         if isinstance(node, ast.ImportFrom):
             root = (node.module or '').split('.')[0]
             assert root in allowed, f"disallowed import from {node.module}"
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id == '__import__':
+                if node.args:
+                    arg=node.args[0]
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value,str):
+                        root=arg.value.split('.')[0]
+                        assert root in allowed, f"disallowed dynamic __import__ {arg.value}"
+                    else:
+                        raise AssertionError("dynamic __import__ with non-constant not allowed")
+            if isinstance(node.func, ast.Attribute):
+                if isinstance(node.func.value, ast.Name) and node.func.value.id=='importlib' and node.func.value.attr=='import_module':
+                    if node.args:
+                        arg=node.args[0]
+                        if isinstance(arg, ast.Constant) and isinstance(arg.value,str):
+                            root=arg.value.split('.')[0]
+                            assert root in allowed, f"disallowed importlib import {arg.value}"
+                        else:
+                            raise AssertionError("dynamic importlib.import_module with non-constant not allowed")

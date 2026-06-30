@@ -5,7 +5,9 @@ def _at(x,i): return x[i] if isinstance(x,(list,tuple)) else x
 def _solve(A,b):
     n=len(b); M=[A[i][:]+[b[i]] for i in range(n)]
     for col in range(n):
-        pr=max(range(col,n),key=lambda r:abs(M[r][col])); M[col],M[pr]=M[pr],M[col]; piv=M[col][col] or 1e-14
+        pr=max(range(col,n),key=lambda r:abs(M[r][col])); M[col],M[pr]=M[pr],M[col]
+        if abs(M[col][col])<1e-14: continue
+        piv=M[col][col]
         for j in range(col,n+1): M[col][j]/=piv
         for r in range(n):
             if r==col: continue
@@ -60,7 +62,7 @@ def test_period_calibration():
     a=load(); p=dict(BASE); p.update(n_steps=400,rod_position=3.7); r=ref(**p); o=run(a,p)
     _keys(o); _len(o,r)
     for i in range(300,401):
-        assert math.isclose(o["period"][i],r["period"][i],rel_tol=5e-2,abs_tol=1e-2), f"period[{i}]={o['period'][i]} != ref {r['period'][i]}"
+        assert math.isclose(o["period"][i],r["period"][i],rel_tol=2e-2,abs_tol=1e-2), f"period[{i}]={o['period'][i]} != ref {r['period'][i]}"
 def test_slow():
     a=load(); p=dict(BASE); p.update(n_steps=300,rod_position=[3.7*min(1,i/300) for i in range(300)]); r=ref(**p); o=run(a,p); assert_dynamics(o,r)
 def test_scram_hfp():
@@ -70,7 +72,7 @@ def test_scram_hzp():
 def test_rod_drop():
     a=load(); p=dict(BASE); p.update(n_steps=200,rod_position=[3.7]*10+[0.0]*190); r=ref(**p); o=run(a,p); assert_dynamics(o,r)
 def test_stdlib_only():
-    """Ensure agent solution uses only Python standard library per spec."""
+    """Ensure agent solution uses only Python standard library per spec. Enhanced to detect dynamic imports."""
     import pathlib, ast, os
     agent_path = "/app/rod_scram.py"
     if not os.path.exists(agent_path):
@@ -78,7 +80,7 @@ def test_stdlib_only():
         if candidates:
             agent_path = str(candidates[0])
         else:
-            return
+            raise AssertionError("agent file not found for stdlib check")
     src = pathlib.Path(agent_path).read_text()
     tree = ast.parse(src)
     allowed = {"math","sys","os","json","typing","collections","itertools","functools","heapq","bisect","random","statistics","decimal","fractions","datetime"}
@@ -90,3 +92,21 @@ def test_stdlib_only():
         if isinstance(node, ast.ImportFrom):
             root = (node.module or '').split('.')[0]
             assert root in allowed, f"disallowed import from {node.module}"
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id == '__import__':
+                if node.args:
+                    arg=node.args[0]
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value,str):
+                        root=arg.value.split('.')[0]
+                        assert root in allowed, f"disallowed dynamic __import__ {arg.value}"
+                    else:
+                        raise AssertionError("dynamic __import__ with non-constant not allowed")
+            if isinstance(node.func, ast.Attribute):
+                if isinstance(node.func.value, ast.Name) and node.func.value.id=='importlib' and node.func.attr=='import_module':
+                    if node.args:
+                        arg=node.args[0]
+                        if isinstance(arg, ast.Constant) and isinstance(arg.value,str):
+                            root=arg.value.split('.')[0]
+                            assert root in allowed, f"disallowed importlib import {arg.value}"
+                        else:
+                            raise AssertionError("dynamic importlib.import_module with non-constant not allowed")

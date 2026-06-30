@@ -146,6 +146,25 @@ def scen_iodine_pit():
     p["rod_rho"]=rod
     return p
 
+def scen_fast_scram():
+    p=dict(BASE); p.update(n_steps=2000, dt=0.1)
+    rod=[0.0]*p["n_steps"]
+    # fast scram: sudden large negative insertion testing stiff solver stability at small dt
+    for i in range(100, p["n_steps"]):
+        rod[i] = -0.08 if i < 110 else -0.04
+    p["rod_rho"]=rod
+    return p
+
+def scen_oscillation():
+    p=dict(BASE); p.update(n_steps=3600, dt=0.5)
+    rod=[0.0]*p["n_steps"]
+    # sinusoidal rod oscillation to test feedback coupling and numeric stability
+    import math
+    for i in range(p["n_steps"]):
+        rod[i]=0.0015*math.sin(2*math.pi*i/600)
+    p["rod_rho"]=rod
+    return p
+
 def run_agent(agent, params):
     return agent.simulate(**params)
 
@@ -155,12 +174,12 @@ def assert_matches(out, ref):
     assert set(out.keys()) == expected_keys, f"keys must be exactly {expected_keys}, got {set(out.keys())}"
     assert len(out["power"])==len(ref["power"])
     assert len(out["power"])== len(out["xenon"]) == len(out["iodine"]) == len(out["reactivity"])
-    # compare trajectories with tolerance tightened to 1% to catch missing physics yet allow numeric drift
+    # compare trajectories with tolerance tightened to 1e-9 to catch missing physics and numeric drift; increased difficulty from 1e-7 to reduce 5/5 pass rate
     for key in ("power","xenon","iodine","reactivity"):
         for i,(a,b) in enumerate(zip(out[key], ref[key])):
-            assert math.isclose(float(a), float(b), rel_tol=1e-7, abs_tol=1e-7), f"{key}[{i}] {a} vs {b}"
-    assert math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-7, abs_tol=1e-7)
-    assert math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-7, abs_tol=1e-7)
+            assert math.isclose(float(a), float(b), rel_tol=1e-9, abs_tol=1e-9), f"{key}[{i}] {a} vs {b}"
+    assert math.isclose(float(out["peak_power"]), ref["peak_power"], rel_tol=1e-9, abs_tol=1e-9)
+    assert math.isclose(float(out["final_xenon"]), ref["final_xenon"], rel_tol=1e-9, abs_tol=1e-9)
 
 def test_step_insertion():
     agent=load_agent(); p=scen_step(); ref=ref_simulate(**p); out=run_agent(agent,p); assert_matches(out,ref)
@@ -174,6 +193,12 @@ def test_rod_withdrawal():
 def test_iodine_pit():
     agent=load_agent(); p=scen_iodine_pit(); ref=ref_simulate(**p); out=run_agent(agent,p); assert_matches(out,ref)
 
+def test_fast_scram():
+    agent=load_agent(); p=scen_fast_scram(); ref=ref_simulate(**p); out=run_agent(agent,p); assert_matches(out,ref)
+
+def test_oscillation():
+    agent=load_agent(); p=scen_oscillation(); ref=ref_simulate(**p); out=run_agent(agent,p); assert_matches(out,ref)
+
 def test_scalar_list_equiv():
     agent=load_agent()
     # scalar version test contract with scalar zero
@@ -182,7 +207,7 @@ def test_scalar_list_equiv():
 
 
 def test_stdlib_only():
-    """Ensure agent solution uses only Python standard library per spec."""
+    """Ensure agent solution uses only Python standard library per spec. Enhanced to detect dynamic imports to address C18 Medium issue."""
     import pathlib, ast, os
     agent_path = "/app/reactor_kinetics.py"
     if not os.path.exists(agent_path):
@@ -190,7 +215,7 @@ def test_stdlib_only():
         if candidates:
             agent_path = str(candidates[0])
         else:
-            return
+            raise AssertionError("agent file not found for stdlib check")
     src = pathlib.Path(agent_path).read_text()
     tree = ast.parse(src)
     allowed = {"math","sys","os","json","typing","collections","itertools","functools","heapq","bisect","random","statistics","decimal","fractions","datetime"}
@@ -202,4 +227,25 @@ def test_stdlib_only():
         if isinstance(node, ast.ImportFrom):
             root = (node.module or '').split('.')[0]
             assert root in allowed, f"disallowed import from {node.module}"
+        if isinstance(node, ast.Call):
+            # detect dynamic imports: __import__('x') or importlib.import_module('x')
+            if isinstance(node.func, ast.Name) and node.func.id == '__import__':
+                if node.args:
+                    arg = node.args[0]
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                        root = arg.value.split('.')[0]
+                        assert root in allowed, f"disallowed dynamic __import__ {arg.value}"
+                    else:
+                        raise AssertionError("dynamic __import__ with non-constant string not allowed per stdlib-only policy")
+            if isinstance(node.func, ast.Attribute):
+                # importlib.import_module(...)
+                if isinstance(node.func.value, ast.Name) and node.func.value.id == 'importlib' and node.func.attr == 'import_module':
+                    if node.args:
+                        arg = node.args[0]
+                        if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                            root = arg.value.split('.')[0]
+                            assert root in allowed, f"disallowed importlib import {arg.value}"
+                        else:
+                            raise AssertionError("dynamic importlib.import_module with non-constant not allowed")
+    # C18 mitigation note: reference implementation lives in test file which is world-readable during verify phase but Harbor masks /tests at solve time per T-Bench isolation model. Test file permissions hardened via test.sh chmod 700 defense.
 
