@@ -78,6 +78,12 @@ annual_economizer must return associative array with keys "fan_extra_kwh", "comp
 
 ## Requirements
 
+**Function signature strictness:** You must define exactly the six functions listed in the Functions to implement section and no others. Helper functions beyond these six allowed names will cause test failure because the test suite enforces exact public API surface to prevent hidden state leakage. Implement helper logic inline within required functions, not as separate top-level named functions.
+
+**CSV handling:** Input CSV files may contain UTF-8 BOM prefix. Your read_temps function must handle BOM gracefully stripping BOM if present at start of file. Test suite includes BOM-prefixed CSV expecting exactly 72 valid rows after skipping malformed to verify robustness.
+
+**Grading tolerance:** Grader uses tight numeric tolerances rel_tol=1e-9 abs_tol=1e-9 for summed energy to ensure deterministic grading while allowing small floating-point differences across valid implementations.
+
 **Function signature strictness:** You must define exactly the six functions listed in the Functions to implement section and no others. Helper functions beyond these six allowed names will cause test failure because the test suite enforces an exact public API surface to prevent hidden state leakage. If you need helper logic, implement it inline within the required functions or as anonymous closures, not as top-level named functions.
 
 **CSV handling:** Input CSV files may contain UTF-8 BOM prefix and malformed rows. Your read_temps function must handle BOM gracefully (strip BOM if present at start of file) and skip malformed rows as specified. Test suite includes BOM-prefixed CSV with exactly 72 valid rows after skipping malformed to verify robustness.

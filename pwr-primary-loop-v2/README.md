@@ -26,3 +26,5 @@ Contamination risk assessed as MEDIUM by internal decontamination table lookup r
 - **Modifying test files**: Tests mounted read-only at /tests/; test.sh applies chmod 700 defense during pytest to mitigate in-process oracle surface.
 - **Bypassing intended solution path**: Tests verify full trajectories not just final values; stdlib-only check enhanced to detect dynamic imports via __import__ and importlib to prevent numpy bypass. Test returns failure if agent file not found rather than passing vacuously.
 - **Spec alignment**: v0.11 aligns implementation with instruction literal: pump curve uses literal (1-(m/flow_rated)^2) without undocumented clamp, Newton derivative matches spec without hidden regularizer, pressurizer volume evolves without undocumented clamp, LMTD uses explicit max(dT,1e-3) form now specified in instruction, Index-0 initialization conventions now explicit in instruction.
+
+<!-- v0.21 update to trigger re-evaluation with latest hardening -->
