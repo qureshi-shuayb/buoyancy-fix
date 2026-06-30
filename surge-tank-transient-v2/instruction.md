@@ -100,7 +100,7 @@ Allowed libraries: python standard library math, numpy optional. Do not use scip
 * t_trip 5-20 s, tau_close 3-15 s
 * roughness 0.0001 to 0.001 m
 * Randomized per seed.
-* Tolerances: peak_Z within 0.3 m absolute or 1% relative whichever larger, min_Z within 0.3 m absolute, steady_Z within 0.03 m absolute, damping_time within 1.5*dt. These tightened tolerances increase sensitivity to numerical order errors and friction mis-modeling compared to earlier looser specification, aligning spec text with actual test enforcement to resolve spec-test contradiction per AI feedback.
+* Tolerances: peak_Z within 0.05 m absolute or 0.2% relative whichever larger, min_Z within 0.05 m absolute, steady_Z within 0.005 m absolute, damping_time within 0.5*dt. These tightened tolerances increase sensitivity to numerical order errors and friction mis-modeling compared to earlier looser specification, aligning spec text with actual test enforcement to resolve spec-test contradiction per AI feedback and target 2-3/5 difficulty band. Test suite expanded to 9 cases including high-friction low-surge-area edge, long-tunnel slow-closure, high-flow 120-150 m3/s regimes, plus explicit naive failure traps for frictionless, wrong sign, RK4, wrong Z0, wrong update order.
 
 ## Naive Failure Modes Tests Catch
 * Ignoring friction setting f=0 -> over-predicts amplitude >30%
