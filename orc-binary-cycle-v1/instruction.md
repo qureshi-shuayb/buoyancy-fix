@@ -101,7 +101,7 @@ Define brine temperatures at section boundaries using energy fractions:
 
 Pure stdlib Python, math only, deterministic, no randomness, no external libraries.
 
-**Grading tolerance:** rel_tol=5e-3 abs_tol=0.05 for net_power_W and UA_total and exergy_destruction, rel_tol=5e-4 abs_tol=5e-5 for thermal_efficiency and brine_out_T.
+**Grading tolerance:** rel_tol=1e-3 abs_tol=0.05 for net_power_W and UA_total and exergy_destruction, rel_tol=1e-4 abs_tol=5e-5 for thermal_efficiency and brine_out_T.
 
 ## No cheating
 

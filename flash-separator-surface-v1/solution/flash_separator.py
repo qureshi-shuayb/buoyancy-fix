@@ -4,7 +4,7 @@ def _newton_T_sat(P_bar, A, B, C):
     # Solve Antoine forward: log10(P) = A - B/(T+C) for T via Newton 5 iterations starting 100C
     T = 100.0
     logp_target = math.log10(max(P_bar, 1e-6))
-    for _ in range(5):
+    for _ in range(7):
         denom = T + C
         if abs(denom) < 1e-9:
             denom = 1e-9

@@ -63,7 +63,7 @@ Initial convention: T_bottomhole[0] = T_bh computed from inputs. All subsequent 
 
 Pure stdlib Python, math only, deterministic, no randomness.
 
-**Grading tolerance:** grader uses rel_tol=5e-2 abs_tol=0.5 for all comparisons to allow small floating differences while ensuring pinned formulas are implemented.
+**Grading tolerance:** grader uses rel_tol=5e-3 abs_tol=0.05 for all comparisons to allow small floating differences while ensuring pinned formulas are implemented.
 
 ## No cheating
 
