@@ -40,7 +40,7 @@ def simulate(dt, n_steps, T_surface, gradient, depth, k, h, mu, re, rw, skin, dr
             # Newton 3 iterations pinned starting from linear guess
             flow = PI_i * dd
             PI_dd = PI_i * dd
-            for _ in range(5):
+            for _ in range(7):
                 abs_f = abs(flow)
                 f = flow + beta * flow * abs_f - PI_dd
                 fp = 1.0 + 2.0 * beta * abs_f

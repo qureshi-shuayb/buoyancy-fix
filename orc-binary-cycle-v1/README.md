@@ -27,14 +27,14 @@ Outputs graded against independent reference across ten scenarios: base 423K, hi
 | Agent | Pass rate |
 |-------|-----------|
 | Oracle | 3/3 (validated locally) |
-| Sonnet 4.6 | TBD pending cloud re-run after v5 hardening |
+| Sonnet 4.6 | TBD pending cloud re-run after v6 hardening |
 | Opus 4.6 | TBD |
 | Avocado (metacode) | TBD |
 
 Oracle validated locally with solution/orc_cycle.py against reference in tests/test_outputs.py (8/8 scenarios pass).
 
 ## Model Analysis
-Task targets hard 0-5% band after v5 hardening (0-1/5 expected). Successful solutions demonstrate correct CSV file reading and parsing not hardcoded dict, Newton-free but bisection 10 iterations for pinch UA target, property interpolation, pump work via deltaP/rho_l divided by eta_p, turbine isentropic expansion with quality clipping, pinch clamp fallback logic, three-section LMTD with scale factor outputting separate UA_sh UA_ev UA_ph, recuperator energy balance updating h2 and h4 and recuperator_duty output, part-load curve loop abstracting cycle into helper, and exergy log formula. Failures typically omit CSV parsing hardcoding dict leading to file-not-found or stale values, ignore bisection using only clamp causing UA target mismatch, miss recuperator branch returning zero duty when True expected non-zero, return wrong list length for part_load_curve, omit separate UA keys returning only UA_total, mis-implement LMTD edge case without max 1e-3, hardcode properties instead of interpolating, or mis-handle turbine efficiency sign leading to negative net power. Pinned constants rho_l=1300, cp_v=800, superheat default 10, epsilon 0.8 for recuperator ensure deterministic composition.
+Task targets hard 0-2% band after v6 hardening (0-1/5 expected). Successful solutions demonstrate correct CSV file reading and parsing not hardcoded dict, Newton-free but bisection 10 iterations for pinch UA target, property interpolation, pump work via deltaP/rho_l divided by eta_p, turbine isentropic expansion with quality clipping, pinch clamp fallback logic, three-section LMTD with scale factor outputting separate UA_sh UA_ev UA_ph, recuperator energy balance updating h2 and h4 and recuperator_duty output, part-load curve loop abstracting cycle into helper, and exergy log formula. Failures typically omit CSV parsing hardcoding dict leading to file-not-found or stale values, ignore bisection using only clamp causing UA target mismatch, miss recuperator branch returning zero duty when True expected non-zero, return wrong list length for part_load_curve, omit separate UA keys returning only UA_total, mis-implement LMTD edge case without max 1e-3, hardcode properties instead of interpolating, or mis-handle turbine efficiency sign leading to negative net power. Pinned constants rho_l=1300, cp_v=800, superheat default 10, epsilon 0.8 for recuperator ensure deterministic composition.
 
 ## Anti-Cheating Analysis
 - **Hardcoded outputs**: Tests use continuous physical parameters across ten scenarios with tightened 5e-3 relative tolerance 0.1 absolute for power and UA, 1e-3 for efficiency brine_out_T; precomputed answers cannot match without implementing full model including bisection and recuperator.
@@ -44,4 +44,4 @@ Task targets hard 0-5% band after v5 hardening (0-1/5 expected). Successful solu
 - **Spec alignment**: Instruction pins CSV file path, interpolation method, bisection 10 iterations, pump formula, turbine quality clipping, pinch clamp bounds fallback, LMTD formula, UA sum and separate outputs, recuperator effectiveness 0.8, part-load fractions list, exergy T0=298.15, tolerances rel 1e-2 abs 0.1 for power UA and 1e-3 for efficiency brine_out_T. Implementation must follow order for determinism.
 - **Novelty**: ORC binary geothermal with R245fa CSV, bisection pinch, recuperator, part-load is novel composition not matching public benchmarks; contamination risk MEDIUM per internal reasoning as specific pinned table and LMTD three-section split plus recuperator branch is bespoke.
 
-<!-- v5 hardening to target 0-5% band with oracle 3/3 validated locally addressing AI Revise as of 2026-07-05 -->
+<!-- v6 hardening to target 0-2% band with oracle 3/3 validated locally addressing AI Revise as of 2026-07-05 -->

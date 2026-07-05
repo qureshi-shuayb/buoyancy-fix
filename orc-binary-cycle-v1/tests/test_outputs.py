@@ -54,7 +54,7 @@ def _cycle(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p,
         bot=Tsat_e-pinch_K; bot=max(bot,condenser_T+5); bot=min(bot,brine_in_T-5); bot,Qb,md,net,UA,UA_sh,UA_ev,UA_ph=comp(bot)
     else:
         lo=condenser_T+5; hi=brine_in_T-5
-        for _ in range(15):
+        for _ in range(20):
             mid=(lo+hi)/2; _,_,_,_,UA_mid,_,_,_=comp(mid)
             if UA_mid>target_UA: lo=mid
             else: hi=mid
@@ -66,7 +66,7 @@ def _cycle(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p,
 def ref_simulate(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K=10, rho_l=1300, cp_v=800, Pe_kPa=1000, Pc_kPa=200, use_recup=False, target_UA=None):
     base=_cycle(brine_in_T,brine_mdot,brine_cp,pinch_K,condenser_T,eta_t,eta_p,superheat_K,rho_l,cp_v,Pe_kPa,Pc_kPa,use_recup,target_UA)
     pl=[]
-    for f in [0.4,0.6,0.8,1.0,1.1,1.2,1.4]:
+    for f in [0.3,0.5,0.7,0.9,1.0,1.15,1.3,1.5]:
         r=_cycle(brine_in_T,brine_mdot*f,brine_cp,pinch_K,condenser_T,eta_t,eta_p,superheat_K,rho_l,cp_v,Pe_kPa,Pc_kPa,use_recup,target_UA)
         pl.append(r["net_power_W"])
     return {"net_power_W":base["net_power_W"],"thermal_efficiency":base["thermal_efficiency"],"brine_out_T":base["brine_out_T"],"UA_total":base["UA_total"],"exergy_destruction":base["exergy_destruction"],"UA_sh":base["UA_sh"],"UA_ev":base["UA_ev"],"UA_ph":base["UA_ph"],"part_load_curve":pl,"recuperator_duty":base["recuperator_duty"]}
@@ -87,9 +87,9 @@ def assert_m(o,r):
     assert math.isclose(float(o["thermal_efficiency"]), r["thermal_efficiency"], rel_tol=1e-4, abs_tol=1e-5)
     assert math.isclose(float(o["brine_out_T"]), r["brine_out_T"], rel_tol=1e-4, abs_tol=1e-5)
     assert math.isclose(float(o["recuperator_duty"]), r["recuperator_duty"], rel_tol=1e-3, abs_tol=0.005)
-    assert len(o["part_load_curve"])==7
+    assert len(o["part_load_curve"])==8
     for a,b in zip(o["part_load_curve"], r["part_load_curve"]):
-        assert math.isclose(float(a),float(b),rel_tol=1e-2,abs_tol=0.1)
+        assert math.isclose(float(a),float(b),rel_tol=1e-2,abs_tol=0.01)
 
 def test_base(): a=load_agent(); p=dict(BASE); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_high_temp(): a=load_agent(); p=dict(BASE); p["brine_in_T"]=453.0; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
@@ -99,6 +99,8 @@ def test_low_eta_t(): a=load_agent(); p=dict(BASE); p["eta_t"]=0.7; r=ref_simula
 def test_high_condenser(): a=load_agent(); p=dict(BASE); p["condenser_T"]=315.0; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_recuperator(): a=load_agent(); p=dict(BASE); p["use_recup"]=True; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_part_load(): a=load_agent(); p=dict(BASE); p["brine_mdot"]=60.0; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
+def test_ultra_high_pressure(): a=load_agent(); p=dict(BASE); p["Pe_kPa"]=1150; p["Pc_kPa"]=180; p["superheat_K"]=35; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
+def test_low_brine_flow(): a=load_agent(); p=dict(BASE); p["brine_mdot"]=20.0; p["brine_cp"]=3800.0; p["pinch_K"]=2.0; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_target_UA(): a=load_agent(); p=dict(BASE); p["target_UA"]=50000.0; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_high_superheat(): a=load_agent(); p=dict(BASE); p["superheat_K"]=25; p["Pe_kPa"]=1200; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_ultra_low_pinch(): a=load_agent(); p=dict(BASE); p["pinch_K"]=1.0; p["brine_in_T"]=440.0; r=ref_simulate(**p); o=run(a,p); assert_m(o,r)

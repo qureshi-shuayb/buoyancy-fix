@@ -8,7 +8,7 @@ Implement lumped 0D geothermal reservoir thermal depletion ODE in Python with ex
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.1 | TBD pending cloud re-run after v5 hardening |
+| Opus 4.1 | TBD pending cloud re-run after v6 hardening |
 | Avocado | TBD |
 | GPT-5 | TBD |
 | Sonnet 4 | TBD |
@@ -26,4 +26,4 @@ Outputs depend on continuous physical inputs across transient scenarios with sta
 - **Modifying test files**: Tests mounted read-only by Codimango at `/tests/`; test.sh applies chmod 700 defense during pytest to mitigate C18 in-process oracle surface.
 - **Bypassing intended solution path**: Tests verify full trajectories including Q_loss_trajectory power_output_MW cumulative_energy_MWh not just final output, so shortcutting detected by numeric drift. Stdlib-only check enforced to prevent external library bypass. Naive trap asserts linear-only model fails radiative dominant case by >2C and constant-m_out assumption fails varying schedule test.
 
-<!-- v5 hardening to target 2-8% band with oracle 3/3 validated locally as of 2026-07-05 -->
+<!-- v6 hardening to target 2-8% band with oracle 3/3 validated locally as of 2026-07-05 -->

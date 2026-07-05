@@ -7,7 +7,7 @@ def load_agent():
 def _newton_T_sat(P_bar, A, B, C):
     T=100.0
     logp_target=math.log10(max(P_bar,1e-6))
-    for _ in range(7):
+    for _ in range(9):
         denom=T+C
         if abs(denom)<1e-9: denom=1e-9
         f=A - B/denom - logp_target
@@ -109,7 +109,7 @@ def test_naive_closed_form_fails():
     def ref_T(P,A,B,C):
         T=100.0
         lt=math.log10(P)
-        for _ in range(7):
+        for _ in range(9):
             d=T+C
             f=A-B/d-lt
             fp=B/(d*d)
