@@ -4,17 +4,17 @@ schema_version = "1.1"
 name = "codimango/geothermal-gradient-resource-v1"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
-description = "Implement Python geothermal reservoir productivity model using linear geothermal gradient T_bh = T_surface + gradient*depth/1000 and Darcy radial PI = 2*pi*k*h/(mu*(ln(re/rw)+skin)). Compute bottomhole temperature trajectory, productivity index, and flow vs drawdown list. Deterministic numeric grading against independent reference; naive implementations omitting natural log, mis-scaling depth, ignoring skin factor, or using log10 fail moderate tolerances across baseline, ramp, high-skin, low-perm, and deep high-gradient scenarios."
+description = "Implement Python geothermal reservoir productivity model using linear geothermal gradient T_bh = T_surface + gradient*depth_ft*0.3048/1000 and Darcy radial PI_i = 2*pi*k*h/(mu*(ln(re/rw)+skin_i)) with time-dependent skin and optional Forchheimer non-Darcy Newton solve. Compute bottomhole temperature trajectory, PI trajectory, skin trajectory, flow vs drawdown, flow derivative. Deterministic numeric grading against independent reference; naive implementations omitting natural log, mis-scaling depth feet conversion, ignoring skin_rate time dependence, ignoring beta Forchheimer, or using log10 fail tightened 5e-4 tolerances across baseline, ramp, high-skin, low-perm, deep, skin buildup, and Forchheimer scenarios."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["python","simulation","geothermal","gradient","darcy","productivity-index","reservoir","radial-flow","skin-factor","drawdown"]
+keywords = ["python","simulation","geothermal","gradient","darcy","productivity-index","reservoir","radial-flow","skin-factor","drawdown","forchheimer","newton","time-dependent"]
 
 [metadata]
 difficulty = "medium"
 category = "feature-implementation"
 category_subdomain = "scientific_computing"
 category_usecase = "compute_result"
-expert_time_estimate_min = 30.0
-junior_time_estimate_min = 90.0
+expert_time_estimate_min = 60.0
+junior_time_estimate_min = 180.0
 
 [verifier]
 timeout_sec = 300.0

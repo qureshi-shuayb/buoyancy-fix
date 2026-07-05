@@ -4,17 +4,17 @@ schema_version = "1.1"
 name = "codimango/orc-binary-cycle-v1"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
-description = "Implement Python Organic Rankine Cycle binary geothermal simulation with R245fa pinned property table, preheater evaporator superheater pinch constraint, turbine and pump efficiencies, LMTD UA sizing, and exergy destruction. Deterministic stdlib-only model graded against independent reference across brine temperature, pinch, efficiency, and condenser scenarios; naive implementations omitting pinch clamp, LMTD edge handling, property interpolation, or exergy formula fail tolerances."
+description = "Implement Python Organic Rankine Cycle binary geothermal simulation with R245fa property table loaded from CSV file at /app/r245fa_properties.csv requiring file IO parsing and linear interpolation, preheater evaporator superheater pinch constraint solved via bisection 10 iterations when target UA provided else clamp fallback, turbine and pump efficiencies, LMTD UA sizing with separate UA_sh UA_ev UA_ph outputs, recuperator option boolean adding heat exchanger effectiveness 0.8, part-load curve across 5 brine flow fractions, and exergy destruction. Deterministic stdlib-only model graded against independent reference across brine temperature, pinch, efficiency, condenser, recuperator, and part-load scenarios; naive implementations omitting CSV parsing, bisection, recuperator branch, part-load loop, LMTD edge handling, property interpolation, or exergy formula fail tightened tolerances v3."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["python","simulation","orc","geothermal","thermodynamics","heat-exchanger","pinch","lmtd","r245fa","binary-cycle","exergy"]
+keywords = ["python","simulation","orc","geothermal","thermodynamics","heat-exchanger","pinch","lmtd","r245fa","binary-cycle","exergy","bisection","recuperator","part-load","csv"]
 
 [metadata]
 difficulty = "hard"
 category = "feature-implementation"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 90.0
-junior_time_estimate_min = 240.0
+expert_time_estimate_min = 120.0
+junior_time_estimate_min = 300.0
 
 [verifier]
 timeout_sec = 300.0

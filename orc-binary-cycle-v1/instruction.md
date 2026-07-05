@@ -23,11 +23,13 @@ def simulate(
     rho_l=1300,      # liquid density [kg/m3] for pump work
     cp_v=800,        # vapor cp for superheat [J/kg/K]
     Pe_kPa=1000,     # evaporator pressure [kPa]
-    Pc_kPa=200       # condenser pressure [kPa]
+    Pc_kPa=200,      # condenser pressure [kPa]
+    use_recup=False, # recuperator boolean
+    target_UA=None   # optional UA target for bisection
 ) -> dict:
 ```
 
-Return dict MUST contain exactly these keys, no extra keys allowed: `net_power_W` float, `thermal_efficiency` float, `brine_out_T` float [K], `UA_total` float [W/K], `exergy_destruction` float [W].
+Return dict MUST contain exactly these keys, no extra keys allowed: `net_power_W` float, `thermal_efficiency` float, `brine_out_T` float [K], `UA_total` float [W/K], `exergy_destruction` float [W], `UA_sh` float, `UA_ev` float, `UA_ph` float, `part_load_curve` list, `recuperator_duty` float.
 
 ## R245fa pinned property table
 
@@ -99,7 +101,7 @@ Define brine temperatures at section boundaries using energy fractions:
 
 Pure stdlib Python, math only, deterministic, no randomness, no external libraries.
 
-**Grading tolerance:** rel_tol=3e-2 abs_tol=1.0 for net_power_W and UA_total and exergy_destruction, rel_tol=1e-3 abs_tol=1e-4 for thermal_efficiency and brine_out_T.
+**Grading tolerance:** rel_tol=5e-3 abs_tol=0.05 for net_power_W and UA_total and exergy_destruction, rel_tol=5e-4 abs_tol=5e-5 for thermal_efficiency and brine_out_T.
 
 ## No cheating
 
