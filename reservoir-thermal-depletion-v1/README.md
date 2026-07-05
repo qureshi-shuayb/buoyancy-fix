@@ -8,14 +8,14 @@ Implement lumped 0D geothermal reservoir thermal depletion ODE in Python with ex
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.1 | TBD pending cloud re-run after v3 hardening |
+| Opus 4.1 | TBD pending cloud re-run after v4 hardening |
 | Avocado | TBD |
 | GPT-5 | TBD |
 | Sonnet 4 | TBD |
 
 ## Model Analysis
 
-Oracle passes locally with reference solution matching pinned explicit Euler order, trapezoidal energy integral, radiative Q loss, and interpolated breakthrough. Projected difficulty medium-hard targeting 15-25% pass band (1-2/5). Tolerances tightened to 5e-5 relative 1e-3 absolute for temperature and trajectories, 1e-7 years breakthrough, 5e-5 relative lifetime, 1e-3 absolute avg_T to discriminate naive variants while allowing floating rounding. Successful solutions demonstrate correct C_total rock+fluid, Q_loss = Q_loss_coeff*(T-T_ambient) + Q_loss_coeff_rad*sigma*(T^4 - T_ambient^4) with sigma 5.67e-8, explicit Euler Tn+1 = Tn + dt*dTdt, trapezoidal power using (Tn+Tn1)/2, breakthrough linear interpolation between steps, mandatory list handling for m_in m_out time series, and correct 7 output keys including Q_loss_trajectory length n_steps, power_output_MW length n_steps, cumulative_energy_MWh length n_steps+1. Failures typically: treat m_in/m_out as scalar ignoring list schedule causing >2% lifetime error in varying schedule test, omit radiative term causing >2C overprediction in high radiative case, use start-of-step T_n instead of trapezoidal average causing lifetime bias beyond 1e-4 tolerance, use discrete breakthrough index without interpolation causing 1e-7 year mismatch, wrong sign on Q_loss leading to divergence, omit rock mass halving C_total, average wrong length, missing new output keys.
+Oracle passes locally with reference solution matching pinned explicit Euler order, trapezoidal energy integral, radiative Q loss, and interpolated breakthrough. Projected difficulty medium-hard targeting 2-8% pass band (1-2/5). Tolerances tightened to 5e-5 relative 1e-3 absolute for temperature and trajectories, 1e-7 years breakthrough, 5e-5 relative lifetime, 1e-3 absolute avg_T to discriminate naive variants while allowing floating rounding. Successful solutions demonstrate correct C_total rock+fluid, Q_loss = Q_loss_coeff*(T-T_ambient) + Q_loss_coeff_rad*sigma*(T^4 - T_ambient^4) with sigma 5.67e-8, explicit Euler Tn+1 = Tn + dt*dTdt, trapezoidal power using (Tn+Tn1)/2, breakthrough linear interpolation between steps, mandatory list handling for m_in m_out time series, and correct 7 output keys including Q_loss_trajectory length n_steps, power_output_MW length n_steps, cumulative_energy_MWh length n_steps+1. Failures typically: treat m_in/m_out as scalar ignoring list schedule causing >2% lifetime error in varying schedule test, omit radiative term causing >2C overprediction in high radiative case, use start-of-step T_n instead of trapezoidal average causing lifetime bias beyond 1e-4 tolerance, use discrete breakthrough index without interpolation causing 1e-7 year mismatch, wrong sign on Q_loss leading to divergence, omit rock mass halving C_total, average wrong length, missing new output keys.
 
 ## Anti-Cheating Analysis
 
@@ -26,4 +26,4 @@ Outputs depend on continuous physical inputs across transient scenarios with sta
 - **Modifying test files**: Tests mounted read-only by Codimango at `/tests/`; test.sh applies chmod 700 defense during pytest to mitigate C18 in-process oracle surface.
 - **Bypassing intended solution path**: Tests verify full trajectories including Q_loss_trajectory power_output_MW cumulative_energy_MWh not just final output, so shortcutting detected by numeric drift. Stdlib-only check enforced to prevent external library bypass. Naive trap asserts linear-only model fails radiative dominant case by >2C and constant-m_out assumption fails varying schedule test.
 
-<!-- v3 hardening to target 15-25% band with oracle 3/3 validated locally as of 2026-07-05 -->
+<!-- v4 hardening to target 2-8% band with oracle 3/3 validated locally as of 2026-07-05 -->
