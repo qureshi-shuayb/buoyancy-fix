@@ -1,0 +1,33 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/orc-binary-cycle-v1"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
+description = "Implement Python Organic Rankine Cycle binary geothermal simulation with R245fa pinned property table, preheater evaporator superheater pinch constraint, turbine and pump efficiencies, LMTD UA sizing, and exergy destruction. Deterministic stdlib-only model graded against independent reference across brine temperature, pinch, efficiency, and condenser scenarios; naive implementations omitting pinch clamp, LMTD edge handling, property interpolation, or exergy formula fail tolerances."
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["python","simulation","orc","geothermal","thermodynamics","heat-exchanger","pinch","lmtd","r245fa","binary-cycle","exergy"]
+
+[metadata]
+difficulty = "hard"
+category = "feature-implementation"
+category_usecase = "compute_result"
+category_subdomain = "scientific_computing"
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 240.0
+
+[verifier]
+timeout_sec = 300.0
+[agent]
+timeout_sec = 1800.0
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+[verifier.env]
+[environment.env]
+[solution.env]

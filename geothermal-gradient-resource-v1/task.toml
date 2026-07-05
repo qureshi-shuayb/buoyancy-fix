@@ -1,0 +1,33 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/geothermal-gradient-resource-v1"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
+description = "Implement Python geothermal reservoir productivity model using linear geothermal gradient T_bh = T_surface + gradient*depth/1000 and Darcy radial PI = 2*pi*k*h/(mu*(ln(re/rw)+skin)). Compute bottomhole temperature trajectory, productivity index, and flow vs drawdown list. Deterministic numeric grading against independent reference; naive implementations omitting natural log, mis-scaling depth, ignoring skin factor, or using log10 fail moderate tolerances across baseline, ramp, high-skin, low-perm, and deep high-gradient scenarios."
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["python","simulation","geothermal","gradient","darcy","productivity-index","reservoir","radial-flow","skin-factor","drawdown"]
+
+[metadata]
+difficulty = "medium"
+category = "feature-implementation"
+category_subdomain = "scientific_computing"
+category_usecase = "compute_result"
+expert_time_estimate_min = 30.0
+junior_time_estimate_min = 90.0
+
+[verifier]
+timeout_sec = 300.0
+[agent]
+timeout_sec = 1800.0
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+[verifier.env]
+[environment.env]
+[solution.env]

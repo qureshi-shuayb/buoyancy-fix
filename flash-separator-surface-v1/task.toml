@@ -1,0 +1,33 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/flash-separator-surface-v1"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
+description = "Implement Python isenthalpic flash separator model for geothermal surface brine using Antoine equation log10(Psat)=A-B/(T+C) inverted for saturation temperature, mass-energy balance h_in = x*h_v + (1-x)*h_l with clamped quality, linear liquid carryover correction to steam flow, and exponential silica solubility scaling risk check. Returns steam flow, brine flow, quality, brine enthalpy, scaling risk boolean. Deterministic numeric grading against independent reference; naive implementations omitting Antoine inversion clamp, quality clamp, carryover model, or silica concentration factor fail tight tolerances across normal flash, subcooled, superheated, high silica, low pressure, and carryover sensitivity scenarios."
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["python","simulation","geothermal","flash-separator","antoine","thermodynamics","silica-scaling","mass-balance","energy-balance"]
+
+[metadata]
+difficulty = "medium"
+category = "feature-implementation"
+category_usecase = "compute_result"
+category_subdomain = "scientific_computing"
+expert_time_estimate_min = 45.0
+junior_time_estimate_min = 120.0
+
+[verifier]
+timeout_sec = 300.0
+[agent]
+timeout_sec = 1800.0
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+[verifier.env]
+[environment.env]
+[solution.env]

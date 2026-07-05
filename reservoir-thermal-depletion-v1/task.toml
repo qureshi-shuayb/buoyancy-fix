@@ -1,0 +1,36 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/reservoir-thermal-depletion-v1"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
+description = "Implement lumped 0D geothermal reservoir thermal depletion ODE with explicit Euler. Model rock heat capacity, porosity, volume, reinjection and production mass flows, linear heat loss to ambient. Return temperature trajectory, thermal breakthrough year, lifetime extracted energy MWh, and average temperature. Deterministic numeric grading against independent reference; naive implementations ignoring heat loss, wrong heat capacity, wrong Euler order, or wrong breakthrough definition drift past tolerances."
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["python", "geothermal", "reservoir", "thermal-depletion", "lumped-parameter", "ode", "explicit-euler", "energy-balance", "simulation", "renewable-energy"]
+
+[metadata]
+difficulty = "medium"
+category = "feature-implementation"
+category_usecase = "compute_result"
+category_subdomain = "scientific_computing"
+expert_time_estimate_min = 45.0
+junior_time_estimate_min = 120.0
+
+[verifier]
+timeout_sec = 300.0
+
+[agent]
+timeout_sec = 1800.0
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[verifier.env]
+[environment.env]
+[solution.env]
