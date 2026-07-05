@@ -8,8 +8,8 @@ You will implement a Python simulation of a geothermal reservoir resource using 
 | Model | Pass Rate |
 |-------|-----------|
 | Oracle | 3/3 (100%) |
-| Opus 4.6 | TBD pending cloud re-run after v6 hardening |
-| Avocado | TBD pending cloud re-run after v6 hardening |
+| Opus 4.6 | TBD pending cloud re-run after v7 hardening |
+| Avocado | TBD pending cloud re-run after v7 hardening |
 | GPT-5.5 | TBD |
 | Codex | TBD |
 | Sonnet 4.6 | TBD |
@@ -17,7 +17,7 @@ You will implement a Python simulation of a geothermal reservoir resource using 
 
 ## Model Analysis
 
-Oracle achieves 100% pass rate validating reference implementation correctness across thirteen scenarios after v6 hardening: baseline constant drawdown, drawdown ramp list, high skin damage, deep high-gradient, low permeability tight reservoir, skin buildup transient, and Forchheimer non-Darcy. Expected difficulty medium-hard targeting 2-8% pass band (2-3/5). Successful solutions demonstrate correct linear geothermal gradient T_bh = T_surface + gradient*depth_ft*0.3048/1000 with feet-to-meters-to-km conversion, Darcy PI_i = 2*pi*k*h/(mu*(ln(re/rw)+skin_i)) recomputed per step with skin_i = skin0 + skin_rate*i*dt, flow = PI_i*drawdown for linear case or Newton 3-iteration solve of PI*dd = flow + beta*flow*abs(flow) for Forchheimer case, derivative output PI_i or PI_i/(1+2*beta*abs(flow)), and correct output keys set of 7 including skin_trajectory, PI_trajectory, flow_derivative. Failures typically: omit feet to meters 0.3048 factor causing ~3x temperature error, treat skin as constant ignoring skin_rate leading to >10% PI error in buildup scenario, ignore beta_forchheimer using linear PI*drawdown causing >15% flow error in non-Darcy scenario, use log10 instead of natural log in PI denominator, mis-scale depth by 1000, mishandle list vs scalar drawdown, return wrong list lengths for new trajectory outputs, use only 1 Newton iteration instead of pinned 3 causing tolerance breach at 1e-3, or missing output keys entirely.
+Oracle achieves 100% pass rate validating reference implementation correctness across thirteen scenarios after v7 hardening: baseline constant drawdown, drawdown ramp list, high skin damage, deep high-gradient, low permeability tight reservoir, skin buildup transient, and Forchheimer non-Darcy. Expected difficulty medium-hard targeting 2-8% pass band (2-3/5). Successful solutions demonstrate correct linear geothermal gradient T_bh = T_surface + gradient*depth_ft*0.3048/1000 with feet-to-meters-to-km conversion, Darcy PI_i = 2*pi*k*h/(mu*(ln(re/rw)+skin_i)) recomputed per step with skin_i = skin0 + skin_rate*i*dt, flow = PI_i*drawdown for linear case or Newton 3-iteration solve of PI*dd = flow + beta*flow*abs(flow) for Forchheimer case, derivative output PI_i or PI_i/(1+2*beta*abs(flow)), and correct output keys set of 7 including skin_trajectory, PI_trajectory, flow_derivative. Failures typically: omit feet to meters 0.3048 factor causing ~3x temperature error, treat skin as constant ignoring skin_rate leading to >10% PI error in buildup scenario, ignore beta_forchheimer using linear PI*drawdown causing >15% flow error in non-Darcy scenario, use log10 instead of natural log in PI denominator, mis-scale depth by 1000, mishandle list vs scalar drawdown, return wrong list lengths for new trajectory outputs, use only 1 Newton iteration instead of pinned 3 causing tolerance breach at 1e-3, or missing output keys entirely.
 
 ## Anti-Cheating Analysis
 
@@ -29,4 +29,4 @@ Contamination risk assessed as MEDIUM; geothermal gradient formula and Darcy PI 
 - **Bypassing intended solution path**: Tests verify full trajectories not just final values including skin_trajectory length n_steps+1 and PI_trajectory decline; stdlib-only check enhanced to detect dynamic imports via __import__ to prevent numpy bypass. Naive trap test asserts old constant-PI implementation fails by >10% on skin buildup scenario.
 - **Spec alignment**: Instruction pins T_bh formula with feet conversion narrative, PI formula with natural log recomputed per step, Forchheimer equation with Newton 3 iterations pinned, derivative definition, output keys exact set, stdlib only math, deterministic.
 
-<!-- v6 hardening to target 2-8% band with oracle 3/3 validated locally as of 2026-07-05 -->
+<!-- v7 hardening to target 2-8% band with oracle 3/3 validated locally as of 2026-07-05 -->

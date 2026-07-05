@@ -30,7 +30,7 @@ def ref_simulate(dt,n_steps,T_surface,gradient,depth,k,h,mu,re,rw,skin,drawdown,
             beta = beta_forchheimer
             flow_guess = PI_i * dd
             PI_dd = PI_i * dd
-            for _ in range(7):
+            for _ in range(11):
                 af = abs(flow_guess)
                 fv = flow_guess + beta*flow_guess*af - PI_dd
                 fpv = 1.0 + 2.0*beta*af
@@ -75,6 +75,12 @@ def scen_negative_skin_rate():
     p=dict(BASE); p.update(skin=-2.0, skin_rate=-1e-6, n_steps=250, dt=120.0, drawdown=[5e5+i*2e3 for i in range(250)]); return p
 def scen_extreme_forchheimer_high():
     p=dict(BASE); p.update(beta_forchheimer=2e-8, drawdown=5e6, n_steps=100, k=2e-14, skin=8.0); return p
+def scen_hyper_hot_deep():
+    p=dict(BASE); p.update(depth=30000.0, gradient=70.0, T_surface=265.0, n_steps=250, k=5e-15, drawdown=8e6); return p
+def scen_oscillating_skin():
+    p=dict(BASE); p.update(skin_rate=2e-5, n_steps=400, dt=900.0, skin=1.0, drawdown=[1e6+5e5*__import__("math").sin(i*0.05) for i in range(400)]); return p
+def scen_ultra_low_perm():
+    p=dict(BASE); p.update(k=5e-16, h=30.0, mu=0.001, drawdown=1e7, n_steps=150); return p
 
 def run(a,p): return a.simulate(**p)
 def assert_m(o,r):
@@ -89,15 +95,15 @@ def assert_m(o,r):
     for key in ("T_bottomhole","peak_T"):
         if isinstance(o[key], list):
             for a,b in zip(o[key], r[key]):
-                assert math.isclose(float(a), float(b), rel_tol=5e-3, abs_tol=0.05)
+                assert math.isclose(float(a), float(b), rel_tol=1e-3, abs_tol=0.01)
         else:
-            assert math.isclose(float(o[key]), float(r[key]), rel_tol=5e-3, abs_tol=0.05)
+            assert math.isclose(float(o[key]), float(r[key]), rel_tol=1e-3, abs_tol=0.01)
     for key in ("PI","flow_vs_drawdown","skin_trajectory","PI_trajectory","flow_derivative"):
         if isinstance(o[key], list):
             for a,b in zip(o[key], r[key]):
-                assert math.isclose(float(a), float(b), rel_tol=2e-5, abs_tol=2e-5)
+                assert math.isclose(float(a), float(b), rel_tol=5e-6, abs_tol=5e-6)
         else:
-            assert math.isclose(float(o[key]), float(r[key]), rel_tol=2e-5, abs_tol=2e-5)
+            assert math.isclose(float(o[key]), float(r[key]), rel_tol=5e-6, abs_tol=5e-6)
 
 def test_baseline():
     a=load_agent(); p=scen_baseline(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
@@ -131,6 +137,12 @@ def test_negative_skin_rate():
     a=load_agent(); p=scen_negative_skin_rate(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_extreme_forchheimer_high():
     a=load_agent(); p=scen_extreme_forchheimer_high(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
+def test_hyper_hot_deep():
+    a=load_agent(); p=scen_hyper_hot_deep(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
+def test_oscillating_skin():
+    a=load_agent(); p=scen_oscillating_skin(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
+def test_ultra_low_perm():
+    a=load_agent(); p=scen_ultra_low_perm(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 
 def test_naive_constant_PI_fails():
     """Naive trap: old constant-PI implementation ignoring skin_rate should fail tightened tolerance on skin buildup scenario."""

@@ -7,7 +7,7 @@ def load_agent():
 def _newton_T_sat(P_bar, A, B, C):
     T=100.0
     logp_target=math.log10(max(P_bar,1e-6))
-    for _ in range(9):
+    for _ in range(13):
         denom=T+C
         if abs(denom)<1e-9: denom=1e-9
         f=A - B/denom - logp_target
@@ -58,8 +58,8 @@ def assert_out(o,r):
     assert isinstance(o,dict)
     assert set(o.keys())==expected
     for k in ("steam_flow","brine_flow","quality","brine_enthalpy","stage1_steam_flow","stage1_brine_flow","stage2_steam_flow","stage2_brine_flow"):
-        assert math.isclose(float(o[k]), float(r[k]), rel_tol=1e-12, abs_tol=1e-12)
-    assert o["silica_concentration_time_series"]==r["silica_concentration_time_series"] or all(math.isclose(float(a),float(b),rel_tol=5e-13,abs_tol=5e-13) for a,b in zip(o["silica_concentration_time_series"], r["silica_concentration_time_series"]))
+        assert math.isclose(float(o[k]), float(r[k]), rel_tol=1e-14, abs_tol=1e-14)
+    assert o["silica_concentration_time_series"]==r["silica_concentration_time_series"] or all(math.isclose(float(a),float(b),rel_tol=1e-14,abs_tol=1e-14) for a,b in zip(o["silica_concentration_time_series"], r["silica_concentration_time_series"]))
     assert bool(o["scaling_risk"]) == bool(r["scaling_risk"])
 
 def test_normal():
@@ -102,6 +102,10 @@ def test_supercritical_edge():
     a=load_agent(); p=dict(BASE); p.update(inlet_P=25.0, separator_P=12.0, separator_P2=6.0, inlet_h=2200.0, C_sb=0.05); r=ref_simulate(**p); o=a.simulate(**p); assert_out(o,r)
 def test_ultra_low_flow():
     a=load_agent(); p=dict(BASE); p.update(inlet_mdot=5.0, separator_P=0.8, separator_P2=0.2, silica_ppm=50.0); r=ref_simulate(**p); o=a.simulate(**p); assert_out(o,r)
+def test_ultra_high_temp():
+    a=load_agent(); p=dict(BASE); p.update(inlet_h=4000.0, separator_P=0.15, separator_P2=0.05, C_sb=0.5); r=ref_simulate(**p); o=a.simulate(**p); assert_out(o,r)
+def test_extreme_silica_high_k():
+    a=load_agent(); p=dict(BASE); p.update(silica_ppm=1500.0, k_precip=0.5, residence_time=60.0, separator_P=0.3, separator_P2=0.1); r=ref_simulate(**p); o=a.simulate(**p); assert_out(o,r)
 
 def test_naive_closed_form_fails():
     # naive trap: 1 Newton iteration vs 7 should deviate beyond tightened tolerance
@@ -109,7 +113,7 @@ def test_naive_closed_form_fails():
     def ref_T(P,A,B,C):
         T=100.0
         lt=math.log10(P)
-        for _ in range(9):
+        for _ in range(13):
             d=T+C
             f=A-B/d-lt
             fp=B/(d*d)

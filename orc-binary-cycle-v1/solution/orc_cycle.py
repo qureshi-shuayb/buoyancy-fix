@@ -92,7 +92,7 @@ def _cycle_once(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, e
     else:
         lo=condenser_T+5.0; hi=brine_in_T-5.0
         # bisection 10 iterations pinned to match target UA
-        for _ in range(20):
+        for _ in range(23):
             mid=(lo+hi)/2.0
             _, _, _, _, UA_mid, _, _, _, _, _, _, _, _ = compute_for_brine_out(mid)
             if UA_mid > target_UA:
@@ -121,7 +121,7 @@ def _cycle_once(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, e
 def simulate(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K=10, rho_l=1300, cp_v=800, Pe_kPa=1000, Pc_kPa=200, use_recup=False, target_UA=None):
     base=_cycle_once(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K, rho_l, cp_v, Pe_kPa, Pc_kPa, use_recup, target_UA)
     # part load curve
-    fractions=[0.3,0.5,0.7,0.9,1.0,1.15,1.3,1.5]
+    fractions=[0.25,0.4,0.55,0.7,0.85,1.0,1.2,1.35,1.6]
     part_load=[]
     for f in fractions:
         res=_cycle_once(brine_in_T, brine_mdot*f, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K, rho_l, cp_v, Pe_kPa, Pc_kPa, use_recup, target_UA)
