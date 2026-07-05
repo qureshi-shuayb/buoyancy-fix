@@ -34,7 +34,7 @@ Initial condition: T[0] = T_initial.
 
 Create `/app/reservoir_depletion.py` with:
 ```python
-def simulate(dt: float, n_steps: int, volume: float, porosity: float, rho_rock: float, c_rock: float, rho_fluid: float, c_fluid: float, T_initial: float, T_inj: float, m_in: float, m_out, Q_loss_coeff: float, T_ambient: float, breakthrough_T_drop: float = 10.0) -> dict:
+def simulate(dt: float, n_steps: int, volume: float, porosity: float, rho_rock: float, c_rock: float, rho_fluid: float, c_fluid: float, T_initial: float, T_inj: float, m_in, m_out, Q_loss_coeff: float, T_ambient: float, breakthrough_T_drop: float = 10.0, Q_loss_coeff_rad: float = 0.0) -> dict:
 ```
 
 Parameters:
@@ -58,15 +58,18 @@ Return dict exact keys:
 ```
 {
   "T_reservoir": list[float],      # length n_steps+1, T[0]=T_initial
-  "breakthrough_year": float or None,  # first time t=i*dt where T_initial - T[i] >= breakthrough_T_drop, converted to years = t / (365*24*3600) ; None if never
-  "lifetime_MWh": float,          # integrated thermal energy extracted: sum over steps m_out_n * c_fluid * max(0, T_n - T_inj) * dt / 3.6e9   [MWh]
-  "avg_T": float                  # average of T_reservoir list
+  "breakthrough_year": float or None,
+  "lifetime_MWh": float,
+  "avg_T": float,
+  "Q_loss_trajectory": list[float],  # length n_steps
+  "power_output_MW": list[float],    # length n_steps
+  "cumulative_energy_MWh": list[float]  # length n_steps+1
 }
 ```
 
-Breakthrough definition pinned: scan i from 0 to n_steps inclusive, first i where T_initial - T[i] >= breakthrough_T_drop. Return i*dt / 31536000.0 else None. Use 365 days year exactly 31536000 seconds.
+Breakthrough definition pinned with linear interpolation between steps: scan i from 0 to n_steps inclusive, first i where T_initial - T[i] >= breakthrough_T_drop. Return i*dt / 31536000.0 else None. Use 365 days year exactly 31536000 seconds.
 
-Lifetime MWh pinned formula: for each step n 0..n_steps-1 use T_n (start of step temperature), m_out_n from scalar or list at index n, power = m_out_n * c_fluid * max(0.0, T_n - T_inj) Watts, energy_J = power * dt, sum then divide by 3.6e9 to MWh.
+Lifetime MWh pinned formula: for each step use trapezoidal average T_avg = (T_n + T_{n+1})/2, power = m_out_n * c_fluid * max(0.0, T_avg - T_inj) Watts, energy_J = power * dt, sum then divide by 3.6e9 to MWh.
 
 avg_T = sum(T_reservoir)/len(T_reservoir)
 
