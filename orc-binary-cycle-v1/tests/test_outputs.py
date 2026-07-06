@@ -54,40 +54,41 @@ def _cycle(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p,
         bot=Tsat_e-pinch_K; bot=max(bot,condenser_T+5); bot=min(bot,brine_in_T-5); bot,Qb,md,net,UA,UA_sh,UA_ev,UA_ph=comp(bot)
     else:
         lo=condenser_T+5; hi=brine_in_T-5
-        for _ in range(23):
+        for _ in range(31):
             mid=(lo+hi)/2; _,_,_,_,UA_mid,_,_,_=comp(mid)
             if UA_mid>target_UA: lo=mid
             else: hi=mid
         bot=(lo+hi)/2; bot,Qb,md,net,UA,UA_sh,UA_ev,UA_ph=comp(bot)
     T0=298.15; ex=brine_mdot*brine_cp*((brine_in_T-bot)-T0*math.log(brine_in_T/max(bot,1e-6))); ed=max(ex-net,0)
     rec_total=rec*md if use_recup else 0.0
-    return {"net_power_W":net,"thermal_efficiency":te,"brine_out_T":bot,"UA_total":UA,"exergy_destruction":ed,"UA_sh":UA_sh,"UA_ev":UA_ev,"UA_ph":UA_ph,"recuperator_duty":rec_total}
+    return {"net_power_W":net,"thermal_efficiency":te,"brine_out_T":bot,"UA_total":UA,"exergy_destruction":ed,"UA_sh":UA_sh,"UA_ev":UA_ev,"UA_ph":UA_ph,"UA_recuperator":0.0 if not use_recup else UA*0.15,"recuperator_duty":rec_total}
 
 def ref_simulate(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K=10, rho_l=1300, cp_v=800, Pe_kPa=1000, Pc_kPa=200, use_recup=False, target_UA=None):
     base=_cycle(brine_in_T,brine_mdot,brine_cp,pinch_K,condenser_T,eta_t,eta_p,superheat_K,rho_l,cp_v,Pe_kPa,Pc_kPa,use_recup,target_UA)
     pl=[]
-    for f in [0.25,0.4,0.55,0.7,0.85,1.0,1.2,1.35,1.6]:
+    for f in [0.15,0.3,0.45,0.6,0.75,0.85,1.0,1.15,1.3,1.45,1.6]:
         r=_cycle(brine_in_T,brine_mdot*f,brine_cp,pinch_K,condenser_T,eta_t,eta_p,superheat_K,rho_l,cp_v,Pe_kPa,Pc_kPa,use_recup,target_UA)
         pl.append(r["net_power_W"])
-    return {"net_power_W":base["net_power_W"],"thermal_efficiency":base["thermal_efficiency"],"brine_out_T":base["brine_out_T"],"UA_total":base["UA_total"],"exergy_destruction":base["exergy_destruction"],"UA_sh":base["UA_sh"],"UA_ev":base["UA_ev"],"UA_ph":base["UA_ph"],"part_load_curve":pl,"recuperator_duty":base["recuperator_duty"]}
+    return {"net_power_W":base["net_power_W"],"thermal_efficiency":base["thermal_efficiency"],"brine_out_T":base["brine_out_T"],"UA_total":base["UA_total"],"exergy_destruction":base["exergy_destruction"],"UA_sh":base["UA_sh"],"UA_ev":base["UA_ev"],"UA_ph":base["UA_ph"],"UA_recuperator":base.get("UA_recuperator",0.0),"part_load_curve":pl,"recuperator_duty":base["recuperator_duty"]}
 
 BASE=dict(brine_in_T=423.0, brine_mdot=50.0, brine_cp=4200.0, pinch_K=5.0, condenser_T=300.0, eta_t=0.85, eta_p=0.75, superheat_K=10, rho_l=1300, cp_v=800, Pe_kPa=1000, Pc_kPa=200, use_recup=False, target_UA=None)
 
 def run(a,p): return a.simulate(**p)
 
 def assert_m(o,r):
-    expected_keys={"net_power_W","thermal_efficiency","brine_out_T","UA_total","exergy_destruction","UA_sh","UA_ev","UA_ph","part_load_curve","recuperator_duty"}
+    expected_keys={"net_power_W","thermal_efficiency","brine_out_T","UA_total","exergy_destruction","UA_sh","UA_ev","UA_ph","UA_recuperator","part_load_curve","recuperator_duty"}
     assert isinstance(o,dict); assert set(o.keys())==expected_keys
-    assert math.isclose(float(o["net_power_W"]), r["net_power_W"], rel_tol=2e-4, abs_tol=0.001)
-    assert math.isclose(float(o["UA_sh"]), r["UA_sh"], rel_tol=2e-4, abs_tol=0.001)
-    assert math.isclose(float(o["UA_ev"]), r["UA_ev"], rel_tol=2e-4, abs_tol=0.001)
-    assert math.isclose(float(o["UA_ph"]), r["UA_ph"], rel_tol=2e-4, abs_tol=0.001)
-    assert math.isclose(float(o["UA_total"]), r["UA_total"], rel_tol=2e-4, abs_tol=0.001)
-    assert math.isclose(float(o["exergy_destruction"]), r["exergy_destruction"], rel_tol=2e-4, abs_tol=0.001)
-    assert math.isclose(float(o["thermal_efficiency"]), r["thermal_efficiency"], rel_tol=5e-6, abs_tol=5e-7)
-    assert math.isclose(float(o["brine_out_T"]), r["brine_out_T"], rel_tol=5e-6, abs_tol=5e-7)
-    assert math.isclose(float(o["recuperator_duty"]), r["recuperator_duty"], rel_tol=2e-4, abs_tol=0.001)
-    assert len(o["part_load_curve"])==9
+    assert math.isclose(float(o["net_power_W"]), r["net_power_W"], rel_tol=5e-7, abs_tol=1e-4)
+    assert math.isclose(float(o["UA_sh"]), r["UA_sh"], rel_tol=5e-7, abs_tol=1e-4)
+    assert math.isclose(float(o["UA_ev"]), r["UA_ev"], rel_tol=5e-7, abs_tol=1e-4)
+    assert math.isclose(float(o["UA_ph"]), r["UA_ph"], rel_tol=5e-7, abs_tol=1e-4)
+    assert math.isclose(float(o["UA_recuperator"]), r["UA_recuperator"], rel_tol=5e-7, abs_tol=1e-4)
+    assert math.isclose(float(o["UA_total"]), r["UA_total"], rel_tol=5e-7, abs_tol=1e-4)
+    assert math.isclose(float(o["exergy_destruction"]), r["exergy_destruction"], rel_tol=5e-7, abs_tol=1e-4)
+    assert math.isclose(float(o["thermal_efficiency"]), r["thermal_efficiency"], rel_tol=1e-7, abs_tol=1e-7)
+    assert math.isclose(float(o["brine_out_T"]), r["brine_out_T"], rel_tol=1e-7, abs_tol=1e-7)
+    assert math.isclose(float(o["recuperator_duty"]), r["recuperator_duty"], rel_tol=5e-7, abs_tol=1e-4)
+    assert len(o["part_load_curve"])==11
     for a,b in zip(o["part_load_curve"], r["part_load_curve"]):
         assert math.isclose(float(a),float(b),rel_tol=1e-2,abs_tol=0.01)
 

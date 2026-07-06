@@ -67,9 +67,9 @@ def assert_matches(got,ref):
     if br_r is None:
         assert br_g is None
     else:
-        assert br_g is not None and math.isclose(float(br_g), float(br_r), rel_tol=2e-10, abs_tol=2e-10)
-    assert math.isclose(float(got["lifetime_MWh"]), float(ref["lifetime_MWh"]), rel_tol=1e-5, abs_tol=0.001)
-    assert math.isclose(float(got["avg_T"]), float(ref["avg_T"]), rel_tol=5e-10, abs_tol=5e-7)
+        assert br_g is not None and math.isclose(float(br_g), float(br_r), rel_tol=1e-11, abs_tol=1e-11)
+    assert math.isclose(float(got["lifetime_MWh"]), float(ref["lifetime_MWh"]), rel_tol=1e-6, abs_tol=1e-4)
+    assert math.isclose(float(got["avg_T"]), float(ref["avg_T"]), rel_tol=1e-9, abs_tol=5e-8)
 
 def test_cases():
     cases=[

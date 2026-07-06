@@ -4,17 +4,17 @@ schema_version = "1.1"
 name = "codimango/geothermal-gradient-resource-v1"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
-description = "Implement Python geothermal reservoir productivity model using linear geothermal gradient T_bh = T_surface + gradient*depth_ft*0.3048/1000 and Darcy radial PI_i = 2*pi*k*h/(mu*(ln(re/rw)+skin_i)) with time-dependent skin and optional Forchheimer non-Darcy Newton solve. Compute bottomhole temperature trajectory, PI trajectory, skin trajectory, flow vs drawdown, flow derivative. Deterministic numeric grading against independent reference; naive implementations omitting natural log, mis-scaling depth feet conversion, ignoring skin_rate time dependence, ignoring beta Forchheimer, or using log10 fail tightened 5e-4 tolerances across baseline, ramp, high-skin, low-perm, deep, skin buildup, and Forchheimer scenarios."
+description = "Implement Python geothermal reservoir productivity model Newton-Raphson 21 iterations hardened v8 using linear geothermal gradient T_bh = T_surface + gradient*depth_ft*0.3048/1000 and Darcy radial PI_i = 2*pi*k*h/(mu*(ln(re/rw)+skin_i)) with skin_rate mandatory time-dependent skin and beta_forchheimer mandatory Forchheimer non-Darcy Newton solve. Compute bottomhole temperature trajectory, PI trajectory, skin trajectory, flow vs drawdown, flow derivative returning 7 keys. feet to meters 0.3048 conversion only. Deterministic numeric grading against independent reference with tolerance 1e-8 rel abs; naive implementations omitting natural log, mis-scaling depth feet conversion, ignoring skin_rate time dependence, ignoring beta Forchheimer, or using log10 fail tightened tolerances across 19 scenarios baseline ramp high-skin low-perm deep skin buildup Forchheimer."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
 keywords = ["python","simulation","geothermal","gradient","darcy","productivity-index","reservoir","radial-flow","skin-factor","drawdown","forchheimer","newton","time-dependent"]
 
 [metadata]
-difficulty = "medium"
+difficulty = "hard"
 category = "feature-implementation"
 category_subdomain = "scientific_computing"
 category_usecase = "compute_result"
-expert_time_estimate_min = 60.0
-junior_time_estimate_min = 180.0
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 270.0
 
 [verifier]
 timeout_sec = 300.0

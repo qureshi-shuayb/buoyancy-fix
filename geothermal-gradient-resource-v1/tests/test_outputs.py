@@ -30,7 +30,7 @@ def ref_simulate(dt,n_steps,T_surface,gradient,depth,k,h,mu,re,rw,skin,drawdown,
             beta = beta_forchheimer
             flow_guess = PI_i * dd
             PI_dd = PI_i * dd
-            for _ in range(11):
+            for _ in range(21):
                 af = abs(flow_guess)
                 fv = flow_guess + beta*flow_guess*af - PI_dd
                 fpv = 1.0 + 2.0*beta*af
@@ -95,15 +95,15 @@ def assert_m(o,r):
     for key in ("T_bottomhole","peak_T"):
         if isinstance(o[key], list):
             for a,b in zip(o[key], r[key]):
-                assert math.isclose(float(a), float(b), rel_tol=1e-3, abs_tol=0.01)
+                assert math.isclose(float(a), float(b), rel_tol=1e-4, abs_tol=0.001)
         else:
-            assert math.isclose(float(o[key]), float(r[key]), rel_tol=1e-3, abs_tol=0.01)
+            assert math.isclose(float(o[key]), float(r[key]), rel_tol=1e-4, abs_tol=0.001)
     for key in ("PI","flow_vs_drawdown","skin_trajectory","PI_trajectory","flow_derivative"):
         if isinstance(o[key], list):
             for a,b in zip(o[key], r[key]):
-                assert math.isclose(float(a), float(b), rel_tol=5e-6, abs_tol=5e-6)
+                assert math.isclose(float(a), float(b), rel_tol=1e-8, abs_tol=1e-8)
         else:
-            assert math.isclose(float(o[key]), float(r[key]), rel_tol=5e-6, abs_tol=5e-6)
+            assert math.isclose(float(o[key]), float(r[key]), rel_tol=1e-8, abs_tol=1e-8)
 
 def test_baseline():
     a=load_agent(); p=scen_baseline(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)

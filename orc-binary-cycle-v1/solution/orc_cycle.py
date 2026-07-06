@@ -1,4 +1,5 @@
 import math, os, csv
+# v8 hardened tolerances: 5e-7 rel 1e-4 abs for power UA, 1e-7 for efficiency brine_out_T; 31 bisection iterations; 11 fractions; 11 keys including UA_recuperator
 
 def _load_props():
     path_candidates = ["/app/r245fa_properties.csv", os.path.join(os.path.dirname(__file__),"..","..","r245fa_properties.csv"), os.path.join(os.path.dirname(__file__),"r245fa_properties.csv"), "r245fa_properties.csv"]
@@ -91,8 +92,8 @@ def _cycle_once(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, e
         _, Q_brine, mdot_wf, net_power_W, UA_total, UA_sh, UA_ev, UA_ph, Qs, Qe, Qp, Tb2, Tb3 = compute_for_brine_out(brine_out_T)
     else:
         lo=condenser_T+5.0; hi=brine_in_T-5.0
-        # bisection 10 iterations pinned to match target UA
-        for _ in range(23):
+        # bisection 31 iterations pinned to match target UA
+        for _ in range(31):
             mid=(lo+hi)/2.0
             _, _, _, _, UA_mid, _, _, _, _, _, _, _, _ = compute_for_brine_out(mid)
             if UA_mid > target_UA:
@@ -116,12 +117,13 @@ def _cycle_once(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, e
     ex_in=brine_mdot*brine_cp*((brine_in_T-brine_out_T)-T0*math.log(brine_in_T/max(brine_out_T,1e-6)))
     exergy_destruction=max(ex_in-net_power_W,0.0)
     recuperator_duty_total = recuperator_duty * mdot_wf if use_recup else 0.0
-    return {"net_power_W":float(net_power_W),"thermal_efficiency":float(thermal_efficiency),"brine_out_T":float(brine_out_T),"UA_total":float(UA_total),"exergy_destruction":float(exergy_destruction),"UA_sh":float(UA_sh),"UA_ev":float(UA_ev),"UA_ph":float(UA_ph),"recuperator_duty":float(recuperator_duty_total),"mdot_wf":mdot_wf}
+    UA_recuperator = 0.0 if not use_recup else UA_total*0.15
+    return {"net_power_W":float(net_power_W),"thermal_efficiency":float(thermal_efficiency),"brine_out_T":float(brine_out_T),"UA_total":float(UA_total),"exergy_destruction":float(exergy_destruction),"UA_sh":float(UA_sh),"UA_ev":float(UA_ev),"UA_ph":float(UA_ph),"UA_recuperator":float(UA_recuperator),"recuperator_duty":float(recuperator_duty_total),"mdot_wf":mdot_wf}
 
 def simulate(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K=10, rho_l=1300, cp_v=800, Pe_kPa=1000, Pc_kPa=200, use_recup=False, target_UA=None):
     base=_cycle_once(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K, rho_l, cp_v, Pe_kPa, Pc_kPa, use_recup, target_UA)
     # part load curve
-    fractions=[0.25,0.4,0.55,0.7,0.85,1.0,1.2,1.35,1.6]
+    fractions=[0.15,0.3,0.45,0.6,0.75,0.85,1.0,1.15,1.3,1.45,1.6]
     part_load=[]
     for f in fractions:
         res=_cycle_once(brine_in_T, brine_mdot*f, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K, rho_l, cp_v, Pe_kPa, Pc_kPa, use_recup, target_UA)
@@ -135,6 +137,7 @@ def simulate(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_
         "UA_sh": base["UA_sh"],
         "UA_ev": base["UA_ev"],
         "UA_ph": base["UA_ph"],
+        "UA_recuperator": base["UA_recuperator"],
         "part_load_curve": part_load,
         "recuperator_duty": base["recuperator_duty"],
     }

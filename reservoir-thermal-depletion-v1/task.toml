@@ -4,17 +4,17 @@ schema_version = "1.1"
 name = "codimango/reservoir-thermal-depletion-v1"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
-description = "Implement lumped 0D geothermal reservoir thermal depletion ODE with explicit Euler hardened v2. Model rock heat capacity, porosity, volume, reinjection and production mass flows as mandatory time series lists, linear plus Stefan-Boltzmann radiative heat loss to ambient, trapezoidal lifetime integral, linear interpolation breakthrough. Return temperature trajectory, thermal breakthrough year interpolated, lifetime extracted energy MWh trapezoidal, average temperature, Q_loss_trajectory, power_output_MW, cumulative_energy_MWh. Deterministic numeric grading against independent reference; naive implementations ignoring radiative heat loss, treating m_in/m_out as scalar, using start-of-step integral instead of trapezoidal, omitting rock thermal mass, wrong Euler order, or discrete breakthrough without interpolation drift past tightened tolerances v3."
+description = "Implement lumped 0D geothermal reservoir thermal depletion ODE with explicit Euler hardened v8. Model rock heat capacity, porosity, volume, reinjection and production mass flows as mandatory time series lists, linear plus Stefan-Boltzmann radiative heat loss term sigma 5.67e-8 mandatory to ambient, trapezoidal lifetime integral mandatory, linear interpolation breakthrough. Return 7 keys: temperature trajectory T_reservoir, thermal breakthrough year interpolated breakthrough_year, lifetime extracted energy MWh trapezoidal lifetime_MWh, average temperature avg_T, Q_loss_trajectory, power_output_MW, cumulative_energy_MWh. Deterministic numeric grading against independent reference with tightened 1e-6 relative tolerance; naive implementations ignoring radiative term, treating m_in/m_out as scalar, using start-of-step integral instead of trapezoidal, omitting rock thermal mass, wrong Euler order, or discrete breakthrough without interpolation drift past tightened tolerances v8."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
 keywords = ["python", "geothermal", "reservoir", "thermal-depletion", "lumped-parameter", "ode", "explicit-euler", "energy-balance", "simulation", "renewable-energy", "radiative-heat-loss", "trapezoidal", "interpolation"]
 
 [metadata]
-difficulty = "medium"
+difficulty = "hard"
 category = "feature-implementation"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 75.0
-junior_time_estimate_min = 200.0
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 270.0
 
 [verifier]
 timeout_sec = 300.0
