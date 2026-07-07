@@ -1,5 +1,5 @@
 import math, os, csv
-# v9 hardened tolerances: 5e-7 rel 1e-4 abs for power UA, 2e-7 for efficiency brine_out_T; 31 bisection iterations; 11 fractions; 11 keys including UA_recuperator coefficient 0.137
+# v11 hardened tolerances: 5e-7 rel 1e-4 abs for power UA, 2e-7 for efficiency brine_out_T; 31 bisection iterations; 11 fractions; 11 keys including UA_recuperator
 
 def _load_props():
     path_candidates = ["/app/r245fa_properties.csv", os.path.join(os.path.dirname(__file__),"..","..","r245fa_properties.csv"), os.path.join(os.path.dirname(__file__),"r245fa_properties.csv"), "r245fa_properties.csv"]
@@ -14,8 +14,8 @@ def _load_props():
                     return props
         except Exception:
             continue
-    # enforce CSV mandatory v9 - raise if missing to prevent hardcoded dict fallback cheat
-    raise FileNotFoundError("r245fa_properties.csv not found - CSV mandatory for v9")
+    # enforce CSV mandatory v11 - raise if missing to prevent hardcoded dict fallback cheat
+    raise FileNotFoundError("r245fa_properties.csv not found - CSV mandatory for v11")
 
 R245FA = _load_props()
 
@@ -92,7 +92,7 @@ def _cycle_once(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, e
         _, Q_brine, mdot_wf, net_power_W, UA_total, UA_sh, UA_ev, UA_ph, Qs, Qe, Qp, Tb2, Tb3 = compute_for_brine_out(brine_out_T)
     else:
         lo=condenser_T+5.0; hi=brine_in_T-5.0
-        # bisection 31 iterations pinned v10 monotonic decreasing UA with brine_out_T
+        # bisection 31 iterations pinned v11 monotonic decreasing UA with brine_out_T
         for _ in range(31):
             mid=(lo+hi)/2.0
             _, _, _, _, UA_mid, _, _, _, _, _, _, _, _ = compute_for_brine_out(mid)
