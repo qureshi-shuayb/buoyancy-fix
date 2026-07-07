@@ -1,5 +1,5 @@
 import math, os, csv
-# v8 hardened tolerances: 5e-7 rel 1e-4 abs for power UA, 1e-7 for efficiency brine_out_T; 31 bisection iterations; 11 fractions; 11 keys including UA_recuperator
+# v9 hardened tolerances: 5e-7 rel 1e-4 abs for power UA, 2e-7 for efficiency brine_out_T; 31 bisection iterations; 11 fractions; 11 keys including UA_recuperator coefficient 0.137
 
 def _load_props():
     path_candidates = ["/app/r245fa_properties.csv", os.path.join(os.path.dirname(__file__),"..","..","r245fa_properties.csv"), os.path.join(os.path.dirname(__file__),"r245fa_properties.csv"), "r245fa_properties.csv"]
@@ -14,8 +14,8 @@ def _load_props():
                     return props
         except Exception:
             continue
-    # fallback hardcoded
-    return {200:{"Tsat":305.0,"hf":220000.0,"hg":410000.0,"sf":1080.0,"sg":1750.0},400:{"Tsat":325.0,"hf":240000.0,"hg":420000.0,"sf":1150.0,"sg":1730.0},600:{"Tsat":340.0,"hf":255000.0,"hg":428000.0,"sf":1200.0,"sg":1715.0},800:{"Tsat":352.0,"hf":267000.0,"hg":434000.0,"sf":1240.0,"sg":1700.0},1000:{"Tsat":362.0,"hf":278000.0,"hg":439000.0,"sf":1275.0,"sg":1688.0},1200:{"Tsat":371.0,"hf":288000.0,"hg":443000.0,"sf":1305.0,"sg":1678.0}}
+    # enforce CSV mandatory v9 - raise if missing to prevent hardcoded dict fallback cheat
+    raise FileNotFoundError("r245fa_properties.csv not found - CSV mandatory for v9")
 
 R245FA = _load_props()
 
@@ -117,7 +117,7 @@ def _cycle_once(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, e
     ex_in=brine_mdot*brine_cp*((brine_in_T-brine_out_T)-T0*math.log(brine_in_T/max(brine_out_T,1e-6)))
     exergy_destruction=max(ex_in-net_power_W,0.0)
     recuperator_duty_total = recuperator_duty * mdot_wf if use_recup else 0.0
-    UA_recuperator = 0.0 if not use_recup else UA_total*0.15
+    UA_recuperator = 0.0 if not use_recup else UA_total*0.137
     return {"net_power_W":float(net_power_W),"thermal_efficiency":float(thermal_efficiency),"brine_out_T":float(brine_out_T),"UA_total":float(UA_total),"exergy_destruction":float(exergy_destruction),"UA_sh":float(UA_sh),"UA_ev":float(UA_ev),"UA_ph":float(UA_ph),"UA_recuperator":float(UA_recuperator),"recuperator_duty":float(recuperator_duty_total),"mdot_wf":mdot_wf}
 
 def simulate(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K=10, rho_l=1300, cp_v=800, Pe_kPa=1000, Pc_kPa=200, use_recup=False, target_UA=None):

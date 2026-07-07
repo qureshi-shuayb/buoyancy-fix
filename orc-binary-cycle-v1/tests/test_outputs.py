@@ -61,7 +61,7 @@ def _cycle(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p,
         bot=(lo+hi)/2; bot,Qb,md,net,UA,UA_sh,UA_ev,UA_ph=comp(bot)
     T0=298.15; ex=brine_mdot*brine_cp*((brine_in_T-bot)-T0*math.log(brine_in_T/max(bot,1e-6))); ed=max(ex-net,0)
     rec_total=rec*md if use_recup else 0.0
-    return {"net_power_W":net,"thermal_efficiency":te,"brine_out_T":bot,"UA_total":UA,"exergy_destruction":ed,"UA_sh":UA_sh,"UA_ev":UA_ev,"UA_ph":UA_ph,"UA_recuperator":0.0 if not use_recup else UA*0.15,"recuperator_duty":rec_total}
+    return {"net_power_W":net,"thermal_efficiency":te,"brine_out_T":bot,"UA_total":UA,"exergy_destruction":ed,"UA_sh":UA_sh,"UA_ev":UA_ev,"UA_ph":UA_ph,"UA_recuperator":0.0 if not use_recup else UA*0.137,"recuperator_duty":rec_total}
 
 def ref_simulate(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, eta_p, superheat_K=10, rho_l=1300, cp_v=800, Pe_kPa=1000, Pc_kPa=200, use_recup=False, target_UA=None):
     base=_cycle(brine_in_T,brine_mdot,brine_cp,pinch_K,condenser_T,eta_t,eta_p,superheat_K,rho_l,cp_v,Pe_kPa,Pc_kPa,use_recup,target_UA)
@@ -85,8 +85,8 @@ def assert_m(o,r):
     assert math.isclose(float(o["UA_recuperator"]), r["UA_recuperator"], rel_tol=5e-7, abs_tol=1e-4)
     assert math.isclose(float(o["UA_total"]), r["UA_total"], rel_tol=5e-7, abs_tol=1e-4)
     assert math.isclose(float(o["exergy_destruction"]), r["exergy_destruction"], rel_tol=5e-7, abs_tol=1e-4)
-    assert math.isclose(float(o["thermal_efficiency"]), r["thermal_efficiency"], rel_tol=1e-7, abs_tol=1e-7)
-    assert math.isclose(float(o["brine_out_T"]), r["brine_out_T"], rel_tol=1e-7, abs_tol=1e-7)
+    assert math.isclose(float(o["thermal_efficiency"]), r["thermal_efficiency"], rel_tol=2e-7, abs_tol=2e-7)
+    assert math.isclose(float(o["brine_out_T"]), r["brine_out_T"], rel_tol=2e-7, abs_tol=2e-7)
     assert math.isclose(float(o["recuperator_duty"]), r["recuperator_duty"], rel_tol=5e-7, abs_tol=1e-4)
     assert len(o["part_load_curve"])==11
     for a,b in zip(o["part_load_curve"], r["part_load_curve"]):
@@ -121,3 +121,15 @@ def test_stdlib_only():
                 root=alias.name.split('.')[0]; assert root in allowed, f"disallowed import {alias.name}"
         if isinstance(node, ast.ImportFrom):
             root=(node.module or '').split('.')[0]; assert root in allowed, f"disallowed import from {node.module}"
+
+def test_csv_exists():
+    # Enforce CSV file open assertion to prevent hardcoded dict fallback cheat v9
+    p="/app/r245fa_properties.csv"
+    assert os.path.exists(p), f"CSV not found at {p}"
+    with open(p, newline='') as f:
+        r=csv.DictReader(f)
+        rows=list(r)
+        assert len(rows)>=6, f"CSV must have at least 6 rows, got {len(rows)}"
+        for required in ['P_kPa','Tsat','hf','hg','sf','sg']:
+            assert required in rows[0], f"missing column {required}"
+

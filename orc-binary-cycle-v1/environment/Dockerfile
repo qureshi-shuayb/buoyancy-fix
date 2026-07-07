@@ -2,3 +2,4 @@
 FROM python:3.12-slim-bookworm
 WORKDIR /app
 COPY r245fa_properties.csv /app/r245fa_properties.csv
+RUN pip install --no-cache-dir pytest pytest-json-ctrf || pip3 install --no-cache-dir pytest pytest-json-ctrf || true

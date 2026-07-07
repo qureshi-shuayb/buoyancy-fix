@@ -7,8 +7,9 @@ import math
 def _at(x,i):
     return x[i] if isinstance(x,(list,tuple)) else x
 
-def simulate(dt, n_steps, T_surface, gradient, depth, k, h, mu, re, rw, skin, drawdown, skin_rate=0.0, beta_forchheimer=None):
-    # depth input in feet per hardened spec, convert to meters then km
+def simulate(dt, n_steps, T_surface, gradient, depth, k, h, mu, re, rw, skin, drawdown, skin_rate, beta_forchheimer):
+    # depth input in feet per hardened v9 spec, convert to meters then km
+    SECONDS_PER_YEAR = 31536000.0
     depth_m = depth * 0.3048
     depth_km = depth_m / 1000.0
     tbh = T_surface + gradient * depth_km
@@ -42,10 +43,10 @@ def simulate(dt, n_steps, T_surface, gradient, depth, k, h, mu, re, rw, skin, dr
             deriv_i = PI_i
         else:
             beta = beta_forchheimer
-            # Newton 21 iterations pinned starting from linear guess
+            # Newton 31 iterations pinned hardened v9 starting from linear guess
             flow = PI_i * dd
             PI_dd = PI_i * dd
-            for _ in range(21):
+            for _ in range(31):
                 abs_f = abs(flow)
                 f = flow + beta * flow * abs_f - PI_dd
                 fp = 1.0 + 2.0 * beta * abs_f
@@ -69,3 +70,4 @@ def simulate(dt, n_steps, T_surface, gradient, depth, k, h, mu, re, rw, skin, dr
 
 PYEOF
 echo "geothermal_resource.py written"
+

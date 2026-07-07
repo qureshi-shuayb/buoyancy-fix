@@ -4,9 +4,9 @@ schema_version = "1.1"
 name = "codimango/flash-separator-surface-v1"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
-description = "Implement Python isenthalpic flash separator model for geothermal surface brine using Antoine equation solved via Newton-Raphson 23 iterations for saturation temperature, three-stage cascade mass-energy balance, Souders-Brown carryover correlation, and silica kinetic precipitation ODE explicit Euler 10 substeps. Returns final steam/brine flows, quality, brine enthalpy, scaling risk, stage1/stage2 separated flows, silica concentration time series. Deterministic numeric grading against independent reference; naive implementations using closed-form Antoine inversion, constant carryover, single stage only, equilibrium silica only, or omitting Newton iterations fail tightened 1e-15 tolerances across normal, subcooled, superheated, scaling, low pressure, carryover sensitivity, three-stage cascade, and kinetic silica scenarios."
+description = "Implement Python isenthalpic flash separator model for geothermal surface brine using Antoine equation solved via Newton-Raphson 31 iterations for saturation temperature, four-stage cascade mass-energy balance, Souders-Brown carryover correlation, and silica kinetic precipitation ODE explicit Euler 10 substeps. Returns final steam/brine flows, quality, brine enthalpy, scaling risk, stage1/stage2/stage3/stage4 separated flows, silica concentration time series length 4, T_sat trajectory length 4. Total 16 output keys with tightened 1e-16 tolerance. Deterministic numeric grading against independent reference; naive implementations using closed-form Antoine inversion, constant carryover, single or two or three stage only, equilibrium silica only, or omitting Newton iterations fail tightened 1e-16 tolerances across normal, subcooled, superheated, scaling, low pressure, carryover sensitivity, four-stage cascade, and kinetic silica scenarios."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["python","simulation","geothermal","flash-separator","antoine","newton-raphson","thermodynamics","silica-scaling","mass-balance","energy-balance","three-stage","souders-brown","kinetics"]
+keywords = ["python","simulation","geothermal","flash-separator","antoine","newton-raphson","thermodynamics","silica-scaling","mass-balance","energy-balance","four-stage","souders-brown","kinetics"]
 
 [metadata]
 difficulty = "hard"
@@ -31,3 +31,4 @@ mcp_servers = []
 [verifier.env]
 [environment.env]
 [solution.env]
+
