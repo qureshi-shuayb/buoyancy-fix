@@ -146,15 +146,20 @@ def test_ultra_low_perm():
     a=load_agent(); p=scen_ultra_low_perm(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 
 def test_naive_constant_PI_fails():
-    """Naive trap: old constant-PI implementation ignoring skin_rate should fail tightened tolerance on skin buildup scenario."""
+    """Naive trap: agent must implement skin_rate time dependence; constant-PI naive fails at 1e-9 tolerance."""
     p=scen_skin_buildup()
-    # reference with skin_rate
+    a=load_agent()
+    o=run(a,p)
     r_correct = ref_simulate(**p)
+    # agent must match correct reference within tightened tolerance
+    assert_m(o, r_correct)
     # naive reference ignoring skin_rate
     p_naive = dict(p); p_naive['skin_rate']=0.0
     r_naive = ref_simulate(**p_naive)
-    # ensure they differ by >10% on PI trajectory last element to validate trap effectiveness
+    # ensure correct vs naive differ >10% validating trap
     assert abs(r_correct["PI_trajectory"][-1] - r_naive["PI_trajectory"][-1]) / max(abs(r_correct["PI_trajectory"][-1]),1e-12) > 0.1
+    # ensure agent output differs from naive by >10% proving agent implements skin_rate
+    assert abs(o["PI_trajectory"][-1] - r_naive["PI_trajectory"][-1]) / max(abs(o["PI_trajectory"][-1]),1e-12) > 0.1
 
 def test_stdlib_only():
     import pathlib, ast, os
@@ -196,16 +201,33 @@ def test_stdlib_only():
                             raise AssertionError("dynamic importlib.import_module with non-constant not allowed")
 
 def test_seconds_per_year_constant():
-    """Explicit constant check to close AI medium issue: seconds_per_year must be 31536000.0"""
+    """Explicit constant check to close AI medium issue: seconds_per_year must be 31536000.0 and agent must contain it."""
     assert 31536000.0 == 365*24*3600
     # reference uses this constant implicitly for time scaling clarity
     assert abs(31536000.0 - 31536000) < 1e-9
+    import pathlib, os
+    agent_path = "/app/geothermal_resource.py"
+    if not os.path.exists(agent_path):
+        candidates = list(pathlib.Path(__file__).parent.parent.glob('solution/*.py'))
+        agent_path = str(candidates[0]) if candidates else agent_path
+    src = pathlib.Path(agent_path).read_text()
+    assert "31536000" in src or "31536000.0" in src, "agent source must define seconds_per_year constant explicitly"
+    # invoke agent to ensure runtime correctness on baseline scenario
+    a=load_agent(); p=scen_baseline(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 
 def test_newton_iterations_pinned():
-    """Ensure reference uses 31 Newton iterations hardened v9 not 21."""
-    import inspect
-    src = inspect.getsource(ref_simulate)
-    assert "range(31)" in src or "range( 31" in src or "31" in src
-    # ensure old 21 not used as sole loop count in Forchheimer context
+    """Ensure reference and agent use 31 Newton iterations hardened v10 not 21, and agent invoked."""
+    import inspect, pathlib, os
+    src_ref = inspect.getsource(ref_simulate)
+    assert "range(31)" in src_ref or "range( 31" in src_ref or "31" in src_ref
     # count occurrences heuristic: reference must contain 31
-    assert "31" in src
+    assert "31" in src_ref
+    agent_path = "/app/geothermal_resource.py"
+    if not os.path.exists(agent_path):
+        candidates = list(pathlib.Path(__file__).parent.parent.glob('solution/*.py'))
+        agent_path = str(candidates[0]) if candidates else agent_path
+    src_agent = pathlib.Path(agent_path).read_text()
+    assert "range(31" in src_agent or "range( 31" in src_agent, "agent must pin 31 Newton iterations"
+    assert "21" not in src_agent or src_agent.count("31") > src_agent.count("21")  # heuristic avoid old 21
+    # invoke agent on Forchheimer scenario to ensure 1e-9 tolerance passes
+    a=load_agent(); p=scen_forchheimer(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)

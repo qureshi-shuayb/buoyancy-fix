@@ -58,7 +58,7 @@ T_sat_C = T
 
 Liquid saturated enthalpy: `h_l = cp_l * T_sat_C`
 Vapor saturated enthalpy: `h_v = h_fg0 + cp_v * T_sat_C`
-Isenthalpic flash: `h_in = x*h_v + (1-x)*h_l` → `x = (inlet_h - h_l)/(h_v - h_l)` clamped [0,1].
+Isenthalpic flash: `h_in = x*h_v + (1-x)*h_l` → `dh = h_v - h_l ; x = 0.0 if abs(dh) < 1e-15 else (inlet_h - h_l)/dh` clamped [0,1]. Guard threshold explicitly 1e-15.
 
 Souders-Brown carryover hardened v9:
 ```
@@ -71,7 +71,7 @@ steam_flow = inlet_mdot * x * (1 - carryover)
 brine_flow = inlet_mdot - steam_flow
 ```
 
-Silica scaling with kinetic ODE explicit Euler **10 substeps** hardened v9:
+Silica scaling with kinetic ODE explicit Euler **10 substeps** hardened v9 hardened v10 clarified:
 ```
 cf = inlet_mdot / max(brine_flow, 1e-12)
 silica_initial = silica_ppm * cf
@@ -86,8 +86,9 @@ repeat 10 times:
 silica_final = silica_cur
 scaling_risk = silica_final > solubility
 ```
+Each downstream stage re-applies concentration factor cf based on its inlet brine flow and re-runs the 10-step Euler on the carried silica concentration from previous stage, not pass-through unchanged. Stage2 silica input = stage1 silica_final, stage3 input = stage2 silica_final, stage4 input = stage3 silica_final, each with its own cf and 10 substeps.
 
-Four-stage cascade hardened v9: stage1 at separator_P processes inlet, stage2 at separator_P2 processes stage1 brine and silica_final, stage3 at separator_P3 processes stage2 brine and silica, stage4 at separator_P4 default 0.2 processes stage3 brine and silica. Final steam = sum four stage steam flows. Final brine = stage4 brine. Final quality = stage4 quality. Final brine_enthalpy = stage4 h_l. Final scaling = OR across four stages. Silica series length 4 = [s1 silica, s2 silica, s3 silica, s4 silica]. T_sat_trajectory length 4 = [s1 T_sat, s2 T_sat, s3 T_sat, s4 T_sat].
+Four-stage cascade hardened v9 hardened v10 clarified: stage1 at separator_P processes inlet, stage2 at separator_P2 processes stage1 brine flow and stage1 silica_final as input silica_ppm, stage3 at separator_P3 processes stage2 brine flow and stage2 silica_final, stage4 at separator_P4 default 0.2 processes stage3 brine flow and stage3 silica_final. Each stage independently computes cf = inlet_mdot_stage / max(brine_flow_stage,1e-12), then silica_initial = input_silica_ppm * cf, then runs 10-step Euler kinetic ODE to produce silica_final for that stage. No pass-through unchanged; silica is re-concentrated and re-reacted per stage. Final steam = sum four stage steam flows. Final brine = stage4 brine. Final quality = stage4 quality. Final brine_enthalpy = stage4 h_l. Final scaling = OR across four stages. Silica series length 4 = [s1 silica, s2 silica, s3 silica, s4 silica]. T_sat_trajectory length 4 = [s1 T_sat, s2 T_sat, s3 T_sat, s4 T_sat].
 
 All calculations Python math library only deterministic no randomness.
 

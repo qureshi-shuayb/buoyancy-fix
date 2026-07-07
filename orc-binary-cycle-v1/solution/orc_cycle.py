@@ -92,21 +92,10 @@ def _cycle_once(brine_in_T, brine_mdot, brine_cp, pinch_K, condenser_T, eta_t, e
         _, Q_brine, mdot_wf, net_power_W, UA_total, UA_sh, UA_ev, UA_ph, Qs, Qe, Qp, Tb2, Tb3 = compute_for_brine_out(brine_out_T)
     else:
         lo=condenser_T+5.0; hi=brine_in_T-5.0
-        # bisection 31 iterations pinned to match target UA
+        # bisection 31 iterations pinned v10 monotonic decreasing UA with brine_out_T
         for _ in range(31):
             mid=(lo+hi)/2.0
             _, _, _, _, UA_mid, _, _, _, _, _, _, _, _ = compute_for_brine_out(mid)
-            if UA_mid > target_UA:
-                # need higher brine_out_T to reduce UA? approximate monotonic decreasing UA with increasing brine_out_T (less Q)
-                lo = mid  # actually higher brine_out reduces Q, reduces UA, so if UA too high need increase brine_out
-                # Let's adjust: if UA_mid > target, increase brine_out to reduce Q
-                # our lo is lower bound, hi upper. We want to find brine_out where UA=target.
-                # Assume UA decreases with increasing brine_out_T. So if UA_mid > target, set lo=mid to raise.
-                # else hi=mid
-            else:
-                hi=mid
-            # correction: we set lo above, but need proper logic; simplify by swapping each iteration to converge somewhat
-            # We'll do standard bisection assuming monotonic decreasing.
             if UA_mid > target_UA:
                 lo = mid
             else:

@@ -3,7 +3,7 @@ def _at(x,i):
     return x[i] if isinstance(x,(list,tuple)) else x
 
 def simulate(dt, n_steps, T_surface, gradient, depth, k, h, mu, re, rw, skin, drawdown, skin_rate, beta_forchheimer):
-    # depth input in feet per hardened v9 spec, convert to meters then km
+    # depth input in feet per hardened v10 spec, convert to meters then km
     # seconds_per_year constant explicitly defined per spec to close AI medium issue
     SECONDS_PER_YEAR = 31536000.0
     depth_m = depth * 0.3048
@@ -39,7 +39,7 @@ def simulate(dt, n_steps, T_surface, gradient, depth, k, h, mu, re, rw, skin, dr
             deriv_i = PI_i
         else:
             beta = beta_forchheimer
-            # Newton 31 iterations pinned hardened v9 starting from linear guess
+            # Newton 31 iterations pinned hardened v10 starting from linear guess
             flow = PI_i * dd
             PI_dd = PI_i * dd
             for _ in range(31):
