@@ -11,8 +11,8 @@ keywords = ["rust", "structural-engineering", "truss", "virtual-work", "deflecti
 [metadata]
 difficulty = "medium"
 category = "feature-implementation"
-category_usecase = "Simulation & Modeling"
-category_subdomain = "Civil Engineering"
+category_usecase = "compute_result"
+category_subdomain = "scientific_computing"
 expert_time_estimate_min = 50.0
 junior_time_estimate_min = 130.0
 
