@@ -1,6 +1,6 @@
 # Truss Geometry Validator
 
-Implement a pure-Python truss topology validator at `/app/truss_geometry.py`. The module must expose exactly three functions with signatures below. Tests import the module directly.
+Implement a pure-Ruby truss topology validator at `/app/truss_geometry.rb`. The module must expose exactly three functions with signatures below. Tests import the module directly.
 
 ## Domain Model
 
@@ -25,12 +25,12 @@ Truss JSON schema:
 
 Planar pin-jointed truss, small deflection linear elastic, static determinacy condition:  m + r == 2 * j  where m members, r total reaction components, j joints.  m+r < 2j unstable mechanism, > indeterminate.
 
-## Required API in /app/truss_geometry.py
+## Required API in /app/truss_geometry.rb
 
-```python
-def load_truss(path: str) -> dict: ...
+```ruby
+def load_truss(path: str) : ...
 def check_determinacy(joints: list, members: list, supports: list) -> tuple[bool, str]: ...
-def build_matrices(joints: list, members: list, supports: list) -> dict: ...
+def build_matrices(joints: list, members: list, supports: list) : ...
 ```
 
 `load_truss(path)` reads JSON file and returns dict with exactly keys `"joints"` and `"members"` as lists preserving order. Raise `ValueError` on missing file, invalid JSON, missing required keys, duplicate joint or member ids, non-numeric coordinates, or missing member endpoint reference in joints list.
@@ -60,7 +60,7 @@ Raise `ValueError` on same invalid conditions as check_determinacy except unstab
 
 ## Constraints
 
-Python 3 standard library only. Module at `/app/truss_geometry.py` importable. Function names and signatures exactly as listed. Deterministic pure functions, no randomness, no network, no external files except load_truss path argument.
+Python 3 standard library only. Module at `/app/truss_geometry.rb` importable. Function names and signatures exactly as listed. Deterministic pure functions, no randomness, no network, no external files except load_truss path argument.
 
 ## Grading
 

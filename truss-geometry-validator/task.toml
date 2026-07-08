@@ -1,12 +1,12 @@
 schema_version = "1.1"
 
 [task]
-name = "codimango/truss-geometry-validator"
+name = "codimango/truss-geometry-validator-ruby"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
-description = "Implement a pure-Python truss topology validator that parses JSON truss definitions, checks static determinacy via m+r vs 2j counts, detects coincident joints and zero-length members, and builds adjacency and DOF mapping matrices. Foundation for structural mechanics workflow."
+description = "Implement a pure-Ruby truss topology validator that parses JSON truss definitions, checks static determinacy via m+r vs 2j counts, detects coincident joints and zero-length members, and builds adjacency and DOF mapping matrices. Foundation for structural mechanics workflow."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["python", "structural-engineering", "truss", "statics", "determinacy", "topology", "graph", "civil-engineering", "mechanics"]
+keywords = ["ruby", "structural-engineering", "truss", "statics", "determinacy", "topology", "graph", "civil-engineering", "mechanics"]
 
 [metadata]
 difficulty = "medium"

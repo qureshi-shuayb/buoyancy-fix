@@ -1,12 +1,12 @@
 schema_version = "1.1"
 
 [task]
-name = "codimango/buckling-capacity-check"
+name = "codimango/buckling-capacity-check-r"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
 description = "Implement Euler buckling safety factor calculator for truss compression members. Compute slenderness, critical load, safety factors versus envelope compression forces."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["python","structural-engineering","buckling","euler","truss","civil-engineering"]
+keywords = ["r","structural-engineering","buckling","euler","truss","civil-engineering"]
 
 [metadata]
 difficulty = "medium"
