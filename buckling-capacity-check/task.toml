@@ -1,0 +1,33 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/buckling-capacity-check"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
+description = "Implement Euler buckling safety factor calculator for truss compression members. Compute slenderness, critical load, safety factors versus envelope compression forces."
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["python","structural-engineering","buckling","euler","truss","civil-engineering"]
+
+[metadata]
+difficulty = "medium"
+category = "feature-implementation"
+category_usecase = "Simulation & Modeling"
+category_subdomain = "Civil Engineering"
+expert_time_estimate_min = 35.0
+junior_time_estimate_min = 90.0
+
+[verifier]
+timeout_sec = 300.0
+[agent]
+timeout_sec = 1800.0
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+[verifier.env]
+[environment.env]
+[solution.env]
