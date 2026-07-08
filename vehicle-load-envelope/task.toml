@@ -1,0 +1,33 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/vehicle-load-envelope-php"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
+description = "Implement PHP moving vehicle load envelope calculator for planar truss bridge. Distribute axle loads to panel points by linear interpolation with AASHTO impact factor, discretize vehicle position, solve truss member forces via Gaussian elimination each step, track max tension and compression envelope."
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["php", "structural-engineering", "truss", "moving-load", "envelope", "vehicle", "civil-engineering", "influence"]
+
+[metadata]
+difficulty = "medium"
+category = "feature-implementation"
+category_usecase = "Simulation & Modeling"
+category_subdomain = "Civil Engineering"
+expert_time_estimate_min = 45.0
+junior_time_estimate_min = 120.0
+
+[verifier]
+timeout_sec = 300.0
+[agent]
+timeout_sec = 1800.0
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+[verifier.env]
+[environment.env]
+[solution.env]

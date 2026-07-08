@@ -1,0 +1,33 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/truss-rating-optimizer-julia"
+format = "terminal_bench_single_turn"
+workstream = "swe_public_repo"
+description = "Implement Julia load rating optimizer for truss bridge using influence coefficients from unit load method and binary search for maximum vehicle scale factor achieving target rating factor. Pure Julia stdlib."
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["julia", "structural-engineering", "truss", "load-rating", "influence-line", "optimization", "binary-search", "civil-engineering"]
+
+[metadata]
+difficulty = "hard"
+category = "feature-implementation"
+category_usecase = "Simulation & Modeling"
+category_subdomain = "Civil Engineering"
+expert_time_estimate_min = 60.0
+junior_time_estimate_min = 150.0
+
+[verifier]
+timeout_sec = 300.0
+[agent]
+timeout_sec = 1800.0
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+[verifier.env]
+[environment.env]
+[solution.env]
