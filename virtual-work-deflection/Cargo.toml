@@ -2,7 +2,3 @@
 name = "truss_deflection"
 version = "0.1.0"
 edition = "2021"
-
-[lib]
-name = "truss_deflection"
-path = "solution/src/lib.rs"
