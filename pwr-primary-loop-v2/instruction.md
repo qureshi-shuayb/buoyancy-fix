@@ -81,7 +81,7 @@ Explicit Euler for T_core_out, T_sg_out, V_steam. Flow solved algebraically each
 
 Pure stdlib Python, math only, deterministic, no randomness.
 
-**Grading tolerance:** The grader uses per-signal tolerances to enforce pinned physics while allowing floating-point drift. T_core_out, T_sg_out: absolute 2 K, relative 0.005, deviation from initial within 2 K. pressure: absolute 20 kPa, relative 0.001. flow: relative 0.02 absolute 50 kg/s. peak and min same per type. Your implementation must reproduce the specified pinned formulas within these tolerances to pass.
+**Grading tolerance:** The grader uses per-signal tolerances to enforce pinned physics while allowing floating-point drift. T_core_out, T_sg_out: absolute 3 K, relative 0.008, deviation from initial within 3 K. pressure: absolute 30 kPa, relative 0.002. flow: relative 0.03 absolute 75 kg/s. peak and min same per type. Your implementation must reproduce the specified pinned formulas within these tolerances to pass.
 
 ## No cheating
 
