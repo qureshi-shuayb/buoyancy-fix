@@ -8,6 +8,24 @@ Package main at `/app/truss_solver.go`.
 
 Implements a statically determinate planar truss analyzer in pure Go without external dependencies. The solver assembles joint equilibrium equations ΣFx=0 ΣFy=0 for each joint, forming a linear system Ax=b where unknowns are member axial forces and support reactions. Solution uses Gaussian elimination with partial pivoting from Go standard library only. Suitable for educational statics, verification of simple trusses, and benchmark tasks requiring deterministic linear algebra.
 
+## Completion Rates
+
+| Model | Pass Rate | Notes |
+|-------|-----------|-------|
+| avocado | TBD | target 1-4/5 after hardening |
+| opus | TBD | target 1-4/5 |
+| codex | TBD | target 1-4/5 |
+
+Oracle validation: 3/3 expected after Dockerfile fix to bookworm base image providing bash and libstdc++.
+
+## Model Analysis
+
+Current codimango signals show too easy 5/5 across models after oracle fix, indicating specification gives away algorithmic steps via detailed Method section. Hardening applied in this commit removes detailed step-by-step pseudocode from instruction, tightens test tolerances from 1e-2 to 1e-3 for reactions and from 50/80 to 20/30 for member forces, adds explicit roller Rx zero assertion, and adds missing error-path tests for unsupported support type, duplicate support, vertical alignment, and singular matrix to increase specification coverage and reduce trivial pass rate while maintaining oracle pass.
+
+## Anti-Cheating Analysis
+
+Tests run out-of-process via `go test -v` in isolated Docker container built from golang:1.22-bookworm with no network and no preinstalled solution. Test suite includes 8 distinct test groups covering triangle equilibrium, duplicate joint, duplicate member, missing reference, zero length, unstable topology, indeterminate topology, reaction balance, plus new groups for unsupported support type, duplicate support, vertical alignment, singular matrix, and roller Rx zero. Hardcoded outputs would need to match multiple topologies and error paths; reference values are computed dynamically via independent reference implementation in solution, not hard-coded in test harness beyond expected numeric ranges derived from physics. Canary GUID updated to valid UUID format to prevent training data leakage detection bypass.
+
 ## API
 
 Go signatures matching instruction.md, package main at `/app/truss_solver.go`:
