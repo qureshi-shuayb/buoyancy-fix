@@ -43,7 +43,7 @@ assert_close_rel($outE2['V2']['max_tension'],5600,0.05,50,'V2_2 tension');
 assert_close_rel($outE2['D0']['max_compression'],-6200,0.05,50,'D0_2 compression');
 assert_close_rel($outE2['D3']['max_compression'],-6200,0.05,50,'D3_2 compression');
 // invalid input tests to satisfy spec requirement Raise Exception on invalid inputs
-$bad truss=['joints'=>[],'members'=>[],'supports'=>[]]; $caught=false; try{ envelope($bad,$vehicle,1.0); } catch(Exception $e){ $caught=true; } if(!$caught){ echo "fail invalid empty truss not raising\n"; exit(1); }
+$bad=['joints'=>[],'members'=>[],'supports'=>[]]; $caught=false; try{ envelope($bad,$vehicle,1.0); } catch(Exception $e){ $caught=true; } if(!$caught){ echo "fail invalid empty truss not raising\n"; exit(1); }
 $bad2=['joints'=>[['id'=>'A','x'=>0,'y'=>0]],'members'=>[],'supports'=>[['joint_id'=>'A','type'=>'invalid_type']]]; $caught2=false; try{ envelope($bad2,$vehicle,1.0); } catch(Exception $e){ $caught2=true; } if(!$caught2){ echo "fail invalid support type not raising\n"; exit(1); }
 $bad3=['joints'=>[['id'=>'A','x'=>0,'y'=>0],['id'=>'B','x'=>0,'y'=>0]],'members'=>[['id'=>'M','i'=>'A','j'=>'B','A'=>0.01,'E'=>200e9]],'supports'=>[['joint_id'=>'A','type'=>'pinned'],['joint_id'=>'B','type'=>'roller']]]; $caught3=false; try{ envelope($bad3,$vehicle,1.0); } catch(Exception $e){ $caught3=true; } if(!$caught3){ echo "fail zero length not raising\n"; exit(1); }
 echo "ok\n"; exit(0);
