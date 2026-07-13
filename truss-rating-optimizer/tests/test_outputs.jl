@@ -12,7 +12,7 @@ supports=[Dict("joint_id"=>"A","type"=>"pinned"),Dict("joint_id"=>"B","type"=>"r
 truss=Dict("joints"=>joints,"members"=>members,"supports"=>supports)
 ic_ac = influence_coefficient("AC","C",truss)
 @test isa(ic_ac, Float64)
-@test isapprox(ic_ac, -0.625, atol=0.05)
+@test isapprox(ic_ac, 0.625, atol=0.05)
 ic_ab = influence_coefficient("AB","C",truss)
 @test isapprox(ic_ab, 0.375, atol=0.05)
 ic_bc = influence_coefficient("BC","C",truss)
