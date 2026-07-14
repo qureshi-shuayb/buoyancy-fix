@@ -20,9 +20,9 @@ def simulate(dt,n_steps,pump_speed,steam_demand,initial_power,decay_heat_frac,M_
         Tci=T_so[-1]; Tco=T_co[-1]
         dTco=(Q - m*cp*(Tco-Tci))/(M_core*cp)
         Tco_next=Tco+dt*dTco
-        dT1=Tco_next-T_sg_secondary; dT2=Tci-T_sg_secondary
+        dT1=max(Tco_next-T_sg_secondary,1e-3); dT2=max(Tci-T_sg_secondary,1e-3)
         if abs(dT1-dT2)<1e-3: lmtd=(dT1+dT2)/2
-        else: lmtd=(dT1-dT2)/math.log(max(dT1,1e-3)/max(dT2,1e-3))
+        else: lmtd=(dT1-dT2)/math.log(dT1/dT2)
         Qsg_cap=UA_sg*lmtd
         Qsg=min(sd, Qsg_cap)
         dTso=(m*cp*(Tco_next-Tci)-Qsg)/(M_sg*cp)
