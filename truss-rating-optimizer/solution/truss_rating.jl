@@ -88,7 +88,8 @@ function influence_coefficient(member_id::String, joint_id::String, truss::Dict)
     joints=truss["joints"]; members=truss["members"]; supports=truss["supports"]
     loads=[Dict("joint_id"=>joint_id,"fx"=>0.0,"fy"=>1.0)]
     forces=solve_truss(joints,members,supports,loads)
-    return get(forces, member_id, 0.0)
+    haskey(forces, member_id) || error("unknown member")
+    return forces[member_id]
 end
 
 function rating_factor(member_capacity::Float64, dead_load_force::Float64, live_envelope::Float64)

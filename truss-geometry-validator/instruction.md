@@ -1,12 +1,12 @@
 # Truss Geometry Validator
 
-Implement pure-Ruby truss topology validator at `/app/truss_geometry.rb`. Module must expose exactly three methods in module TrussGeometry.
+Implement pure-Ruby space truss topology validator at `/app/truss_geometry.rb`. Module must expose exactly three methods in module TrussGeometry.
 
 ## Domain Model
 
-Truss JSON schema with joints array each hash with id string unique, x float, y float, optional support nil or "pinned" "roller" "fixed". Members array each hash id string unique, i string start joint id, j string end joint id, A float >0, E float >0. Supports array separate for API each hash joint_id string type string.
+Truss JSON schema with joints array each hash with id string unique, x float, y float, z float, optional support nil or "pinned" "roller" "fixed". Members array each hash id string unique, i string start joint id, j string end joint id, A float >0, E float >0. Supports array separate for API each hash joint_id string type string.
 
-Planar pin-jointed truss static determinacy condition m + r == 2*j where m members, r total reaction components, j joints. m+r <2j unstable, > indeterminate.
+Space pin-jointed truss static determinacy condition m + r == 3*j where m members, r total reaction components, j joints. m+r <3j unstable, > indeterminate. Each joint has three translational degrees of freedom in 3D.
 
 ## Required API in /app/truss_geometry.rb
 
@@ -25,13 +25,13 @@ check_determinacy returns two-element Array [is_ok Boolean, message String]. Val
 - duplicate member id => [false, "duplicate_member_id"]
 - member references joint id not in joints list => [false, "missing_joint_reference"]
 - supports reference joint not in joints => [false, "missing_joint_reference"]
-- any two joints coincident within 1e-9 distance => [false, "coincident_joints"]
-- any member zero length within 1e-9 => [false, "zero_length_member"]
-- unsupported support type treated as 0 reactions; if after counting m+r < 2*j => [false, "unstable"]; elsif m+r > 2*j => [false, "indeterminate"]; else [true, "determinate"]
+- any two joints coincident within 1e-9 Euclidean distance in 3D => [false, "coincident_joints"]
+- any member zero length within 1e-9 in 3D => [false, "zero_length_member"]
+- unsupported support type treated as 0 reactions; if after counting m+r < 3*j => [false, "unstable"]; elsif m+r > 3*j => [false, "indeterminate"]; else [true, "determinate"]
 
-Supports format array of hashes {"joint_id"=>"A","type"=>"pinned"}. Pinned 2 reactions, roller 1, fixed 3, others 0.
+Supports format array of hashes {"joint_id"=>"A","type"=>"pinned"}. Pinned 3 reactions, roller 1, fixed 6, others 0.
 
-build_matrices returns Hash with keys "num_joints" Integer, "num_members" Integer, "num_reactions" Integer, "dof" Integer 2*j, "adjacency" Hash mapping joint id to sorted Array of neighbor joint ids, "dof_map" Hash mapping joint id to Array [ux_index, uy_index] 0-based based on joints order. Raise RuntimeError on same invalid conditions as check_determinacy except unstable indeterminate allowed.
+build_matrices returns Hash with keys "num_joints" Integer, "num_members" Integer, "num_reactions" Integer, "dof" Integer 3*j, "adjacency" Hash mapping joint id to sorted Array of neighbor joint ids, "dof_map" Hash mapping joint id to Array [ux_index, uy_index, uz_index] 0-based based on joints order. Raise RuntimeError on same invalid conditions as check_determinacy except unstable indeterminate allowed.
 
 ## Constraints
 

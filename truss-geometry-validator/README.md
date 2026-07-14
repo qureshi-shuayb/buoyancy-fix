@@ -1,8 +1,8 @@
 # Truss Geometry Validator
 
-Pure-Python truss topology validator for planar pin-jointed trusses. Parses JSON, checks static determinacy, builds adjacency and DOF maps.
+Pure-Ruby space truss topology validator for 3D pin-jointed space trusses. Parses JSON, checks static determinacy via m+r vs 3j, builds adjacency and 3-DOF per joint maps.
 
-Functions in `/app/truss_geometry.py`:
+Functions in `/app/truss_geometry.rb`:
 - `load_truss(path)`
 - `check_determinacy(joints, members, supports)`
 - `build_matrices(joints, members, supports)`
