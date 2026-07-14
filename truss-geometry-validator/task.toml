@@ -4,17 +4,17 @@ schema_version = "1.1"
 name = "codimango/truss-geometry-validator-ruby"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
-description = "Implement a pure-Ruby space truss topology validator that parses JSON truss definitions, checks static determinacy via m+r vs 3j counts in 3D, detects coincident joints and zero-length members with Euclidean 3D distance, and builds adjacency and 3-DOF-per-joint mapping matrices. Foundation for structural mechanics workflow."
+description = "Implement a pure-Ruby space truss topology validator that parses JSON truss definitions, checks static determinacy via m+r vs 3j counts in 3D, detects coincident joints and zero-length members with Euclidean 3D distance, performs kinematic mechanism detection via equilibrium matrix rank deficiency beyond count test using Gaussian elimination, and builds adjacency and 3-DOF-per-joint mapping matrices with equilibrium rank output. Foundation for structural mechanics workflow."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["ruby", "structural-engineering", "truss", "statics", "determinacy", "topology", "graph", "civil-engineering", "mechanics", "3d", "space-truss", "spatial"]
+keywords = ["ruby", "structural-engineering", "truss", "statics", "determinacy", "topology", "graph", "civil-engineering", "mechanics", "3d", "space-truss", "spatial", "kinematics", "mechanism", "rank", "equilibrium-matrix", "linear-algebra"]
 
 [metadata]
 difficulty = "hard"
 category = "feature-implementation"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 60.0
-junior_time_estimate_min = 150.0
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 220.0
 
 [verifier]
 timeout_sec = 300.0

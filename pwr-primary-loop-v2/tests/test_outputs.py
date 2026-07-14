@@ -93,7 +93,7 @@ def test_decay_default():
 def test_lmtd():
     a=load_agent(); p=scen_lmtd(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_stdlib_only():
-    """Ensure agent solution uses only Python standard library per spec. Enhanced to detect dynamic imports and require file existence."""
+    """Ensure agent solution uses only Python standard library per spec. Enhanced to detect dynamic imports, file I/O, and code execution to block oracle read."""
     import pathlib, ast, os
     agent_path = "/app/pwr_loop.py"
     if not os.path.exists(agent_path):
@@ -105,6 +105,8 @@ def test_stdlib_only():
     src = pathlib.Path(agent_path).read_text()
     tree = ast.parse(src)
     allowed = {"math"}
+    banned_calls = {"open","exec","eval","compile","input","__import__"}
+    banned_attrs = {("os","system"),("os","popen"),("os","execv"),("os","execve"),("os","spawn"),("subprocess","Popen"),("subprocess","run"),("subprocess","call"),("pathlib","read_text"),("pathlib","read_bytes"),("pathlib","write_text"),("pathlib","write_bytes")}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -114,20 +116,26 @@ def test_stdlib_only():
             root = (node.module or '').split('.')[0]
             assert root in allowed, f"disallowed import from {node.module}"
         if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Name) and node.func.id == '__import__':
-                if node.args:
-                    arg=node.args[0]
-                    if isinstance(arg, ast.Constant) and isinstance(arg.value,str):
-                        root=arg.value.split('.')[0]
-                        assert root in allowed, f"disallowed dynamic __import__ {arg.value}"
-                    else:
-                        raise AssertionError("dynamic __import__ with non-constant not allowed")
-            if isinstance(node.func, ast.Attribute):
-                if isinstance(node.func.value, ast.Name) and node.func.value.id=='importlib' and node.func.value.attr=='import_module':
+            if isinstance(node.func, ast.Name):
+                assert node.func.id not in banned_calls, f"disallowed builtin {node.func.id} - blocks file read and code exec"
+                if node.func.id == '__import__':
                     if node.args:
                         arg=node.args[0]
                         if isinstance(arg, ast.Constant) and isinstance(arg.value,str):
                             root=arg.value.split('.')[0]
-                            assert root in allowed, f"disallowed importlib import {arg.value}"
+                            assert root in allowed, f"disallowed dynamic __import__ {arg.value}"
                         else:
-                            raise AssertionError("dynamic importlib.import_module with non-constant not allowed")
+                            raise AssertionError("dynamic __import__ with non-constant not allowed")
+            if isinstance(node.func, ast.Attribute):
+                if isinstance(node.func.value, ast.Name):
+                    mod = node.func.value.id
+                    attr = node.func.attr
+                    assert (mod,attr) not in banned_attrs, f"disallowed {mod}.{attr} - blocks file read and subprocess"
+                    if mod=='importlib' and attr=='import_module':
+                        if node.args:
+                            arg=node.args[0]
+                            if isinstance(arg, ast.Constant) and isinstance(arg.value,str):
+                                root=arg.value.split('.')[0]
+                                assert root in allowed, f"disallowed importlib import {arg.value}"
+                            else:
+                                raise AssertionError("dynamic importlib.import_module with non-constant not allowed")
