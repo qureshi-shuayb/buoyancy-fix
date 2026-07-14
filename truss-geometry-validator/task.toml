@@ -4,17 +4,17 @@ schema_version = "1.1"
 name = "codimango/truss-geometry-validator-ruby"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
-description = "Implement a pure-Ruby space truss topology validator that parses JSON truss definitions, checks static determinacy via m+r vs 3j counts in 3D, detects coincident joints and zero-length members with Euclidean 3D distance, performs kinematic mechanism detection via equilibrium matrix rank deficiency beyond count test using Gaussian elimination, and builds adjacency and 3-DOF-per-joint mapping matrices with equilibrium rank output. Foundation for structural mechanics workflow."
+description = "Implement a pure-Ruby space truss finite element solver that parses JSON truss definitions, checks static determinacy via m+r vs 3j counts in 3D, detects coincident joints and zero-length members with Euclidean 3D distance, performs kinematic mechanism detection via equilibrium matrix rank deficiency beyond count test using Gaussian elimination, assembles sparse global stiffness matrix K from EA/L direction cosines, performs LDLT Cholesky decomposition with partial pivoting to solve for nodal displacements under loads, recovers reactions and strain energy and condition estimate, and detects unstable_singular via ill-conditioning. Foundation for structural mechanics workflow."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["ruby", "structural-engineering", "truss", "statics", "determinacy", "topology", "graph", "civil-engineering", "mechanics", "3d", "space-truss", "spatial", "kinematics", "mechanism", "rank", "equilibrium-matrix", "linear-algebra"]
+keywords = ["ruby", "structural-engineering", "truss", "statics", "determinacy", "topology", "graph", "civil-engineering", "mechanics", "3d", "space-truss", "spatial", "kinematics", "mechanism", "rank", "equilibrium-matrix", "linear-algebra", "fea", "finite-element", "stiffness", "cholesky", "ldl-t", "displacement", "structural-analysis", "numerical-linear-algebra"]
 
 [metadata]
 difficulty = "hard"
 category = "feature-implementation"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 90.0
-junior_time_estimate_min = 220.0
+expert_time_estimate_min = 120.0
+junior_time_estimate_min = 300.0
 
 [verifier]
 timeout_sec = 300.0
