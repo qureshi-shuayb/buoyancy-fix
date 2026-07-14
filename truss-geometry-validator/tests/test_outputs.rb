@@ -32,4 +32,12 @@ j=[{"id"=>"A","x"=>0,"y"=>0},{"id"=>"B","x"=>1,"y"=>0},{"id"=>"C","x"=>0.5,"y"=>
 joints=[{"id"=>"A","x"=>0,"y"=>0},{"id"=>"B","x"=>6,"y"=>0},{"id"=>"C","x"=>3,"y"=>4}]; members=[{"id"=>"AB","i"=>"A","j"=>"B","A"=>0.01,"E"=>200e9},{"id"=>"AC","i"=>"A","j"=>"C","A"=>0.01,"E"=>200e9},{"id"=>"BC","i"=>"B","j"=>"C","A"=>0.01,"E"=>200e9}]; supports=[{"joint_id"=>"A","type"=>"pinned"},{"joint_id"=>"B","type"=>"roller"}]; bm=TrussGeometry.build_matrices(joints,members,supports); raise unless bm["num_joints"]==3 && bm["num_members"]==3 && bm["num_reactions"]==3 && bm["dof"]==6 && bm["adjacency"]["A"].sort==["B","C"] && bm["dof_map"]["A"]==[0,1] && bm["dof_map"]["B"]==[2,3] && bm["dof_map"]["C"]==[4,5]
 # 13 build matrices invalid raises on duplicate
 begin; TrussGeometry.build_matrices([{"id"=>"A","x"=>0,"y"=>0},{"id"=>"A","x"=>1,"y"=>0}],[],[]); raise "should err"; rescue RuntimeError; end
+# 14 determinate positive case (m+r == 2j): triangle, pinned+roller
+jd=[{"id"=>"A","x"=>0,"y"=>0},{"id"=>"B","x"=>6,"y"=>0},{"id"=>"C","x"=>3,"y"=>4}]; md=[{"id"=>"AB","i"=>"A","j"=>"B","A"=>1,"E"=>1},{"id"=>"AC","i"=>"A","j"=>"C","A"=>1,"E"=>1},{"id"=>"BC","i"=>"B","j"=>"C","A"=>1,"E"=>1}]; sd=[{"joint_id"=>"A","type"=>"pinned"},{"joint_id"=>"B","type"=>"roller"}]; assert_eq(TrussGeometry.check_determinacy(jd,md,sd),[true,"determinate"])
+# 15 build_matrices raises on missing joint reference
+begin; TrussGeometry.build_matrices([{"id"=>"A","x"=>0,"y"=>0}],[{"id"=>"M","i"=>"A","j"=>"B","A"=>1,"E"=>1}],[]); raise "should err"; rescue RuntimeError; end
+# 16 build_matrices raises on zero length member
+begin; TrussGeometry.build_matrices([{"id"=>"A","x"=>0,"y"=>0},{"id"=>"B","x"=>1,"y"=>0}],[{"id"=>"M","i"=>"A","j"=>"A","A"=>1,"E"=>1}],[]); raise "should err"; rescue RuntimeError; end
+# 17 build_matrices raises on coincident joints
+begin; TrussGeometry.build_matrices([{"id"=>"A","x"=>0,"y"=>0},{"id"=>"B","x"=>0,"y"=>0}],[],[]); raise "should err"; rescue RuntimeError; end
 puts "ok"
