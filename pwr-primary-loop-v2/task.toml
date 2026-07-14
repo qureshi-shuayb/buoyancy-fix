@@ -11,6 +11,8 @@ keywords = ["python","simulation","nuclear","pwr","thermal-hydraulics","natural-
 [metadata]
 difficulty = "hard"
 category = "feature-implementation"
+category_subdomain = "scientific-simulation"
+category_usecase = "numerical-modeling"
 expert_time_estimate_min = 90.0
 junior_time_estimate_min = 240.0
 
