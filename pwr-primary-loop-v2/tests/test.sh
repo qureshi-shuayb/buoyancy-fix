@@ -8,9 +8,25 @@ chown -R root:root /tests 2>/dev/null || true
 chmod -R 700 /tests 2>/dev/null || true
 chown -R agent:agent /app 2>/dev/null || true
 chmod -R 755 /app 2>/dev/null || true
-# run pytest as non-root agent to block oracle read; GT runner runs as root but test drops privileges
-su agent -s /bin/bash -c "python -m pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA"
-TEST_EXIT=$?
+# run pytest as non-root agent to block oracle read; GT runner runs as root but test drops privileges if possible, else fallback to root for GT compatibility
+if id agent >/dev/null 2>&1; then
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u agent -- python -m pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA
+    TEST_EXIT=$?
+  elif command -v su >/dev/null 2>&1; then
+    su agent -s /bin/bash -c "python -m pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA"
+    TEST_EXIT=$?
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo -u agent python -m pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA
+    TEST_EXIT=$?
+  else
+    python -m pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA
+    TEST_EXIT=$?
+  fi
+else
+  python -m pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA
+  TEST_EXIT=$?
+fi
 chown -R root:root /tests 2>/dev/null || true
 chmod -R 755 /tests 2>/dev/null || true
 set -e
