@@ -29,19 +29,19 @@ assert_close_rel($outE['D1']['max_tension'],0.0,0.01,1e-3,'D1 tension');
 assert_close_rel($outE['D1']['max_compression'],-9280.7765030734,0.01,1e-3,'D1 compression');
 // second fixture to prevent hardcode cheat — different topology 3-panel truss with 2 moving axles
 $joints2b=[['id'=>'Q0','x'=>0,'y'=>0],['id'=>'Q1','x'=>4,'y'=>0],['id'=>'Q2','x'=>8,'y'=>0],['id'=>'Q3','x'=>12,'y'=>0],['id'=>'Q4','x'=>4,'y'=>3],['id'=>'Q5','x'=>8,'y'=>3]];
-$members2b=[['id'=>'B0','i'=>'Q0','j'=>'Q1','A'=>0.01,'E'=>200e9],['id'=>'B1','i'=>'Q1','j'=>'Q2','A'=>0.01,'E'=>200e9],['id'=>'B2','i'=>'Q2','j'=>'Q3','A'=>0.01,'E'=>200e9],['id'=>'V1','i'=>'Q1','j'=>'Q4','A'=>0.01,'E'=>200e9],['id'=>'V2','i'=>'Q2','j'=>'Q5','A'=>0.01,'E'=>200e9],['id'=>'D0','i'=>'Q0','j'=>'Q4','A'=>0.01,'E'=>200e9],['id'=>'D1','i'=>'Q4','j'=>'Q5','A'=>0.01,'E'=>200e9],['id'=>'D2','i'=>'Q2','j'=>'Q5','A'=>0.01,'E'=>200e9],['id'=>'D3','i'=>'Q5','j'=>'Q3','A'=>0.01,'E'=>200e9],['id'=>'T0','i'=>'Q4','j'=>'Q2','A'=>0.01,'E'=>200e9],['id'=>'T1','i'=>'Q1','j'=>'Q5','A'=>0.01,'E'=>200e9]];
+$members2b=[['id'=>'B0','i'=>'Q0','j'=>'Q1','A'=>0.01,'E'=>200e9],['id'=>'B1','i'=>'Q1','j'=>'Q2','A'=>0.01,'E'=>200e9],['id'=>'B2','i'=>'Q2','j'=>'Q3','A'=>0.01,'E'=>200e9],['id'=>'V1','i'=>'Q1','j'=>'Q4','A'=>0.01,'E'=>200e9],['id'=>'V2','i'=>'Q2','j'=>'Q5','A'=>0.01,'E'=>200e9],['id'=>'D0','i'=>'Q0','j'=>'Q4','A'=>0.01,'E'=>200e9],['id'=>'D1','i'=>'Q4','j'=>'Q5','A'=>0.01,'E'=>200e9],['id'=>'D2','i'=>'Q4','j'=>'Q2','A'=>0.01,'E'=>200e9],['id'=>'D3','i'=>'Q5','j'=>'Q3','A'=>0.01,'E'=>200e9]];
 $supports2b=[['joint_id'=>'Q0','type'=>'pinned'],['joint_id'=>'Q3','type'=>'roller']];
 $truss2b=['joints'=>$joints2b,'members'=>$members2b,'supports'=>$supports2b];
 $vehicle2b=['axle_weights'=>[8000,8000],'spacings'=>[3.5]];
-$outE2=envelope($truss2b,$vehicle2b,3.0); if(count($outE2)!=11){echo "fail env2 count\n"; exit(1);} foreach($outE2 as $mid=>$v){ if(!isset($v['max_tension'])||!isset($v['max_compression'])){echo "fail keys2 $mid\n"; exit(1);} }
-// second fixture reference values from reference solution with 1% tolerance to prevent hardcode of single fixture
-assert_close_rel($outE2['B0']['max_tension'],4200,0.05,50,'B0_2 tension');
-assert_close_rel($outE2['B1']['max_tension'],7800,0.05,50,'B1_2 tension');
-assert_close_rel($outE2['B2']['max_tension'],4200,0.05,50,'B2_2 tension');
-assert_close_rel($outE2['V1']['max_tension'],5600,0.05,50,'V1_2 tension');
-assert_close_rel($outE2['V2']['max_tension'],5600,0.05,50,'V2_2 tension');
-assert_close_rel($outE2['D0']['max_compression'],-6200,0.05,50,'D0_2 compression');
-assert_close_rel($outE2['D3']['max_compression'],-6200,0.05,50,'D3_2 compression');
+$outE2=envelope($truss2b,$vehicle2b,3.0); if(count($outE2)!=9){echo "fail env2 count\n"; exit(1);} foreach($outE2 as $mid=>$v){ if(!isset($v['max_tension'])||!isset($v['max_compression'])){echo "fail keys2 $mid\n"; exit(1);} }
+// second fixture reference values from reference solution with 5% tolerance to prevent hardcode of single fixture
+assert_close_rel($outE2['B0']['max_tension'],12711,0.05,50,'B0_2 tension');
+assert_close_rel($outE2['B1']['max_tension'],12711,0.05,50,'B1_2 tension');
+assert_close_rel($outE2['B2']['max_tension'],13289,0.05,50,'B2_2 tension');
+assert_close_rel($outE2['V1']['max_tension'],11700,0.05,50,'V1_2 tension');
+assert_close_rel($outE2['V2']['max_tension'],9967,0.05,50,'V2_2 tension');
+assert_close_rel($outE2['D0']['max_compression'],-15889,0.05,50,'D0_2 compression');
+assert_close_rel($outE2['D3']['max_compression'],-16611,0.05,50,'D3_2 compression');
 // invalid input tests to satisfy spec requirement Raise Exception on invalid inputs
 $bad=['joints'=>[],'members'=>[],'supports'=>[]]; $caught=false; try{ envelope($bad,$vehicle,1.0); } catch(Exception $e){ $caught=true; } if(!$caught){ echo "fail invalid empty truss not raising\n"; exit(1); }
 $bad2=['joints'=>[['id'=>'A','x'=>0,'y'=>0]],'members'=>[],'supports'=>[['joint_id'=>'A','type'=>'invalid_type']]]; $caught2=false; try{ envelope($bad2,$vehicle,1.0); } catch(Exception $e){ $caught2=true; } if(!$caught2){ echo "fail invalid support type not raising\n"; exit(1); }
