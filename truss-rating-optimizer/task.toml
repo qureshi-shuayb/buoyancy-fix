@@ -11,8 +11,8 @@ keywords = ["julia", "structural-engineering", "truss", "load-rating", "influenc
 [metadata]
 difficulty = "hard"
 category = "feature-implementation"
-category_usecase = "compute_result"
-category_subdomain = "scientific_computing"
+category_usecase = "Simulation & Modeling"
+category_subdomain = "Civil Engineering"
 expert_time_estimate_min = 60.0
 junior_time_estimate_min = 150.0
 
