@@ -1,0 +1,58 @@
+schema_version = "1.1"
+
+[task]
+name = "shuaybqureshi/buoyancy-float-check-go"
+description = "Two-step buoyancy task testing context-following: basic float/sink decision then partial submersion depth and batch processing using same Go package."
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["go", "buoyancy", "archimedes", "physics", "scientific_computing"]
+format = "terminal_bench_multi_turn"
+workstream = "swe_public_repo"
+language = "go"
+
+[metadata]
+author_name = "Shuayb Qureshi"
+author_email = "shuaybqureshi@meta.com"
+difficulty = "hard"
+category = "iterate_on_feature"
+category_usecase = "compute_result"
+category_subdomain = "scientific_computing"
+expert_time_estimate_min = 45.0
+junior_time_estimate_min = 120.0
+reward_type = "binary"
+tags = ["multi-turn", "context-following", "physics", "go"]
+languages = ["go"]
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[environment.env]
+[solution.env]
+
+[[steps]]
+name = "1_basic_float_check"
+dependencies = []
+min_reward = 1.0
+
+[steps.verifier]
+timeout_sec = 600.0
+
+[steps.agent]
+timeout_sec = 900.0
+
+[[steps]]
+name = "2_partial_submersion"
+dependencies = ["1_basic_float_check"]
+min_reward = 1.0
+inherit_prior_session = true
+
+[steps.verifier]
+timeout_sec = 600.0
+
+[steps.agent]
+timeout_sec = 900.0

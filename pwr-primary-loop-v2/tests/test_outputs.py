@@ -94,7 +94,7 @@ def test_decay_default():
 def test_lmtd():
     a=load_agent(); p=scen_lmtd(); r=ref_simulate(**p); o=run(a,p); assert_m(o,r)
 def test_stdlib_only():
-    """Ensure agent solution uses only Python standard library per spec. Enhanced to detect dynamic imports, file I/O, and code execution to block oracle read. T-Bench infra harbor-mounts /tests only at verifier time; AST check is secondary defense."""
+    """Ensure agent solution uses only Python standard library per spec. Enhanced to detect dynamic imports, file I/O, and code execution to block oracle read. T-Bench infra harbor-mounts /tests only at verifier time; AST check is secondary defense. v0.27.5: also bans __builtins__, getattr tricks and /tests string literals that bypass direct open check."""
     import pathlib, ast, os
     agent_path = "/app/pwr_loop.py"
     if not os.path.exists(agent_path):
@@ -106,7 +106,9 @@ def test_stdlib_only():
     src = pathlib.Path(agent_path).read_text()
     tree = ast.parse(src)
     allowed = {"math"}
-    banned_calls = {"open","exec","eval","compile","input","__import__"}
+    banned_calls = {"open","exec","eval","compile","input","__import__","getattr","setattr","globals","locals","vars","dir","breakpoint"}
+    banned_names = {"__builtins__"}
+    banned_strings = ("/tests", "test_outputs", "ref_simulate", "/app/pwr_loop", "solution/pwr_loop")
     banned_attrs = {
         ("os","system"),("os","popen"),("os","execv"),("os","execve"),("os","spawn"),
         ("os","open"),("os","fdopen"),("os","read"),("os","write"),
@@ -116,6 +118,18 @@ def test_stdlib_only():
         ("builtins","open"),("_io","open"),("_io","TextIOWrapper"),("builtins","exec"),("builtins","eval"),("builtins","compile"),
     }
     for node in ast.walk(tree):
+        # block string literals that reference test oracle location
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            low = node.value.lower()
+            for banned in banned_strings:
+                assert banned not in low, f"disallowed string literal containing {banned!r} - blocks oracle read"
+        if isinstance(node, ast.Name):
+            assert node.id not in banned_names, f"disallowed name {node.id} - blocks file read bypass"
+        if isinstance(node, ast.Subscript):
+            # block __builtins__['open'] etc
+            val = node.value
+            if isinstance(val, ast.Name) and val.id in banned_names:
+                raise AssertionError(f"disallowed subscript access to {val.id}")
         if isinstance(node, ast.Import):
             for alias in node.names:
                 root = alias.name.split('.')[0]

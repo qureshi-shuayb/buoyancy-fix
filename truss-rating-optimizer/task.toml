@@ -1,7 +1,7 @@
 schema_version = "1.1"
 
 [task]
-name = "codimango/truss-rating-optimizer-julia"
+name = "codimango/truss-rating-julia"
 format = "terminal_bench_single_turn"
 workstream = "swe_public_repo"
 description = "Implement Julia load rating optimizer for truss bridge using influence coefficients from unit load method and binary search for maximum vehicle scale factor achieving target rating factor. Pure Julia stdlib."
