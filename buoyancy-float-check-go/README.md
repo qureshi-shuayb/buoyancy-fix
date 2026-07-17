@@ -1,7 +1,7 @@
 ## Description
-Two-step buoyancy task: Step 1 implements basic float/sink/neutral decision using Archimedes principle in Go. Step 2 extends same package to compute submerged volume fraction and equilibrium depth for partially submerged bodies plus batch processing, relying on Step 1's types without redefining them. Tests buoyancy physics with context-following.
+Two-step buoyancy task: Step 1 implements basic float/sink/neutral decision using Archimedes principle in Go. Step 2 extends same package to compute submerged volume fraction and equilibrium depth for partially submerged bodies (prismatic linear + conical apex-down non-linear cubic root) plus batch processing, relying on Step 1's types without redefining them. Tests buoyancy physics with context-following and non-trivial geometry derivation.
 
-Why naive fails: simple density compare misses neutral buoyancy tolerance, partial submersion requires rho_obj/rho_fluid ratio with height, batch handling, and remembering prior struct conventions.
+Why naive fails: simple density compare misses neutral buoyancy tolerance (needs Tolerance=1e-9), prismatic submersion requires deriving rho_obj/rho_fluid ratio from first principles (not given), conical apex-down requires cubic scaling V_sub=V_total*(d/H)^3 => d=H*cbrt(fraction) requiring math.Cbrt not linear multiply, batch handling with invalid marking, and remembering prior struct conventions across multi-turn session.
 
 ## Completion Rates
 | Model | Step | Pass Rate (of trials reaching this step) | Last Updated |

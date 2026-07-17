@@ -2,7 +2,7 @@ schema_version = "1.1"
 
 [task]
 name = "shuaybqureshi/buoyancy-float-check-go"
-description = "Two-step buoyancy task testing context-following: basic float/sink decision then partial submersion depth and batch processing using same Go package."
+description = "Two-step buoyancy task testing context-following: basic float/sink decision then prismatic and conical (apex-down cubic root) partial submersion depth and batch processing using same Go package. Requires deriving Archimedes equilibrium from first principles without explicit formula spoilers."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
 keywords = ["go", "buoyancy", "archimedes", "physics", "scientific_computing"]
 format = "terminal_bench_multi_turn"
@@ -19,7 +19,7 @@ category_subdomain = "scientific_computing"
 expert_time_estimate_min = 45.0
 junior_time_estimate_min = 120.0
 reward_type = "binary"
-tags = ["multi-turn", "context-following", "physics", "go"]
+tags = ["multi-turn", "context-following", "physics", "go", "non-linear", "cbrt", "conical-geometry"]
 languages = ["go"]
 
 [environment]
