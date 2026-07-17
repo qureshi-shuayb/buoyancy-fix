@@ -1,0 +1,58 @@
+schema_version = "1.1"
+
+[task]
+name = "shuaybqureshi/submarine-dive-sim-go"
+description = "Two-step submarine buoyancy simulator: Step1 basic sink/float/neutral via ballast control, Step2 dive dynamics, equilibrium depth and batch fleet mission analysis reusing same Go package."
+authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing"]
+format = "terminal_bench_multi_turn"
+workstream = "swe_public_repo"
+language = "go"
+
+[metadata]
+author_name = "Shuayb Qureshi"
+author_email = "shuaybqureshi@meta.com"
+difficulty = "hard"
+category = "iterate_on_feature"
+category_usecase = "compute_result"
+category_subdomain = "scientific_computing"
+expert_time_estimate_min = 60.0
+junior_time_estimate_min = 150.0
+reward_type = "binary"
+tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator"]
+languages = ["go"]
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[environment.env]
+[solution.env]
+
+[[steps]]
+name = "1_basic_buoyancy_control"
+dependencies = []
+min_reward = 1.0
+
+[steps.verifier]
+timeout_sec = 600.0
+
+[steps.agent]
+timeout_sec = 900.0
+
+[[steps]]
+name = "2_dive_dynamics"
+dependencies = ["1_basic_buoyancy_control"]
+min_reward = 1.0
+inherit_prior_session = true
+
+[steps.verifier]
+timeout_sec = 600.0
+
+[steps.agent]
+timeout_sec = 900.0
