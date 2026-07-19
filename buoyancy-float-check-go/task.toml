@@ -2,9 +2,9 @@ schema_version = "1.1"
 
 [task]
 name = "shuaybqureshi/buoyancy-float-check-go"
-description = "Two-step buoyancy task with hardening beyond textbook: Step1 basic float/sink/neutral via Archimedes; Step2 extends to prismatic, conical apex-down, and frustum (bucket) in UNIFORM fluid (linear, cbrt, cubic solver) PLUS hardest extension to STRATIFIED ocean where density rho(z)=SurfaceDensity+Gradient*z varies linearly with depth, so buoyant mass is integral ∫rho(z)*A(z)dz (quadratic for prismatic, quartic for conical/frustum) requiring derivation of cross-sectional area A(z) and numeric root-finding (binary search/Newton). Tests include reduction property Gradient=0 → uniform, frustum volume, frustum cubic vs stratified quartic, batch with invalid handling, and go vet. No formula spoilers given."
+description = "Ultra-hard two-step buoyancy: Step1 basic float/sink/neutral via Archimedes with Tolerance. Step2 extends to prismatic, conical apex-down, frustum in uniform fluid (linear, cbrt, cubic solver) PLUS stratified ocean rho(z)=SurfaceDensity+Gradient*z where buoyant mass is integral ∫rho(z)A(z)dz (quadratic/quartic) requiring A(z) derivation, PLUS hardest compressible dynamics: hydrostatic pressure P(z)=∫rho(z')g dz' = g(S z+0.5 G z²) (0.5 factor trap), bulk-modulus volume V(z)=V0*(1-P/K) clamped to MinVolumeFraction with crush handling, buoyant force rho(z)V(z)g, quadratic drag Fd=0.5 rho Cd Ad v|v| with sign trap, terminal velocity sqrt(2|Fw-Fb|/(rho Cd Ad)), equilibrium depth solving M=rho(z)V(z) cubic/quadratic via bisection, and time-to-depth via RK4 integration of ODE dv/dt=(Fw-Fb-Fd)/M, dz/dt=v with interpolation, plus concurrent batch with order preservation and race-free. No formulas given, requires deriving pressure integral, compression, drag sign, RK4 steps. Tests include reduction K→∞→stratified, G=0→uniform, pressure 0.5 factor, volume clamping, crush, RK4 vs Euler 25% error detection, batch concurrent, go vet and go test -race."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["go", "buoyancy", "archimedes", "physics", "scientific_computing", "frustum", "stratified", "integral-buoyancy", "numeric_methods", "quartic"]
+keywords = ["go", "buoyancy", "archimedes", "physics", "scientific_computing", "frustum", "stratified", "compressible", "bulk-modulus", "drag", "terminal-velocity", "RK4", "concurrent", "integral-buoyancy", "quartic", "cubic"]
 format = "terminal_bench_multi_turn"
 workstream = "swe_public_repo"
 language = "go"
@@ -16,10 +16,10 @@ difficulty = "hard"
 category = "iterate_on_feature"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 100.0
-junior_time_estimate_min = 240.0
+expert_time_estimate_min = 130.0
+junior_time_estimate_min = 300.0
 reward_type = "binary"
-tags = ["multi-turn", "context-following", "physics", "go", "non-linear", "conical-geometry", "frustum", "cubic-solver", "stratified-fluid", "integral-buoyancy", "quartic-solver", "numeric-root-finding", "binary-search", "geometry-derivation", "reduction-property"]
+tags = ["multi-turn", "context-following", "physics", "go", "non-linear", "conical-geometry", "frustum", "cubic-solver", "stratified-fluid", "integral-buoyancy", "quartic-solver", "compressible", "bulk-modulus", "hydrostatic-pressure", "quadratic-drag", "terminal-velocity", "RK4", "time-to-depth", "concurrent-batch", "numeric-root-finding", "binary-search", "geometry-derivation", "reduction-property", "race-detector"]
 languages = ["go"]
 
 [environment]

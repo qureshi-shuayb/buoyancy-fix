@@ -1,244 +1,244 @@
-# Step 2: Partial Submersion - Prismatic, Conical, Frustum (Uniform + Stratified Ocean)
+# Step 2: Partial Submersion + Stratified + Compressible Dynamics (Uniform → Stratified → Compressible + Drag + RK4)
 
 ## Overview
-This is **Step 2 of 2**. It builds directly on **Step 1**. `inherit_prior_session=true` – your `/app/buoyancy.go` from Step 1 is preserved.
+This is **Step 2 of 2**, `inherit_prior_session=true`. Your `/app/buoyancy.go` from Step 1 is preserved.
 
-Goal: Extend from simple float/sink/neutral decision to quantitative partial submersion for **three geometries** in **uniform fluid** (baseline) PLUS hardest extension to **stratified ocean** where fluid density varies with depth, requiring integral buoyancy and numeric root-finding. This pushes far beyond textbook `fraction = density ratio`.
+Goal: Extend from simple float/sink to quantitative partial submersion for **three geometries** in **three physics regimes** increasing difficulty:
+1. **Uniform fluid** baseline: prismatic (constant cross-section), conical apex-down (similar cones), frustum truncated cone bucket (R1 bottom, R2 top). Must derive volume and submerged volume vs draft yourself, no formulas given. Cubic relation → numeric bisection.
+2. **Stratified ocean**: density varies linearly with depth `rho(z)=SurfaceDensity+Gradient*z`. Buoyant mass is **integral** `BM(d)=∫_0^d rho(z)A(z)dz` where `A(z)` is cross-sectional area at depth z. Must derive `A(z)` for each geometry. Quadratic for prismatic, quartic for conical/frustum. Requires bisection. Reduction `G=0 → uniform` must hold within 1e-6.
+3. **Compressible + Drag + Dynamics (hardest)**: Ocean stratification + hydrostatic pressure + bulk-modulus volume compression + quadratic drag + time-to-depth via RK4 + concurrent batch. This is non-textbook combination where no single StackOverflow snippet exists.
 
-Uniform fluid part is still required (backward compat) but must be derived without formula spoilers. Stratified part is the novel hard part that raises difficulty from MEDIUM to HARD.
+Uniform + stratified from previous hardening are kept for backward compat; hardest part is compressible dynamics.
 
-In Step 1 you implemented:
-- `const Tolerance`, `const StandardGravity`
-- `type Object struct { Mass, Volume, Height }`
-- `type Fluid struct { Density }`
-- `Density()`, `Validate()`, `BuoyantForce`, `WeightForce`, `CheckBuoyancyByDensity`, `CheckBuoyancy`
+Do NOT redefine `Object`/`Fluid`/`Tolerance`/`StandardGravity`.
 
-Do NOT redefine those symbols in `/app/partial.go` – Go will fail duplicate. Add new logic in `/app/partial.go`, same package `buoyancy`, stdlib only.
+## Physics – Uniform (derive, no formula given)
+- `Mass = rho_fluid * V_submerged` at equilibrium
+- Prismatic: `A` constant, derive relation between `d`, `Height`, `V_sub`, `V_total`
+- Conical apex-down: radius varies linearly from apex, submerged shape smaller similar cone, derive non-linear relation (must NOT be linear). Tests fail if linear.
+- Frustum: bottom R1 top R2, radius varies linearly, submerged frustum, derive total volume and `V_sub(d)` yourself, cubic in d → bisection. `R1==R2` → cylinder, `R1==0` → cone reductions.
 
-## Physics – Uniform Fluid (Baseline, you must derive, no formula given)
+## Physics – Stratified (derive A(z) and integral, no formula given)
+- `rho(z)=S+G*z`, `S>0, G>=0`, `z` depth from surface down
+- `BM(d)=∫_0^d rho(z)A(z)dz`, `A(z)` cross-section at depth z:
+  - Prismatic: constant `A=Vol/H`
+  - Conical: derive R from V and H, `r(z)` linear, `A=pi r²`
+  - Frustum: `r(z)=R1+(R2-R1)z/H`, `A=pi r²` quadratic
+- Total volume `∫_0^H A(z)dz` must match uniform volume
+- `BM(H)/Vol = rho_avg`, state via `CheckBuoyancyByDensity(rho_obj, rho_avg)` using Tolerance
+- Float → `BM(d)=Mass` solve via bisection 80-100 iter, Neutral/sink → H
+- Reduction `G=0` must equal uniform depth within 1e-6
 
-For uniform fluid, equilibrium floating satisfies:
+## Physics – Compressible + Drag + Dynamics (ultra-hard, novel)
 
+### Hydrostatic pressure
+Pressure at depth `z` is integral of weight of overlying fluid:
 ```
-Weight = Mass * g = Buoyant = rho_fluid * V_submerged * g
-=> Mass = rho_fluid * V_submerged
+P(z) = ∫_0^z rho(z') g dz'
+```
+You must derive integral yourself from `rho(z)=S+G*z`. No 0.5 factor given. `g` is StandardGravity or passed `g` param (validate >0).
+
+### Compressible volume
+Bulk modulus `K` (Pa) >0. Linear clamped model (testable):
+```
+V(z) = V0 * (1 - P(z)/K)   clamped to V_min = f_min*V0, f_min = MinimumVolumeFraction (0.1)
+If P(z)/K >= 1-f_min → V=V_min
+If depth > CrushDepth → must return error containing "crush" (case-insensitive check)
+V0 = surface volume (Object.Volume or FrustumObject.Volume())
+```
+Exp variant `V0*exp(-P/K)` also plausible but tests use linear clamped model – use linear.
+
+### Buoyant force, net force
+```
+Fb(z) = rho(z) * V(z) * g
+Fw = Mass * g
+Buoyant mass = rho(z)*V(z)
+Net down force: Fnet(z,v) = Fw - Fb(z) - Fd(z,v)
+Fd(z,v) = 0.5 * rho(z) * Cd * Ad(z) * v*|v|   opposes motion, sign trap: must use v*|v| not v²
+Ad(z): reference area for drag – for simplicity use cross-sectional area at depth for drag: 
+  Prismatic: Ad = A (constant) or V(z)/Height? Choose one consistently: use V(z)/Height for prismatic to account for compression, for conical/frustum use pi*r(z)² where r(z) from current compressed geometry? Simplest: Ad = A(z) as defined for stratified (pi r(z)²) – but must account for compression scaling of radius as (V(z)/V0)^(1/3) if isotropic? To keep testable, define Ad = cross-sectional area at depth z (same as A(z) for prismatic/conical/frustum) – i.e., Ad does NOT include compression scaling beyond what A(z) already includes, except for volume compression reducing A? For simplicity: Ad(z) = A(z) as derived for incompressible geometry, ignoring compression for drag area (or include if you want) – but document and be consistent. We will define Ad(z)=A(z) (prismatic constant, conical pi r(z)², frustum pi r(z)²). Tests will use same definition.
+```
+`Cd>=0`, `Cd==0` → no drag, but TerminalVelocity must error if Cd<=0 (contains "drag").
+
+### Terminal velocity at fixed depth
+Set `Fnet=0` ignoring acceleration: `Fw - Fb(z) - 0.5 rho Cd Ad v² * sign(v) =0`
+```
+v_term(z) = sign(Fw-Fb) * sqrt(2*|Fw-Fb|/(rho(z)*Cd*Ad(z)))
+If |Fw-Fb|<1e-12 → 0, Cd<=0 → error containing "drag", Ad<=0 → error
 ```
 
-You must derive `V_submerged` as function of draft `d` for each geometry yourself.
-
-- **Prismatic/cylindrical uniform cross-section upright:** Submerged volume scales with draft. Derive relation between `d`, `Height`, `V_sub`, `V_total` from constant area. Do NOT assume linear without proof – derive it. No formula given here.
-
-- **Conical apex-down:** Right circular cone floating point-down. Submerged portion is a smaller similar cone. Derive how volume depends on draft using similar triangles and cone volume. The relation is non-linear and not linear. You must derive exponent yourself. Tests will explicitly fail if you use linear `fraction*Height` for conical float case.
-
-- **Frustum truncated cone (bucket/buoy):** Bottom radius `R1`, top radius `R2`, height `H`. This is not standard textbook. You must derive total volume and submerged volume at draft `d` yourself from first principles (difference of cones or integration). At draft `d`, radius at waterline varies between `R1` and `R2` – you must derive that variation. Submerged shape is itself a frustum. Total volume and `V_sub(d)` must be derived; no formula given. The resulting relation is cubic in `d`. Requires numeric root-finding (bisection/Newton) in general, but you must derive it. Edge: `R1==R2` → cylinder, `R1==0` → cone – your generic solver should naturally handle those without hardcoding special cases (reduction tests will check).
-
-Clamping uniform: Fraction `[0,1]`, Depth `[0,Height]`.
-
-## Physics – Stratified Fluid (Hardest, Novel)
-
-This is the non-canonical extension that makes task novel. Ocean stratification: density increases with depth.
-
-Define fluid density as linear function of depth `z` (0 at free surface, positive downward):
-
+### Equilibrium depth (compressible)
+Fully submerged neutral depth where `Fw=Fb(z)` i.e. `M = rho(z)*V(z)`:
 ```
-rho(z) = SurfaceDensity + Gradient * z
-SurfaceDensity >0, Gradient >=0
-Units: kg/m³, kg/m⁴
+f(z)=M - rho(z)*V(z)=0
+     =M - (S+Gz)*V0*(1 - P(z)/K)
+With P(z)=g(Sz+0.5 Gz²) → cubic/quadratic in z with g/K coupling, no closed form → bisection 100 iter in [0,maxDepth]
 ```
+Reductions:
+- `K→∞` (incompressible): `f(z)=M-(S+Gz)V0` → stratified incompressible
+- `G=0, K→∞`: `M-S V0` → uniform
+Tests check reductions within 1e-6.
 
-Uniform fluid is special case `Gradient=0`, `SurfaceDensity = Density`.
-
-Buoyant mass (mass of displaced fluid) is **integral** over submerged depth, not simple `rho*V_sub`:
-
+### Time-to-depth via RK4
+Integrate ODE from rest `z=0,v=0`:
 ```
-BuoyantMass(d) = ∫_{0}^{d} rho(z) * A_obj(z) dz
-where A_obj(z) is cross-sectional area of object at depth z (horizontal slice)
-Weight mass = Object Mass (constant)
-Equilibrium when BuoyantMass(d) = Mass
+dz/dt = v
+dv/dt = Fnet(z,v)/M
 ```
+Use classic RK4 with step `dt`:
+```
+k1_z=v, k1_v=Fnet(z,v)/M
+k2_z=v+0.5 dt k1_v, k2_v=Fnet(z+0.5 dt k1_z, v+0.5 dt k1_v)/M
+k3_z=v+0.5 dt k2_v, k3_v=Fnet(z+0.5 dt k2_z, v+0.5 dt k2_v)/M
+k4_z=v+dt k3_v, k4_v=Fnet(z+dt k3_z, v+dt k3_v)/M
+z+=dt/6*(k1_z+2k2_z+2k3_z+k4_z)
+v+=dt/6*(k1_v+2k2_v+2k3_v+k4_v)
+t+=dt
+Loop until z>=target, return interpolated time between last two steps (linear interpolation for time) – required for accuracy.
+Validate: target>0,g>0,dt>0,maxTime>0,target<=CrushDepth else crush error, if never reaches within maxTime → error, if Fnet becomes upward (object floats) before target → unreachable error.
 
-You must derive `A(z)` for each geometry yourself:
+Pre-select case where Euler with same dt has >25% error vs RK4 reference dt/10, so tests enforce RK4 not Euler, tolerance ±15% vs reference dt/10 run.
 
-- **Prismatic:** Cross-section constant: `A = Volume/Height`. Derive this.
-- **Conical apex-down:** Radius varies linearly from apex. You have Object Mass, Volume, Height but NOT radius – you must derive radius R from volume and height, then derive `r(z)` and `A(z)=pi*r(z)²`. No formula given.
-- **Frustum:** `R1` bottom, `R2` top, radius varies linearly between them – you must derive `r(z)`, `A(z)`. Then `A(z)` is quadratic in `z`. Multiply by `rho(z)` (linear) gives cubic integrand; integral is quartic in `d`.
-
-Then:
-
-- Total geometric volume is integral `∫_0^H A(z) dz` – you must derive and it must match your uniform volume implementation.
-- Total displaced mass at full submergence `BuoyantMass(H)` divided by total volume gives **average fluid density** over object's extent: `rho_avg_fluid = BuoyantMass(H)/Volume`. This is used for state decision:
-  - Compare object average density `rho_obj = Mass/Volume` vs `rho_avg_fluid` using `Tolerance` constant from Step 1 via `CheckBuoyancyByDensity(rho_obj, rho_avg_fluid)` to get float/neutral/sink.
-  - Float → equilibrium depth `d < H` solving `BuoyantMass(d)=Mass`
-  - Neutral/sink → depth `H` (fully submerged extent), state distinguishes
-
-Solving for `d`:
-
-- Prismatic stratified: integral gives `A*(S*d + 0.5*G*d²)` → quadratic equation in `d`. Solve via quadratic formula or numeric bisection.
-- Conical stratified: integral `pi*R²/H² * (S*d³/3 + G*d⁴/4)` → quartic (d³ and d⁴) – requires numeric root-finding (bisection) because closed form messy.
-- Frustum stratified: integral of `pi*(R1+(R2-R1)z/H)²*(S+G*z)` → quartic polynomial with coefficients depending on R1,R2,H,S,G. Requires bisection.
-
-**You must implement numeric solver yourself (bisection for 80-100 iterations or Newton). No analytic formula is given and you must not hardcode polynomial degrees.**
-
-**Reduction property (mandatory):** When `Gradient=0`, your stratified solver must reproduce uniform-fluid depths within tolerance (`1e-6`). Tests will check:
-- Prismatic stratified G=0 depth == prismatic uniform `fraction*H`
-- Conical stratified G=0 depth == conical uniform non-linear depth
-- Frustum stratified G=0 depth == frustum uniform depth
-
-This prevents cheating by implementing only uniform case and ignoring gradient – if you ignore gradient, stratified tests with G>0 will fail; if you hardcode uniform formulas for stratified with G>0, those will fail.
+### Concurrent batch
+`BatchFindEquilibrium` and `BatchTimeToDepthConcurrent` must:
+- Preserve input order via Index
+- Invalid object → State="invalid" Fraction=0 Depth=0 etc, continue
+- Fluid invalid → nil,error
+- Empty/nil → non-nil empty slice
+- Race-free `go test -race` must pass – use WaitGroup + mutex or channel, not shared slice without sync
+- Crush handling: if target > CrushDepth → State="crush" or error marked? For batch, mark invalid? Spec: return result with State="crush" and 0 values? We define: if depth>CrushDepth, return result with State="crush" (not invalid) to distinguish. Tests will check State contains "crush".
 
 ## File Location
+- `/app/buoyancy.go` MUST stay
+- `/app/partial.go` contains uniform+stratified (existing)
+- New file `/app/dive.go` (or extend partial.go, but keep manageable) package `buoyancy`, stdlib only
+- Do NOT redefine Step1 symbols, but can add new types
 
-- Reuse `/app/buoyancy.go` MUST stay
-- New file `/app/partial.go`, package `buoyancy`, stdlib only (`math`, `errors`, `fmt` allowed)
-- Do NOT redefine `Object`/`Fluid`/`Tolerance`/`StandardGravity`
+## Types to Define
 
-## Types to Define in `/app/partial.go`
+In `/app/partial.go` already:
+```
+SubmersionResult, FrustumObject, StratifiedFluid
+```
+Keep them.
 
-Define exactly (order matters):
+In `/app/dive.go` (or partial.go) add:
 
 ```go
-type SubmersionResult struct {
-    Index    int
-    State    string
-    Fraction float64
-    Depth    float64
-    Density  float64
-}
+const MinimumVolumeFraction = 0.1
 
-type FrustumObject struct {
-    Mass       float64
-    BaseRadius float64
-    TopRadius  float64
-    Height     float64
-}
-
-type StratifiedFluid struct {
-    SurfaceDensity float64
-    Gradient float64
+type CompressibleObject struct {
+    Mass float64
+    Volume0 float64
+    Height float64
+    BulkModulus float64
+    DragCoefficient float64
+    CrushDepth float64
+    MinVolumeFraction float64
 }
 ```
+
+If you keep in partial.go, ensure no duplicate. We will use separate file dive.go.
 
 Methods:
-
-```go
-func (f FrustumObject) Volume() (float64, error)
-func (f FrustumObject) Density() (float64, error)
-func (f FrustumObject) Validate() error
-
-func (s StratifiedFluid) Validate() error
-func (s StratifiedFluid) DensityAtDepth(z float64) (float64, error)
+```
+func (c CompressibleObject) Validate() error
 ```
 
-All exported, exact signatures.
-
-## Functions to Implement – Uniform Fluid (keep for backward compat, 12 functions)
-
-All in `/app/partial.go`, package `buoyancy`:
+Functions for compressible (all exported):
 
 ```go
-func SubmergedFraction(obj Object, fluid Fluid) (float64, error)
-func EquilibriumDepth(obj Object, fluid Fluid) (float64, error)
-func AnalyzeObject(obj Object, fluid Fluid) (SubmersionResult, error)
-func BatchAnalyze(objects []Object, fluid Fluid) ([]SubmersionResult, error)
+func PressureAtDepth(fluid StratifiedFluid, depth, g float64) (float64, error)
+func VolumeAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g float64) (float64, error)
+func BuoyantForceAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g float64) (float64, error)
+func NetForceAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, vel, g float64) (float64, error)
+func TerminalVelocityAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g float64) (float64, error)
+func FindEquilibriumDepth(obj CompressibleObject, fluid StratifiedFluid, g, maxDepth, tol float64) (float64, error)
+func TimeToDepthRK4(obj CompressibleObject, fluid StratifiedFluid, targetDepth, g, dt, maxTime float64) (float64, error)
 
-func SubmergedFractionConical(obj Object, fluid Fluid) (float64, error)
-func EquilibriumDepthConical(obj Object, fluid Fluid) (float64, error)
-func AnalyzeConicalObject(obj Object, fluid Fluid) (SubmersionResult, error)
-func BatchAnalyzeConical(objects []Object, fluid Fluid) ([]SubmersionResult, error)
+type DiveResult struct {
+    Index int
+    State string
+    EquilibriumDepth float64
+    TerminalVelocity float64
+    TimeToDepth float64
+    VolumeAtDepth float64
+    MaxPressure float64
+    CrushRisk bool
+}
 
-func SubmergedFractionFrustum(obj FrustumObject, fluid Fluid) (float64, error)
-func EquilibriumDepthFrustum(obj FrustumObject, fluid Fluid) (float64, error)
-func AnalyzeFrustumObject(obj FrustumObject, fluid Fluid) (SubmersionResult, error)
-func BatchAnalyzeFrustum(objects []FrustumObject, fluid Fluid) ([]SubmersionResult, error)
+func BatchFindEquilibrium(objs []CompressibleObject, fluid StratifiedFluid, g, maxDepth, tol float64) ([]DiveResult, error)
+func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid, targets []float64, g, dt, maxTime float64) ([]DiveResult, error)
 ```
 
-Uniform detailed behavior: as described in previous version but without formula spoiler – you must derive yourself. Fraction = rho_obj/rho_fluid clamped for float, 1 for neutral/sink. Depth: prismatic fraction*Height, conical non-linear derived from similar triangles (must NOT be linear), frustum via numeric solving cubic. Batch preserves order, invalid → State="invalid" Fraction=0 Depth=0 Density=0, nil/empty → non-nil empty slice, invalid fluid → nil+error. `go vet` must pass. AST forbids redefinition.
+All exact signatures.
 
-## Functions to Implement – Stratified Fluid (hard part, 9 functions)
+## Detailed Behavior
 
-```go
-func EquilibriumDepthStratified(obj Object, fluid StratifiedFluid) (float64, error)
-func EquilibriumDepthConicalStratified(obj Object, fluid StratifiedFluid) (float64, error)
-func EquilibriumDepthFrustumStratified(obj FrustumObject, fluid StratifiedFluid) (float64, error)
+**Validation:**
+- CompressibleObject: Mass>0, Volume0>0, Height>0, BulkModulus>0, DragCoefficient>=0 (0 allowed but Terminal errors), CrushDepth>0, MinVolumeFraction>0 and <1 (0.1). Else error.
+- StratifiedFluid: SurfaceDensity>0, Gradient>=0
+- Depth: >=0 else error containing "depth", g<=0 error containing "gravity", dt<=0 error "dt", maxTime<=0 error "maxTime", target<=0 error "target", tol<=0 error "tol" but allow small
+- DensityAtDepth negative z → error "depth"
+- PressureAtDepth: P = g*(S*depth+0.5*G*depth²) → must derive 0.5 factor, error if fluid invalid, depth<0, g<=0
+- VolumeAtDepth: V=V0*(1-P/K) clamped to MinVol = f_min*V0, if depth>CrushDepth → error contains "crush" (case-insensitive)
+- BuoyantForceAtDepth: rho(z)*V(z)*g, error if fluid/obj invalid
+- NetForceAtDepth: Fw - Fb - Fd, Fd=0.5*rho*Cd*Ad*v*|v|, Ad = cross-sectional area at depth (for compressible, use compressed? Simplify Ad = VolumeAtDepth/Height for prismatic reference – but for generic compressible object we don't have R1,R2, so define Ad = VolumeAtDepth/Height (prismatic reference). This keeps testable.)
+- TerminalVelocity: sign(Fw-Fb)*sqrt(2*|Fw-Fb|/(rho*Cd*Ad)), Cd<=0→error "drag", |Fnet|<1e-12→0, Ad<=0→error
+- FindEquilibriumDepth: bisection 100 iter in [0,maxDepth] solving M - rho(z)*V(z)=0, if no sign change (always positive → sink to maxDepth? Actually if M>rho*V at all depths up to maxDepth → sink, return maxDepth and state sink? But function returns depth only, error if no equilibrium? For simplicity: if mass > buoyant at maxDepth → return maxDepth with no error but caller can detect sink via comparison? Better: if no root, return maxDepth and no error if sink, but tests will check depth==maxDepth. For float case where buoyant > weight at surface (object floats), f(0)=M - S*V0 <0 → no root in [0,maxDepth] with f negative at 0 → should return 0? Actually floating object equilibrium depth for fully submerged is 0? But for fully submerged compressible, float means it wants to go up, so equilibrium at surface 0. We'll define: if f(0)<=0 → equilibrium 0 (floats at surface). If f(maxDepth)>=0? Actually if mass > buoyant even at maxDepth, it sinks to maxDepth. Else bisection finds root where f crosses 0. Need to handle sign.
+- TimeToDepthRK4: integrate from 0,0, validate inputs, if target>CrushDepth → crush error, loop until z>=target or t>maxTime, return interpolated time. If Fnet becomes upward before target (object starts floating up) → unreachable error. If never reaches within maxTime → error.
 
-func AnalyzeStratifiedObject(obj Object, fluid StratifiedFluid) (SubmersionResult, error)
-func AnalyzeConicalStratifiedObject(obj Object, fluid StratifiedFluid) (SubmersionResult, error)
-func AnalyzeFrustumStratifiedObject(obj FrustumObject, fluid StratifiedFluid) (SubmersionResult, error)
+**BatchFindEquilibrium:**
+- Validate fluid, g>0, maxDepth>0, tol>0 else nil,error
+- Empty/nil → non-nil empty slice
+- For each obj index i:
+  - If invalid → DiveResult{Index:i, State:"invalid"}
+  - Else compute equilibrium depth via FindEquilibriumDepth, terminal velocity at that depth, volume at that depth, max pressure = PressureAtDepth at equilibrium, crush risk = depth>=CrushDepth*0.9?
+  - Preserve order, race-free
 
-func BatchAnalyzeStratified(objects []Object, fluid StratifiedFluid) ([]SubmersionResult, error)
-func BatchAnalyzeConicalStratified(objects []Object, fluid StratifiedFluid) ([]SubmersionResult, error)
-func BatchAnalyzeFrustumStratified(objects []FrustumObject, fluid StratifiedFluid) ([]SubmersionResult, error)
-```
+**BatchTimeToDepthConcurrent:**
+- Validate fluid, g>0, dt>0, maxTime>0, len(objs)==len(targets) else error
+- For each i, launch goroutine with WaitGroup, compute TimeToDepthRK4 for target, store result at index i with mutex
+- Invalid obj → State="invalid", preserve order
+- Must pass `go test -race`
 
-All exported, exact signatures.
+**Clamping:** Fraction [0,1], Depth [0,maxDepth or Height], Volume [MinVol, V0]
 
-### Stratified Detailed Behavior
-
-- Validate fluid via `Validate()`, object via `Validate()`, error if invalid → return 0/error.
-- Compute object average density `rho_obj = Mass/Volume` via `Density()` (or `FrustumObject.Density()`).
-- Compute total geometric volume `Vol_total` (for Object, Vol_total = Object.Volume; for Frustum, via Volume()).
-- Compute buoyant mass at full depth `BM_full = ∫_0^H rho(z)*A(z) dz` – you must derive `A(z)` yourself.
-  - For **prismatic**: `A = Vol/H` constant.
-  - For **conical**: derive `R` from Volume and Height, then `r(z)` linear from apex, `A(z)=pi*r(z)²`
-  - For **frustum**: `r(z)=R1+(R2-R1)*z/H`, `A(z)=pi*r(z)²`
-  - Integral must be derived analytically or via exact polynomial integration (no numeric integration needed if you derive polynomial, but numeric integration with Simpson also acceptable if accurate to 1e-7). Do NOT use external library.
-- Compute average fluid density `rho_avg = BM_full / Vol_total`
-- State via `CheckBuoyancyByDensity(rho_obj, rho_avg)` – reuse Tolerance constant.
-- If state != float (neutral/sink) → depth = Height.
-- Else bisection to find `d` in [0,H] where `BM(d)=Mass`:
-  - `BM(d)=∫_0^d rho(z)*A(z) dz`
-  - Monotonic increasing because rho>0, A>0
-  - Implement bisection 80-100 iterations: lo=0 hi=H, mid=(lo+hi)/2, compute BM(mid), if BM(mid) < Mass → lo=mid else hi=mid. Return (lo+hi)/2.
-  - Clamp depth to [0,Height]
-- For Analyze*:
-  - Return `SubmersionResult{State, Fraction, Depth, Density}`
-  - For stratified, define `Fraction = Mass / BM_full` clamped [0,1] (so 1 for neutral/sink), Depth as equilibrium depth, Density = rho_obj, Index 0
-  - Error if invalid inputs
-- For Batch*Stratified:
-  - Validate fluid first, nil/empty → non-nil empty slice
-  - For each object index i, if invalid → State="invalid" Fraction=0 Depth=0 Density=0, continue
-  - Else compute via Analyze* and set Index=i, preserve order
-
-**Clamping stratified:** Fraction [0,1], Depth [0,Height].
-
-**No hardcoding:** Must compute via derived formulas, not lookup tables. Tests will check that stratified depth != uniform linear for G>0, and that stratified with G=0 matches uniform within 1e-6 (reduction). Hardcoding uniform cbrt for stratified with G>0 will fail because depth differs.
+**No hardcoding:** Must derive P(z) integral with 0.5 factor, not `g*S*z` alone; must implement v*|v| sign handling not v²; must implement RK4 not Euler; must handle crush.
 
 ## Requirements
 
-1. Reuse Step1 types/constants, do NOT redefine `Object`/`Fluid`/`Tolerance`/`StandardGravity` (AST check).
-2. File `/app/partial.go`, package `buoyancy`, `go vet` must pass, stdlib only.
+1. Reuse Step1 types/constants, do NOT redefine Object/Fluid/Tolerance/StandardGravity (AST check).
+2. Files `/app/partial.go` and `/app/dive.go`, package `buoyancy`, `go vet` and `go test -race` must pass, stdlib only.
 3. Structs exact fields as spec.
-4. Uniform functions (12) exact signatures must exist and pass old tests (fraction = density ratio clamped, prismatic linear, conical non-linear cbrt not linear, frustum cubic via numeric).
-5. StratifiedFluid struct and methods exact signatures must exist, plus 9 stratified functions exact signatures.
-6. Error handling: non-positive inputs → non-nil error, Gradient<0 → error, SurfaceDensity<=0 → error, Batch fluid invalid → nil+error, individual invalid → State="invalid".
-7. Deterministic pure functions.
-8. No hardcoding lookup tables; must derive formulas.
-9. Conical uniform must NOT be linear, frustum uniform must NOT be linear nor simple cbrt for R1!=R2.
-10. Stratified must use integral buoyancy, not simple `rho*V_sub`, and must implement numeric solver – tests will fail if you return `fraction*H` or `H*cbrt(fraction)` for stratified with G>0.
+4. Uniform functions (12) + stratified (9) + compressible (8+2 batch) exact signatures must exist.
+5. Error handling as described, crush error contains "crush", drag error contains "drag", depth error contains "depth", etc (case-insensitive checks).
+6. Deterministic pure functions except concurrent batch order preserved.
+7. No hardcoding lookup tables; must derive formulas.
+8. Conical uniform must NOT be linear, frustum uniform must NOT be linear nor simple cbrt for R1!=R2.
+9. Stratified must use integral buoyancy, not simple rho*V_sub.
+10. Compressible must use pressure integral with 0.5 factor, volume clamped, crush handling, drag sign, RK4 not Euler.
 
 ## Grading Hidden Tests
 
-Tests will verify:
-- Old uniform: fraction correct, prismatic linear, conical `H*cbrt(fraction)` vs linear distinction, frustum volume `pi*H/3*(R1²+R1R2+R2²)` and depth cubic via bisection precomputed, batch order/index/invalid, tolerance 5e-10 neutral vs 1e-5 sink, `go vet`, AST no redefinition
-- New stratified:
-  - Validation: SurfaceDensity<=0 error, Gradient<0 error, DensityAtDepth negative z error
-  - DensityAtDepth: S+G*z
-  - Prismatic stratified: quadratic solving e.g., S=1000 G=0.5, A=0.5, Mass=600 → expected depth ~1.194... (precomputed) not 1.2 linear; tests check != linear
-  - Conical stratified: S=1000 G=2, Volume 1 Height 2 → expected depth via quartic ~1.65 vs uniform cbrt 1.587... – must differ, tests check not equal to uniform cbrt and not equal to linear
-  - Frustum stratified: R1=0.5 R2=1.5 H2 S=1025 G=0.8 Mass chosen to give depth 1.2m → expected depth computed via reference Python bisection using analytic integral – hardcoded in Go tests
-  - Reduction: G=0 depth must equal uniform depth within 1e-6 for prismatic, conical, frustum
-  - Monotonicity: larger Mass → larger depth (when float)
-  - Analyze* and Batch* stratified order/index/invalid/empty/nil handling
-  - State via avg fluid density: if Mass < BM_full - tolerance*Volume → float, near equal → neutral, greater → sink
-  - `go vet` passes
+- Old uniform: fraction, linear, cbrt vs linear, frustum cubic, batch, tolerance, vet, AST
+- Stratified: validation, DensityAtDepth, prismatic quadratic, conical quartic, frustum quartic, reduction G=0→uniform, monotonicity, batch, vet
+- Compressible:
+  - PressureAtDepth: S=1000 G=2 g=9.81 depth10 → 99081 (with 0.5) vs naive 100062 without 0.5 → must catch 0.5
+  - VolumeAtDepth: V0=1 K=1e8 S=1025 G=0.5 depth100 g=9.81 → P≈..., V≈V0*(1-P/K)
+  - BuoyantForceAtDepth: rho*V*g
+  - NetForceAtDepth: includes drag sign
+  - TerminalVelocity: sign handling, Cd<=0 error
+  - FindEquilibriumDepth: S=1025 G=0.5 V0=1 M=1026*1 (slightly heavy) → equilibrium depth via bisection solving cubic, not trivial; reduction K→∞ → stratified depth, G=0 K→∞ → uniform
+  - TimeToDepthRK4: target 50m dt0.1, reference RK4 dt/10, tolerance ±15%, Euler same dt fails >25% → must use RK4
+  - CrushDepth: target>CrushDepth → error contains "crush"
+  - BatchFindEquilibrium and BatchTimeToDepthConcurrent: order, invalid, race-free (go test -race)
+  - vet and race pass
 
 ## What NOT to Do
 
-- Do NOT redefine Step1 symbols
-- Do NOT return fraction>1 or depth>Height
-- Do NOT drop batch entries – mark invalid
-- Do NOT modify buoyancy.go to break Step1
-- Do NOT use `fraction*H` for conical uniform or frustum uniform with R1!=R2
-- Do NOT use simple `H*cbrt(fraction)` for frustum uniform nor for stratified with G>0
-- Do NOT hardcode depths per density/radius – must compute via derived integral + numeric solver
-- Do NOT give explicit volume formulas in comments that spoil derivation? Comments allowed but tests check you derived, not that you hid formula – however final task must have removed spoilers from instruction, not solution
+- Do NOT give explicit P(z) formula with 0.5 factor in solution comments? Comments allowed but tests check you derived
+- Do NOT use v² instead of v*|v| for drag – sign will be wrong for upward motion
+- Do NOT use Euler instead of RK4 – accuracy test will fail
+- Do NOT ignore compression or gradient in reductions
+- Do NOT hardcode depths per density/radius
