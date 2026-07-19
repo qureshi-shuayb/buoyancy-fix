@@ -41,7 +41,7 @@ Reuse Step1 helpers: `DensityAtDepth`, `PressureAtDepth`, `VolumeAtDepth`.
   v+=dt/6*(k1_v+2k2_v+2k3_v+k4_v)
   ```
   Euler will fail accuracy test which requires within 15% of small-dt reference.
-- **Batch fleet:** For each sub preserve order, if invalid (Validate fails) => State="invalid" Index=i. Else AnalyzeDive. If fluid invalid => nil,error. Empty => empty. To hit sweet spot difficulty, you should use at least one goroutine for fleet processing (e.g., launch goroutine per sub with WaitGroup, preserve order via indexed results). Full worker-pool with semaphore is optional bonus but at least one `go` usage is required (checked). Must be race-safe.
+- **Batch fleet:** For each sub preserve order, if invalid (Validate fails) => State="invalid" Index=i. Else AnalyzeDive. If fluid invalid => nil,error. Empty => empty. Sequential loop passes functional tests; concurrent worker-pool optional bonus, not strictly required for correctness. If you do implement concurrency, must be race-safe.
 
 ## File Location
 - /app/submarine.go exists
