@@ -91,7 +91,7 @@ func TestTerminalVelocity(t *testing.T){
     fw := sub.EffectiveMass()*g
     delta := fb - fw
     drag := 0.5*rho*sub.DragCoefficient*area*term*math.Abs(term)
-    if !closeTol(drag, delta, 0.5) { t.Fatalf("drag %g should approx delta %g (tol 0.5)", drag, delta) }
+    if !closeTol(drag, delta, 0.3) { t.Fatalf("drag %g should approx delta %g (tol 0.3 middle)", drag, delta) }
     noDrag := Submarine{DryMass:5000, Volume:10, Length:20, BallastCapacity:6000, BallastLevel:0, HullCompressibility:0, CrushDepth:1000, DragCoefficient:0}
     if _, err := TerminalVelocity(noDrag, fluid, 0, g); err == nil { t.Fatalf("should error zero drag") }
 }
@@ -109,9 +109,9 @@ func TestFindEquilibriumDepth(t *testing.T){
     if err == nil { t.Fatalf("should error no equilibrium for heavy within 500m") }
 
     subSinkToFloat := Submarine{DryMass:10500, Volume:10, Length:20, BallastCapacity:1000, BallastLevel:0, HullCompressibility:0, CrushDepth:3000, DragCoefficient:0.3}
-    eq, err := FindEquilibriumDepth(subSinkToFloat, fluid, g, 2000, 1e-2)
+    eq, err := FindEquilibriumDepth(subSinkToFloat, fluid, g, 2000, 1e-3)
     if err != nil { t.Fatalf("should find equilibrium, err %v", err) }
-    // brute force verify within 2.5m
+    // brute force verify within 2.0m middle ground
     var brute float64 = -1
     prevF, _ := NetVerticalForceAtDepth(subSinkToFloat, fluid, 0, 0, g)
     step := 0.5
@@ -124,7 +124,7 @@ func TestFindEquilibriumDepth(t *testing.T){
         prevF = curF
     }
     if brute <0 { t.Fatalf("brute did not find root") }
-    if math.Abs(eq-brute) > 2.5 { t.Fatalf("equilibrium %g vs brute %g diff too big (allowed 2.5m)", eq, brute) }
+    if math.Abs(eq-brute) > 2.0 { t.Fatalf("equilibrium %g vs brute %g diff too big (allowed 2.0m middle)", eq, brute) }
 }
 
 func TestTimeToDepth(t *testing.T){
@@ -137,7 +137,7 @@ func TestTimeToDepth(t *testing.T){
     timeRef, err := TimeToDepth(heavy, fluid, 100, g, 0.01, 10000)
     if err != nil { t.Fatalf("ref time err %v", err) }
     rel := math.Abs(time100-timeRef)/timeRef
-    if rel > 0.15 { t.Fatalf("RK4 accuracy: dt0.1 %g vs dt0.01 %g rel %g >15%%", time100, timeRef, rel) }
+    if rel > 0.12 { t.Fatalf("RK4 accuracy: dt0.1 %g vs dt0.01 %g rel %g >12%% middle", time100, timeRef, rel) }
     light := Submarine{DryMass:5000, Volume:10, Length:20, BallastCapacity:1000, BallastLevel:0, HullCompressibility:0, CrushDepth:1000, DragCoefficient:0.5}
     _, err = TimeToDepth(light, fluid, 100, g, 0.1, 100)
     if err == nil { t.Fatalf("light should not reach 100m") }
@@ -194,8 +194,8 @@ def check_no_redef():
     assert "type Submarine struct" not in div, "dive.go must NOT redefine Submarine"
     assert "type Seawater struct" not in div, "dive.go must NOT redefine Seawater"
     assert "const Tolerance" not in div, "dive.go must NOT redefine Tolerance"
-    # No concurrency requirement for pass band - sequential batch passes functional tests
-    # Concurrency is optional bonus, not required for correctness
+    # Sweet spot: require at least one goroutine for fleet (easy concurrency, not full worker-pool)
+    assert "go " in div, "Batch should use at least one goroutine for concurrency (sweet spot middle)"
 
 def test_step2():
     write_tests()

@@ -40,8 +40,8 @@ Reuse Step1 helpers: `DensityAtDepth`, `PressureAtDepth`, `VolumeAtDepth`.
   z+=dt/6*(k1_z+2k2_z+2k3_z+k4_z)
   v+=dt/6*(k1_v+2k2_v+2k3_v+k4_v)
   ```
-  Euler will fail accuracy test which requires within 15% of small-dt reference.
-- **Batch fleet:** For each sub preserve order, if invalid (Validate fails) => State="invalid" Index=i. Else AnalyzeDive. If fluid invalid => nil,error. Empty => empty. Sequential loop passes functional tests; concurrent worker-pool optional bonus, not strictly required for correctness. If you do implement concurrency, must be race-safe.
+  Euler will fail accuracy test which requires within 12% of small-dt reference (middle ground).
+- **Batch fleet:** For each sub preserve order, if invalid (Validate fails) => State="invalid" Index=i. Else AnalyzeDive. If fluid invalid => nil,error. Empty => empty. To hit sweet spot difficulty, you should use at least one goroutine for fleet processing (e.g., launch goroutine per sub with WaitGroup, preserve order via indexed results). Full worker-pool with semaphore is optional bonus but at least one `go` usage is required (checked). Must be race-safe.
 
 ## File Location
 - /app/submarine.go exists
@@ -113,11 +113,11 @@ Details:
 ## Grading
 - SubmergedFraction clamped
 - NetVerticalForce surface and at depth with drag sign
-- TerminalVelocity sqrt sign inverse check
-- FindEquilibriumDepth vs brute-force within 2m, crush, tolerance
-- TimeToDepth RK4 within 15% vs small dt, crush, unreachable
+- TerminalVelocity sqrt sign inverse check (tol 0.3 middle)
+- FindEquilibriumDepth vs brute-force within 2.0m middle, crush, tolerance
+- TimeToDepth RK4 within 12% vs small dt middle, crush, unreachable
 - AnalyzeDive fields
-- BatchFleet order invalid fluid empty
+- BatchFleet order invalid fluid empty + at least one goroutine required
 
 ## What NOT to Do
 - Do not redefine types
