@@ -2,9 +2,9 @@ schema_version = "1.1"
 
 [task]
 name = "shuaybqureshi/buoyancy-float-check-go"
-description = "Two-step buoyancy task testing context-following: basic float/sink decision then prismatic and conical (apex-down cubic root) partial submersion depth and batch processing using same Go package. Requires deriving Archimedes equilibrium from first principles without explicit formula spoilers."
+description = "Two-step buoyancy task with hardening beyond textbook: Step1 basic float/sink/neutral via Archimedes; Step2 extends to prismatic, conical apex-down, and frustum (bucket) in UNIFORM fluid (linear, cbrt, cubic solver) PLUS hardest extension to STRATIFIED ocean where density rho(z)=SurfaceDensity+Gradient*z varies linearly with depth, so buoyant mass is integral ∫rho(z)*A(z)dz (quadratic for prismatic, quartic for conical/frustum) requiring derivation of cross-sectional area A(z) and numeric root-finding (binary search/Newton). Tests include reduction property Gradient=0 → uniform, frustum volume, frustum cubic vs stratified quartic, batch with invalid handling, and go vet. No formula spoilers given."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["go", "buoyancy", "archimedes", "physics", "scientific_computing"]
+keywords = ["go", "buoyancy", "archimedes", "physics", "scientific_computing", "frustum", "stratified", "integral-buoyancy", "numeric_methods", "quartic"]
 format = "terminal_bench_multi_turn"
 workstream = "swe_public_repo"
 language = "go"
@@ -16,10 +16,10 @@ difficulty = "hard"
 category = "iterate_on_feature"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 45.0
-junior_time_estimate_min = 120.0
+expert_time_estimate_min = 100.0
+junior_time_estimate_min = 240.0
 reward_type = "binary"
-tags = ["multi-turn", "context-following", "physics", "go", "non-linear", "cbrt", "conical-geometry"]
+tags = ["multi-turn", "context-following", "physics", "go", "non-linear", "conical-geometry", "frustum", "cubic-solver", "stratified-fluid", "integral-buoyancy", "quartic-solver", "numeric-root-finding", "binary-search", "geometry-derivation", "reduction-property"]
 languages = ["go"]
 
 [environment]

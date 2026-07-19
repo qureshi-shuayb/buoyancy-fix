@@ -3,7 +3,7 @@
 ## Overview
 This is **Step 1 of 2** in a multi-turn T-Bench task. You are building a Go package that models buoyancy via Archimedes' principle.
 
-Goal: Given an object's mass/volume and fluid density, determine whether it floats, sinks, or is neutrally buoyant. Step 2 will reuse the types you define here to compute quantitative submersion, including non-linear conical geometry.
+Goal: Given an object's mass/volume and fluid density, determine whether it floats, sinks, or is neutrally buoyant. Step 2 will reuse the types you define here to compute quantitative submersion in uniform fluid (prismatic, conical, frustum) PLUS hardest extension to stratified ocean where density varies with depth and buoyant mass is integral ∫rho(z)*A(z)dz requiring numeric root-finding. Keep your Step 1 types clean and reusable.
 
 ## Physics Background
 Archimedes' principle: an object immersed in fluid experiences an upward buoyant force:
@@ -102,7 +102,7 @@ All functions must be exported.
 6. Error handling: Return non-nil error on any non-positive input. Don't panic.
 7. No external dependencies: stdlib only.
 8. Deterministic pure functions.
-9. Step 2 compatibility: Do NOT rename fields or package. Step 2 will reuse your types for prismatic and conical submersion calculations. If you change names, Step 2 fails cascade.
+9. Step 2 compatibility: Do NOT rename fields or package. Step 2 will reuse your types for prismatic, conical, frustum uniform plus stratified integral buoyancy. If you change names, Step 2 fails cascade. Step 2 must not redefine your types (AST check).
 10. Clean `go vet` must pass.
 
 ## Grading (Hidden Tests)
