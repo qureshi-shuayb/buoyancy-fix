@@ -2,9 +2,9 @@ schema_version = "1.1"
 
 [task]
 name = "shuaybqureshi/submarine-dive-sim-go"
-description = "Two-step submarine buoyancy simulator: Step1 basic sink/float/neutral via ballast control, Step2 dive dynamics, equilibrium depth and batch fleet mission analysis reusing same Go package."
+description = "Two-step submarine buoyancy simulator with depth-dependent ocean stratification, compressible hull, quadratic drag, equilibrium root-finding via bisection, RK4 time-to-depth integration, and concurrent fleet analysis reusing same Go package."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing"]
+keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "RK4", "concurrency"]
 format = "terminal_bench_multi_turn"
 workstream = "swe_public_repo"
 language = "go"
@@ -16,10 +16,10 @@ difficulty = "hard"
 category = "iterate_on_feature"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 60.0
-junior_time_estimate_min = 150.0
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 180.0
 reward_type = "binary"
-tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator"]
+tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "RK4", "concurrency", "hydrostatics", "drag"]
 languages = ["go"]
 
 [environment]
@@ -43,7 +43,7 @@ min_reward = 1.0
 timeout_sec = 600.0
 
 [steps.agent]
-timeout_sec = 900.0
+timeout_sec = 1200.0
 
 [[steps]]
 name = "2_dive_dynamics"
@@ -55,4 +55,4 @@ inherit_prior_session = true
 timeout_sec = 600.0
 
 [steps.agent]
-timeout_sec = 900.0
+timeout_sec = 1200.0
