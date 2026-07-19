@@ -17,9 +17,9 @@ Goal: model a fully submerged submarine where seawater density increases with de
 - `rho(z) = rho_surface + DepthDensityGradient * z`
 where `DepthDensityGradient = 0.02 kg/m4`, z >=0 depth positive downward. At surface z=0 rho = surface.
 
-**Hydrostatic pressure:** Pressure at depth is integral of rho(z')*g dz' from 0 to z. For linear density profile this yields:
+**Hydrostatic pressure:** Pressure at depth is integral of rho(z')*g dz' from 0 to z. For linear density `rho(z')=rho0+grad*z'`, integral yields `P(z)=g*∫(rho0+grad*z')dz' = g*(rho0*z + 0.5*grad*z^2)`. The 0.5 comes from integrating z' to z²/2. Implement:
 - `P(z) = g * (rho_surface * z + 0.5 * DepthDensityGradient * z^2)`
-It is 0 at surface, monotonic increasing, quadratic in depth. You must implement this formula (derivation given). g is gravity.
+It is 0 at surface, monotonic increasing, quadratic in depth. g is gravity.
 
 **Compressible hull:** Volume shrinks under pressure:
 - `V(z) = V0 * (1 - HullCompressibility * P(z))` clamped to at least `MinimumVolumeFraction * V0` (0.1). If `HullCompressibility=0` volume stays constant. If depth > CrushDepth => error containing "crush".
