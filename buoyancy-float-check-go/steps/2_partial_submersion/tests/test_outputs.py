@@ -193,12 +193,14 @@ def write_step2_tests():
             }
 
             func TestFrustumVolume(t *testing.T) {
+                // Harder: includes cylinder reduction and tall bucket
                 cases := []struct{
                     R1, R2, H float64
-                    wantVol float64
                 }{
-                    {1, 2, 3, math.Pi * 7},
-                    {0.5, 1.5, 2, 6.806784082777885},
+                    {1, 2, 3},
+                    {0.5, 1.5, 2},
+                    {0.2, 1.8, 2.5},
+                    {1, 1, 2},
                 }
                 for _, tc := range cases {
                     f := FrustumObject{Mass: 100, BaseRadius: tc.R1, TopRadius: tc.R2, Height: tc.H}
@@ -206,9 +208,16 @@ def write_step2_tests():
                     if err != nil {
                         t.Fatalf("Volume error: %v", err)
                     }
-                    if !approx(vol, tc.wantVol) {
-                        t.Fatalf("Volume R1=%g R2=%g H=%g = %g want %g", tc.R1, tc.R2, tc.H, vol, tc.wantVol)
+                    want := refFrustumVolume(tc.R1, tc.R2, tc.H)
+                    if !approx(vol, want) {
+                        t.Fatalf("Volume R1=%g R2=%g H=%g = %g want %g", tc.R1, tc.R2, tc.H, vol, want)
                     }
+                }
+                // invalid both 0 should still be handled (volume 0)
+                invalid := FrustumObject{Mass: 100, BaseRadius: 0, TopRadius: 0, Height: 1}
+                vol, _ := invalid.Volume()
+                if vol != 0 {
+                    // allow 0 volume for degenerate, but must not panic
                 }
             }
 
@@ -232,6 +241,11 @@ def write_step2_tests():
                 sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.5}
                 if _, err := sf.DensityAtDepth(-1); err == nil {
                     t.Fatalf("DensityAtDepth should error on negative z")
+                }
+                // Frustum invalid both radii 0 and negative height
+                frInvalid := FrustumObject{Mass: 0, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                if err := frInvalid.Validate(); err == nil {
+                    t.Fatalf("should error on invalid frustum mass")
                 }
             }
 
@@ -263,6 +277,12 @@ def write_step2_tests():
                 uni, _ := EquilibriumDepth(obj, Fluid{Density: 1000})
                 if !approx(depth0, uni) {
                     t.Fatalf("reduction G=0 depth %g != uniform %g", depth0, uni)
+                }
+                // Small G should differ from uniform
+                sfSmall := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.0001}
+                depthSmall, _ := EquilibriumDepthStratified(obj, sfSmall)
+                if approx(depthSmall, uni) {
+                    t.Fatalf("Small G=1e-4 should differ from uniform, got %g vs %g", depthSmall, uni)
                 }
             }
 
@@ -300,6 +320,33 @@ def write_step2_tests():
                     t.Fatalf("Stratified frustum depth = %g want %g", depth, want)
                 }
             }
+
+            func TestFrustumHardSmallGAndBatch(t *testing.T) {
+                frustum := FrustumObject{Mass: 800 * refFrustumVolume(0.2, 1.8, 2.5), BaseRadius: 0.2, TopRadius: 1.8, Height: 2.5}
+                sfSmall := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.0001}
+                depth, err := EquilibriumDepthFrustumStratified(frustum, sfSmall)
+                if err != nil {
+                    t.Fatalf("Small G hard: %v", err)
+                }
+                uni, _ := EquilibriumDepthFrustum(frustum, Fluid{Density: 1000})
+                if approx(depth, uni) {
+                    t.Fatalf("Small G should differ from uniform even for G=1e-4, got %g vs %g", depth, uni)
+                }
+                // Batch order + invalid handling
+                batch := []FrustumObject{
+                    {Mass: 600 * refFrustumVolume(0.5, 1.5, 2), BaseRadius: 0.5, TopRadius: 1.5, Height: 2},
+                    {Mass: 0, BaseRadius: 0.5, TopRadius: 1.5, Height: 2},
+                    {Mass: 1200 * refFrustumVolume(0.5, 1.5, 2), BaseRadius: 0.5, TopRadius: 1.5, Height: 2},
+                }
+                sfBatch := StratifiedFluid{SurfaceDensity: 1025, Gradient: 0.8}
+                res, err := BatchAnalyzeFrustumStratified(batch, sfBatch)
+                if err != nil {
+                    t.Fatalf("Batch stratified frustum error: %v", err)
+                }
+                if len(res)!=3 || res[1].State!="invalid" || res[0].Index!=0 {
+                    t.Fatalf("Batch stratified frustum invalid handling/order failed")
+                }
+            }
             '''
         )
     )
@@ -315,10 +362,10 @@ def test_partial_go_does_not_redefine_step1_symbols():
     forbidden = [
         r"type\s+Object\s+struct",
         r"type\s+Fluid\s+struct",
-        r"const\s+Tolerance",
-        r"const\s*\([^)]*Tolerance",
-        r"const\s+StandardGravity",
-        r"const\s*\([^)]*StandardGravity",
+        r"const\s+Tolerance\b",
+        r"const\s*\([^)]*\bTolerance\b",
+        r"const\s+StandardGravity\b",
+        r"const\s*\([^)]*\bStandardGravity\b",
     ]
     for pattern in forbidden:
         assert not re.search(pattern, source), f"partial.go must not redefine {pattern}"

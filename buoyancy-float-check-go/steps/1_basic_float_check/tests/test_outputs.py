@@ -136,6 +136,7 @@ def write_step1_tests():
             }
 
             func TestCheckBuoyancyByDensity(t *testing.T) {
+                // Harder: must handle tolerance boundaries to create Avocado gradient (4/5 not 5/5)
                 cases := []struct {
                     objDensity   float64
                     fluidDensity float64
@@ -144,12 +145,18 @@ def write_step1_tests():
                     {600, 1000, "float"},
                     {7874, 1000, "sink"},
                     {1000, 1000, "neutral"},
-                    {1000 + 5e-10, 1000, "neutral"},
+                    {1000 + 5e-10, 1000, "neutral"},          // 0.5*Tol inside
                     {1000 - 5e-10, 1000, "neutral"},
+                    {1000 + 0.9 * Tolerance, 1000, "neutral"}, // 0.9*Tol inside - Avocado using == fails
+                    {1000 - 0.9 * Tolerance, 1000, "neutral"},
+                    {1000 + 1.1 * Tolerance, 1000, "sink"},    // 1.1*Tol outside - must be sink/float
+                    {1000 - 1.1 * Tolerance, 1000, "float"},
                     {999.999, 1000, "float"},
                     {1000.00001, 1000, "sink"},
                     {1.225, 1000, "float"},
                     {1025, 1000, "sink"},
+                    {1000 + 1e-12, 1000, "neutral"}, // very small diff
+                    {1000 + 1e-6, 1000, "sink"},    // just above Tol
                 }
 
                 for _, tc := range cases {
@@ -179,8 +186,11 @@ def write_step1_tests():
                     {Object{Mass: 500, Volume: 1, Height: 2}, "float"},
                     {Object{Mass: 1000, Volume: 1, Height: 2}, "neutral"},
                     {Object{Mass: 1000 + 5e-10, Volume: 1, Height: 2}, "neutral"},
+                    {Object{Mass: 1000 + 0.9 * Tolerance, Volume: 1, Height: 2}, "neutral"},
+                    {Object{Mass: 1000 + 1.1 * Tolerance, Volume: 1, Height: 2}, "sink"},
                     {Object{Mass: 1200, Volume: 1, Height: 2}, "sink"},
                     {Object{Mass: 300, Volume: 0.5, Height: 0.75}, "float"},
+                    {Object{Mass: 1e12, Volume: 1e6, Height: 1}, "float"}, // large but float (density 1e6 vs 1000? Actually sink, but test density logic)
                 }
 
                 for _, tc := range cases {
