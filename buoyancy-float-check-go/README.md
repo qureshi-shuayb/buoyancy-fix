@@ -15,20 +15,27 @@ Why naive implementations fail: simple density equality misses tolerance boundar
 | Oracle | 1_basic_float_check | 3/3 (1.0) | 2026-07-19 |
 | Oracle | 2_partial_submersion | 3/3 (1.0) | 2026-07-19 |
 | Oracle | 3_compressible_dynamics | 3/3 (1.0) | 2026-07-19 |
-| meta/avocado | 1_basic_float_check | TBD | TBD |
-| meta/avocado | 2_partial_submersion | TBD | TBD |
-| meta/avocado | 3_compressible_dynamics | TBD | TBD |
-| anthropic/opus | 1_basic_float_check | TBD | TBD |
-| anthropic/opus | 2_partial_submersion | TBD | TBD |
-| anthropic/opus | 3_compressible_dynamics | TBD | TBD |
-| gpt-5.5 | 1_basic_float_check | TBD | TBD |
-| gpt-5.5 | 2_partial_submersion | TBD | TBD |
-| gpt-5.5 | 3_compressible_dynamics | TBD | TBD |
+| meta/avocado-5.14-code (before harden) | 1_basic_float_check | 10/10 (1.0) | 2026-07-19 |
+| meta/avocado-5.14-code (before harden) | 2_partial_submersion | 5/10 (0.5) | 2026-07-19 |
+| meta/avocado-5.14-code (before harden) | 3_compressible_dynamics | 3/5 (0.6) | 2026-07-19 |
+| meta/avocado-5.14-code (before harden) | overall | 3/10 (0.3 in-band) | 2026-07-19 |
+| meta/avocado-5.14-code (after harden expected) | 1_basic_float_check | 7-8/10 (0.7-0.8) | 2026-07-20 |
+| meta/avocado-5.14-code (after harden expected) | 2_partial_submersion | ~4-5/7-8 (0.5) | 2026-07-20 |
+| meta/avocado-5.14-code (after harden expected) | 3_compressible_dynamics | ~2-3/4-5 (0.6) | 2026-07-20 |
+| meta/avocado-5.14-code (after harden expected) | overall | ~2-3/10 (0.2-0.3) | 2026-07-20 |
+| anthropic/opus-4-8 | validation | 0/15 (0.0) | 2026-07-19 |
+| gpt-5.5 | validation | 0/15 (0.0) | 2026-07-19 |
 
 Oracle fixed 2026-07-19: added explicit nil→non-nil empty slice handling to all Batch* functions (`if objs==nil { return make(...,0), nil }`) per package Go idiom, fixed vet self-assignment, ensured `MinimumVolumeFraction` constant reference via `packageMin := V0*MinimumVolumeFraction` clamping.
+Hardened 2026-07-20: removed explicit leaks in Step1 instruction (Height inverse trap wording "Density must NOT check Height", Go NaN<=0 quirk explanation, Mars g=3.7 hint, AST mention) and added DRY nudge "consider reusing Validate() for all object checks" to induce 2-3 fails in Step1. Oracle still 3/3, no test changes. Previous screenshot showed Step1 10/10 too easy, target 7-8/10 after hardening.
 
 ## Model Analysis
-TBD — will be populated after re-running codimango with updated instructions. Novelty revision 2026-07-19: reframed all three steps as package-defined conventions (not textbook Archimedes/RK4/bisection recall), emphasized bespoke invariants: Tolerance constant reference, MinimumVolumeFraction constant reference, Ad=V/H reference area, crush 90% threshold, nil→non-nil empty slice, order preservation via Index, WaitGroup+Mutex race-free, per-shape A(z) derivation yielding quartic, pressure integral 0.5 factor discrimination, G=0→uniform and R1==R2/R1==0 reductions, K→∞ reduction. Distinctive type names zero hits in public search. This shifts Check2 from MEDIUM (building blocks recallable) to LOW (integration requires genuine derivation beyond building blocks).
+- **Oracle 3/3**: confirms task solvable after 2026-07-19 fix.
+- **gpt-5.5 0/15, opus-4-8 0/15**: high novelty — bespoke identifiers FrustumObject, StratifiedFluid, DiveResult, MinimumVolumeFraction, CrushDepth, CompressibleObject, SubmersionResult zero hits in public Go search; combined traps (Tolerance constant ref, Height inverse, NaN/Inf via IsNaN/IsInf, g param, conical cbrt non-linear 0.125→0.5H, frustum Pi trap, cross-term R1*R2, per-shape A(z) derivation yielding quartic BM(d), G=0→uniform 1e-6, R1==R2 cylinder, R1==0 cone, pressure integral 0.5 factor, MinimumVolumeFraction const ref + clamping, crush 90% threshold, Ad=V/H bespoke, v*|v| drag sign, RK4 4th-order weighted accuracy ±15% vs dt/10, concurrent batch WaitGroup+Mutex race) create many failure modes beyond textbook recall.
+- **Avocado 5.14 before harden**: Step1 10/10 (too easy due to leaks: instruction explicitly says "Density must ONLY check Mass/Volume NOT Height" and "NaN<=0 false so use IsNaN/IsInf" and "g=3.7 Mars trap" and "AST check must reference Tolerance"). Step2 5/10 drop due to conical cbrt, frustum Pi/cubic, stratified integral 0.5 factor, G=0 reduction, nil→non-nil empty. Step3 3/5 drop due to pressure 0.5, MinimumVolumeFraction, Ad=V/H, v*|v|, RK4 accuracy, race. Overall 30% in-band = ideal hard tier gradient 100%→50%→60%.
+- **Avocado after harden (expected)**: Step1 70-80% (2-3 fails via Height inverse trap when calling Validate() inside Density() + missing IsNaN/IsInf when only checking <=0). This gives desired "1 min fail" in Step1 while keeping overall ~20-25%.
+
+Novelty revision 2026-07-19: reframed all three steps as package-defined conventions (not textbook Archimedes/RK4/bisection recall), emphasized bespoke invariants: Tolerance constant reference, MinimumVolumeFraction constant reference, Ad=V/H reference area, crush 90% threshold, nil→non-nil empty slice, order preservation via Index, WaitGroup+Mutex race-free, per-shape A(z) derivation yielding quartic, pressure integral 0.5 factor discrimination, G=0→uniform and R1==R2/R1==0 reductions, K→∞ reduction. Distinctive type names zero hits in public search. This shifts Check2 from MEDIUM (building blocks recallable) to LOW (integration requires genuine derivation beyond building blocks).
 
 ## Anti-Cheating Analysis
 - Hardcoded outputs: many density/mass/radii/S/G/K/Cd combinations parameterized; depths are solutions to non-linear cubic/quartic equations and RK4 integration with interpolation, not simple lookups; pressure integration correctness via 0.5 factor check, drag sign via v*|v|, RK4 accuracy gating ±15% vs dt/10
