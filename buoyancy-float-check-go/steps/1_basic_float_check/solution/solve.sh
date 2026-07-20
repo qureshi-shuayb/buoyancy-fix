@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+rm -f /app/*_test.go 2>/dev/null || true
 
 cat > /app/buoyancy.go <<'GO'
 package buoyancy

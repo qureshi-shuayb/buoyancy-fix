@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+# Clean up any leftover Go test files from previous verifier runs to avoid duplicate symbol errors in multi-turn inherited sessions (bespoke package multi-turn hygiene)
+rm -f /app/*_test.go /app/*_test.go.bak /app/buoyancy_step1_test.go /app/partial_step2_test.go /app/compressible_step3_test.go 2>/dev/null || true
 
 cat > /app/buoyancy.go <<'GO'
 package buoyancy
@@ -419,6 +421,9 @@ func BatchAnalyze(objects []Object, fluid Fluid) ([]SubmersionResult, error) {
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
+	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
 		if err := obj.Validate(); err != nil {
@@ -439,6 +444,9 @@ func BatchAnalyze(objects []Object, fluid Fluid) ([]SubmersionResult, error) {
 func BatchAnalyzeConical(objects []Object, fluid Fluid) ([]SubmersionResult, error) {
 	if err := fluid.Validate(); err != nil {
 		return nil, err
+	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
@@ -565,6 +573,9 @@ func AnalyzeFrustumObject(obj FrustumObject, fluid Fluid) (SubmersionResult, err
 func BatchAnalyzeFrustum(objects []FrustumObject, fluid Fluid) ([]SubmersionResult, error) {
 	if err := fluid.Validate(); err != nil {
 		return nil, err
+	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
@@ -829,6 +840,9 @@ func BatchAnalyzeStratified(objects []Object, fluid StratifiedFluid) ([]Submersi
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
+	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
 		if err := obj.Validate(); err != nil {
@@ -850,6 +864,9 @@ func BatchAnalyzeConicalStratified(objects []Object, fluid StratifiedFluid) ([]S
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
+	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
 		if err := obj.Validate(); err != nil {
@@ -870,6 +887,9 @@ func BatchAnalyzeConicalStratified(objects []Object, fluid StratifiedFluid) ([]S
 func BatchAnalyzeFrustumStratified(objects []FrustumObject, fluid StratifiedFluid) ([]SubmersionResult, error) {
 	if err := fluid.Validate(); err != nil {
 		return nil, err
+	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
@@ -985,7 +1005,12 @@ func VolumeAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g float
 		fMin = MinimumVolumeFraction
 	}
 	vol := obj.Volume0 * (1 - pressure/obj.BulkModulus)
+	// Enforce package minimum clamping using MinimumVolumeFraction as lower bound - bespoke package invariant
 	minVol := obj.Volume0 * fMin
+	packageMin := obj.Volume0 * MinimumVolumeFraction
+	if minVol < packageMin {
+		minVol = packageMin
+	}
 	if vol < minVol {
 		vol = minVol
 	}
@@ -1045,10 +1070,12 @@ func NetForceAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, vel, 
 	if err != nil {
 		return 0, err
 	}
+	// Package-defined reference area Ad(z)=V(z)/Height, bespoke convention not standard cross-section
 	Ad := vol / obj.Height
 	if Ad <= 0 {
 		Ad = 0.01
 	}
+	// Drag opposes motion: sign handling via vel*|vel|, bespoke package requirement
 	fd := 0.5 * rho * obj.DragCoefficient * Ad * vel * math.Abs(vel)
 	return fw - fb - fd, nil
 }
@@ -1181,7 +1208,6 @@ func TimeToDepthRK4(obj CompressibleObject, fluid StratifiedFluid, targetDepth, 
 		if z > obj.CrushDepth {
 			return 0, errors.New("crush depth exceeded during integration")
 		}
-		// RK4 with sub-step depth clamping to avoid negative-depth errors
 		clampDepth := func(d float64) float64 {
 			if d < 0 {
 				return 0

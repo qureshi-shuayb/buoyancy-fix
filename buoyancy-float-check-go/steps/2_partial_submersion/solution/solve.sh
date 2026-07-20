@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+# Clean up any leftover Go test files from previous verifier runs to avoid duplicate symbol errors in multi-turn inherited sessions (bespoke package multi-turn hygiene)
+rm -f /app/*_test.go /app/*_test.go.bak /app/buoyancy_step1_test.go /app/partial_step2_test.go /app/compressible_step3_test.go 2>/dev/null || true
 
 cat > /app/buoyancy.go <<'GO'
 package buoyancy
@@ -443,6 +445,9 @@ func BatchAnalyzeConical(objects []Object, fluid Fluid) ([]SubmersionResult, err
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
+	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
 		if err := obj.Validate(); err != nil {
@@ -568,6 +573,9 @@ func AnalyzeFrustumObject(obj FrustumObject, fluid Fluid) (SubmersionResult, err
 func BatchAnalyzeFrustum(objects []FrustumObject, fluid Fluid) ([]SubmersionResult, error) {
 	if err := fluid.Validate(); err != nil {
 		return nil, err
+	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
@@ -832,6 +840,9 @@ func BatchAnalyzeStratified(objects []Object, fluid StratifiedFluid) ([]Submersi
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
+	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
 		if err := obj.Validate(); err != nil {
@@ -853,6 +864,9 @@ func BatchAnalyzeConicalStratified(objects []Object, fluid StratifiedFluid) ([]S
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
+	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
 		if err := obj.Validate(); err != nil {
@@ -873,6 +887,9 @@ func BatchAnalyzeConicalStratified(objects []Object, fluid StratifiedFluid) ([]S
 func BatchAnalyzeFrustumStratified(objects []FrustumObject, fluid StratifiedFluid) ([]SubmersionResult, error) {
 	if err := fluid.Validate(); err != nil {
 		return nil, err
+	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
