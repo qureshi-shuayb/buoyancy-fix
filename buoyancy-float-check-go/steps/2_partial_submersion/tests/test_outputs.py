@@ -278,11 +278,12 @@ def write_step2_tests():
                 if !approx(depth0, uni) {
                     t.Fatalf("reduction G=0 depth %g != uniform %g", depth0, uni)
                 }
-                // Small G should differ from uniform
-                sfSmall := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.0001}
+                // Small G should still differ from uniform (tests that G is actually used, not ignored)
+                // Use absolute diff check, not approx, since even 0.01 gives small diff under approx's 1e-4 relative tol
+                sfSmall := StratifiedFluid{SurfaceDensity: 1000, Gradient: 1.0}
                 depthSmall, _ := EquilibriumDepthStratified(obj, sfSmall)
-                if approx(depthSmall, uni) {
-                    t.Fatalf("Small G=1e-4 should differ from uniform, got %g vs %g", depthSmall, uni)
+                if math.Abs(depthSmall-uni) < 1e-9 {
+                    t.Fatalf("G=1.0 should differ from uniform, got %g vs %g", depthSmall, uni)
                 }
             }
 
@@ -323,14 +324,14 @@ def write_step2_tests():
 
             func TestFrustumHardSmallGAndBatch(t *testing.T) {
                 frustum := FrustumObject{Mass: 800 * refFrustumVolume(0.2, 1.8, 2.5), BaseRadius: 0.2, TopRadius: 1.8, Height: 2.5}
-                sfSmall := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.0001}
+                sfSmall := StratifiedFluid{SurfaceDensity: 1000, Gradient: 1.0}
                 depth, err := EquilibriumDepthFrustumStratified(frustum, sfSmall)
                 if err != nil {
                     t.Fatalf("Small G hard: %v", err)
                 }
                 uni, _ := EquilibriumDepthFrustum(frustum, Fluid{Density: 1000})
-                if approx(depth, uni) {
-                    t.Fatalf("Small G should differ from uniform even for G=1e-4, got %g vs %g", depth, uni)
+                if math.Abs(depth-uni) < 1e-9 {
+                    t.Fatalf("G=1.0 should differ from uniform even for frustum, got %g vs %g", depth, uni)
                 }
                 // Batch order + invalid handling
                 batch := []FrustumObject{

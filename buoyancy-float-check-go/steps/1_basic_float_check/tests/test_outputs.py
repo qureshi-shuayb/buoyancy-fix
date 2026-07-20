@@ -190,7 +190,7 @@ def write_step1_tests():
                     {Object{Mass: 1000 + 1.1 * Tolerance, Volume: 1, Height: 2}, "sink"},
                     {Object{Mass: 1200, Volume: 1, Height: 2}, "sink"},
                     {Object{Mass: 300, Volume: 0.5, Height: 0.75}, "float"},
-                    {Object{Mass: 1e12, Volume: 1e6, Height: 1}, "float"}, // large but float (density 1e6 vs 1000? Actually sink, but test density logic)
+                    {Object{Mass: 5e8, Volume: 1e6, Height: 1}, "float"}, // large numbers but float (density 500 vs 1000)
                 }
 
                 for _, tc := range cases {

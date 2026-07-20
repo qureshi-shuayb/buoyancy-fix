@@ -895,6 +895,7 @@ package buoyancy
 import (
 	"errors"
 	"math"
+	"strings"
 	"sync"
 )
 
@@ -1180,24 +1181,13 @@ func TimeToDepthRK4(obj CompressibleObject, fluid StratifiedFluid, targetDepth, 
 		if z > obj.CrushDepth {
 			return 0, errors.New("crush depth exceeded during integration")
 		}
-		fb, err := BuoyantForceAtDepth(obj, fluid, z, g)
-		if err != nil {
-			return 0, err
+		// RK4 with sub-step depth clamping to avoid negative-depth errors
+		clampDepth := func(d float64) float64 {
+			if d < 0 {
+				return 0
+			}
+			return d
 		}
-		_ = fb
-		rho, err := fluid.DensityAtDepth(z)
-		if err != nil {
-			return 0, err
-		}
-		vol, err := VolumeAtDepth(obj, fluid, z, g)
-		if err != nil {
-			return 0, err
-		}
-		Ad := vol / obj.Height
-		if Ad <= 0 {
-			Ad = 0.01
-		}
-		// RK4
 		net1, err := NetForceAtDepth(obj, fluid, z, v, g)
 		if err != nil {
 			return 0, err
@@ -1205,7 +1195,7 @@ func TimeToDepthRK4(obj CompressibleObject, fluid StratifiedFluid, targetDepth, 
 		k1z := v
 		k1v := net1 / obj.Mass
 
-		z2 := z + 0.5*dt*k1z
+		z2 := clampDepth(z + 0.5*dt*k1z)
 		v2 := v + 0.5*dt*k1v
 		net2, err := NetForceAtDepth(obj, fluid, z2, v2, g)
 		if err != nil {
@@ -1214,7 +1204,7 @@ func TimeToDepthRK4(obj CompressibleObject, fluid StratifiedFluid, targetDepth, 
 		k2z := v + 0.5*dt*k1v
 		k2v := net2 / obj.Mass
 
-		z3 := z + 0.5*dt*k2z
+		z3 := clampDepth(z + 0.5*dt*k2z)
 		v3 := v + 0.5*dt*k2v
 		net3, err := NetForceAtDepth(obj, fluid, z3, v3, g)
 		if err != nil {
@@ -1223,7 +1213,7 @@ func TimeToDepthRK4(obj CompressibleObject, fluid StratifiedFluid, targetDepth, 
 		k3z := v + 0.5*dt*k2v
 		k3v := net3 / obj.Mass
 
-		z4 := z + dt*k3z
+		z4 := clampDepth(z + dt*k3z)
 		v4 := v + dt*k3v
 		net4, err := NetForceAtDepth(obj, fluid, z4, v4, g)
 		if err != nil {
@@ -1243,31 +1233,19 @@ func TimeToDepthRK4(obj CompressibleObject, fluid StratifiedFluid, targetDepth, 
 			z = 0
 			v = 0
 		}
-
-		// If velocity becomes significantly negative and we're still far from target and moving upward, unreachable
-		if v < -0.01 && z < targetDepth*0.5 && t > 1.0 {
-			// Check if net force upward at current depth
-			nf, _ := NetForceAtDepth(obj, fluid, z, v, g)
-			if nf < 0 {
-				// floating up, won't reach deeper target
-				// but continue a bit in case it was initial transient
-				if z < prevZ && prevZ < targetDepth {
-					// if already past max depth before and now going up, unreachable
-				}
-			}
-		}
-
-		_ = rho
-		_ = Ad
 	}
 	if z >= targetDepth {
-		frac := (targetDepth - prevZ) / (z - prevZ)
-		if z != prevZ {
-			return prevT + frac*dt, nil
+		if z == prevZ {
+			return t, nil
 		}
-		return t, nil
+		frac := (targetDepth - prevZ) / (z - prevZ)
+		return prevT + frac*dt, nil
 	}
 	return 0, errors.New("target depth not reached within maxTime")
+}
+
+func containsIgnoreCase(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 func BatchFindEquilibrium(objs []CompressibleObject, fluid StratifiedFluid, g, maxDepth, tol float64) ([]DiveResult, error) {
@@ -1291,7 +1269,7 @@ func BatchFindEquilibrium(objs []CompressibleObject, fluid StratifiedFluid, g, m
 		}
 		depth, err := FindEquilibriumDepth(obj, fluid, g, maxDepth, tol)
 		if err != nil {
-			if errors.Is(err, errors.New("crush")) || containsIgnoreCase(err.Error(), "crush") {
+			if containsIgnoreCase(err.Error(), "crush") {
 				results[i] = DiveResult{Index: i, State: "crush", EquilibriumDepth: depth, CrushRisk: true}
 			} else {
 				results[i] = DiveResult{Index: i, State: "invalid"}
@@ -1303,19 +1281,11 @@ func BatchFindEquilibrium(objs []CompressibleObject, fluid StratifiedFluid, g, m
 		term, _ := TerminalVelocityAtDepth(obj, fluid, depth, g)
 		crush := depth >= obj.CrushDepth*0.9
 		state := "sink"
-		// Determine float/neutral/sink based on mass vs buoyant at depth 0 and maxDepth
 		rho0, _ := fluid.DensityAtDepth(0)
 		if obj.Mass < rho0*obj.Volume0 {
-			// check if it would float at surface, but equilibrium may be 0
-			if depth <= tol {
-				state = "float"
-			} else {
-				state = "float"
-			}
+			state = "float"
 		} else {
-			// if depth == maxDepth and still heavy, sink, else neutral if close
 			if math.Abs(depth-maxDepth) < 1e-6 {
-				// check if close to neutral
 				state = "sink"
 			} else {
 				state = "neutral"
@@ -1327,34 +1297,6 @@ func BatchFindEquilibrium(objs []CompressibleObject, fluid StratifiedFluid, g, m
 		results[i] = DiveResult{Index: i, State: state, EquilibriumDepth: depth, TerminalVelocity: term, VolumeAtDepth: vol, MaxPressure: press, CrushRisk: crush}
 	}
 	return results, nil
-}
-
-func containsIgnoreCase(s, substr string) bool {
-	// simple case-insensitive contains
-	ls := ""
-	for _, c := range s {
-		if c >= 'A' && c <= 'Z' {
-			ls += string(c + 32)
-		} else {
-			ls += string(c)
-		}
-	}
-	lsub := ""
-	for _, c := range substr {
-		if c >= 'A' && c <= 'Z' {
-			lsub += string(c + 32)
-		} else {
-			lsub += string(c)
-		}
-	}
-	return len(ls) >= len(lsub) && (func() bool {
-		for i := 0; i <= len(ls)-len(lsub); i++ {
-			if ls[i:i+len(lsub)] == lsub {
-				return true
-			}
-		}
-		return false
-	})()
 }
 
 func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid, targets []float64, g, dt, maxTime float64) ([]DiveResult, error) {

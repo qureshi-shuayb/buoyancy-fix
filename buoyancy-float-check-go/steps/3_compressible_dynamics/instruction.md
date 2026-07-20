@@ -1,94 +1,84 @@
-# Step 3: Compressible Dynamics + Drag + RK4 + Concurrent Batch (Hardest)
+# Step 3: Compressible Dynamics + Drag + RK4 + Concurrent Batch
 
 ## Overview
-This is **Step 3 of 3**, `inherit_prior_session=true`. Your `/app/buoyancy.go` (Step1) and `/app/partial.go` (Step2 uniform+stratified) are preserved. You now implement the final compressible regime.
-
-Goal: Ocean stratification + hydrostatic pressure + bulk-modulus volume compression + quadratic drag + time-to-depth via RK4 + concurrent batch. This is the ultra-hard tier that was previously bundled into Step2, now isolated so Opus can still solve Step2 but be tested on Step3.
-
-Your task passes only if it implements compressible dynamics on top of stratified ocean.
+This is Step 3 of 3, `inherit_prior_session=true`. Your `/app/buoyancy.go` (Step1) and `/app/partial.go` (Step2 uniform+stratified) are preserved. You now implement the final compressible regime with hydrostatic pressure, bulk-modulus compression, crush handling, quadratic drag, terminal velocity, equilibrium depth, time-to-depth integration, and concurrent batch processing.
 
 Do NOT redefine `Object`/`Fluid`/`Tolerance`/`StandardGravity`/`SubmersionResult`/`FrustumObject`/`StratifiedFluid`.
 
-## Physics – Compressible + Drag + Dynamics (ultra-hard, novel)
+## Physics — Compressible + Drag + Dynamics
 
 ### Hydrostatic pressure
-Pressure at depth `z` is integral of weight of overlying fluid:
+Pressure at depth z is the weight of overlying fluid:
 ```
-P(z) = ∫_0^z rho(z') g dz'
-     = g * ∫_0^z (S + G*z') dz'
-     = g * (S*z + 0.5*G*z²)
+P(z) = ∫_0^z rho(z') * g dz'  where rho(z') = S + G*z'
 ```
-You must derive the 0.5 factor: `∫0^z G*z' dz' = 0.5*G*z²`. Tests check `S=1000 G=2 depth10 => 99081 Pa` not `100062 Pa` (0.5 missing). `g` is `StandardGravity` or passed param.
+You must derive the closed-form expression from this integral. Note that the integral of G*z' introduces a factor from integration — naive multiplication without integrating will fail hidden tests that check pressure values.
+
+Tests include case S=1000, G=2, depth 10 where correct pressure is ~99081 Pa, not ~100062 Pa from missing integration factor. `g` is `StandardGravity` or passed param.
 
 ### Compressible volume
-Bulk modulus `K` (Pa) >0. Linear clamped model (testable):
-```
-V(z) = V0 * (1 - P(z)/K)   clamped to V_min = f_min*V0, f_min = MinimumVolumeFraction (0.1)
-If P(z)/K >= 1-f_min → V=V_min
-If depth > CrushDepth → error containing "crush" (case-insensitive)
-V0 = surface volume (Object.Volume or FrustumObject.Volume())
-```
-Use linear clamped model, not exp.
+Bulk modulus K (Pa) >0. Linear clamped compressibility model:
+- Surface volume V0 (from Object.Volume or FrustumObject.Volume())
+- Volume at depth: compresses proportionally to pressure over bulk modulus, clamped to minimum fraction
+- V_min = MinVolumeFraction * V0, where MinimumVolumeFraction is 0.1
+- If compressed volume would be below V_min, clamp to V_min
+- If depth exceeds CrushDepth, return error containing "crush" (case-insensitive)
+
+Use linear clamped model, not exponential.
 
 ### Buoyant force, net force
 ```
+Buoyant mass at depth: rho(z) * V(z)
 Fb(z) = rho(z) * V(z) * g
 Fw = Mass * g
-Buoyant mass = rho(z)*V(z)
 Net down force: Fnet(z,v) = Fw - Fb(z) - Fd(z,v)
-Fd(z,v) = 0.5 * rho(z) * Cd * Ad(z) * v*|v|   opposes motion, sign trap: must use v*|v| not v²
-Ad(z): reference area for drag – for simplicity use cross-sectional area at depth: `Ad = V(z)/Height` for prismatic reference (consistent with stratified `A(z)`). For generic compressible object we define Ad = VolumeAtDepth/Height.
 ```
-`Cd>=0`, `Cd==0` → no drag, but TerminalVelocity must error if Cd<=0 containing "drag".
-`Fd` sign: down positive. `v positive down` => `Fd positive` subtract, `v negative up` => `Fd negative` subtract -> net down increases (drag pushes down when rising). Must use `v*|v|`.
+Drag:
+- Quadratic drag opposing motion, proportional to fluid density, drag coefficient Cd, reference area Ad(z), and velocity squared.
+- Reference area: for this task define Ad(z) = V(z)/Height (non-obvious but required for consistency with stratified A(z) definition)
+- Drag force must oppose motion: when moving down (positive v), drag acts up (reduces net down force); when moving up (negative v), drag acts down (further reduces upward motion). Your implementation must handle sign correctly — using v² without sign will fail tests.
+- Cd>=0, Cd==0 means no drag, but TerminalVelocity must error if Cd<=0 with message containing "drag".
 
 ### Terminal velocity at fixed depth
-Set `Fnet=0` ignoring acceleration: `Fw - Fb(z) - 0.5 rho Cd Ad v²*sign(v)=0`
-```
-v_term(z) = sign(Fw-Fb) * sqrt(2*|Fw-Fb|/(rho(z)*Cd*Ad(z)))
-If |Fw-Fb|<1e-12 → 0, Cd<=0 → error containing "drag", Ad<=0 → error
-```
+At terminal velocity, net force is zero: Fw - Fb(z) - Fd(z,v) = 0. Solve for v. Sign of v should match sign of (Fw-Fb): if heavy (sinking), positive; if light (rising), negative; if near neutral, zero.
+
+If |Fw-Fb| is very small (<1e-12), terminal velocity is 0. If Cd<=0, error containing "drag". If Ad<=0, error. Terminal speed grows with square root of net buoyancy force and inversely with drag parameters.
+
+Reduction for testing: in incompressible limit, equilibrium depth approaches predictable value based on mass, surface density, and gradient.
 
 ### Equilibrium depth (compressible)
-Fully submerged neutral depth where `Fw=Fb(z)` i.e. `M = rho(z)*V(z)`:
-```
-f(z)=M - rho(z)*V(z)=0
-     =M - (S+Gz)*V0*(1 - P(z)/K)
-With P(z)=g(Sz+0.5 Gz²) → cubic/quadratic in z, no closed form → bisection 100 iter in [0,maxDepth]
-```
+Fully submerged neutral depth where Fw=Fb(z), i.e., Mass = rho(z)*V(z). Define f(z)=M - rho(z)*V(z) and find root via bisection in [0, maxDepth].
+
+This involves pressure-dependent volume, so no simple closed form — use bisection with 80-100 iterations and tolerance parameter.
+
 Reductions for grading:
-- `K→∞` (incompressible): `f(z)=M-(S+Gz)V0` → stratified incompressible, so `(M/V0-S)/G`
-- `G=0, K→∞`: `M-S V0` → uniform
+- K→∞ (incompressible, very large bulk modulus): volume stays approx V0, so equilibrium approaches stratified incompressible depth (M/V0 - S)/G when G>0
+- G=0 and K→∞: approaches uniform case
+
 Tests check reductions within 1e-6.
 
 ### Time-to-depth via RK4
-Integrate ODE from rest `z=0,v=0`:
+Integrate ODE from rest z=0, v=0:
 ```
 dz/dt = v
 dv/dt = Fnet(z,v)/M
 ```
-Classic RK4 with step `dt`:
-```
-k1_z=v, k1_v=Fnet(z,v)/M
-k2_z=v+0.5 dt k1_v, k2_v=Fnet(z+0.5 dt k1_z, v+0.5 dt k1_v)/M
-k3_z=v+0.5 dt k2_v, k3_v=Fnet(z+0.5 dt k2_z, v+0.5 dt k2_v)/M
-k4_z=v+dt k3_v, k4_v=Fnet(z+dt k3_z, v+dt k3_v)/M
-z+=dt/6*(k1_z+2k2_z+2k3_z+k4_z)
-v+=dt/6*(k1_v+2k2_v+2k3_v+k4_v)
-t+=dt
-Loop until z>=target, return interpolated time between last two steps (linear interpolation). Required for accuracy.
-Validate: target>0,g>0,dt>0,maxTime>0,target<=CrushDepth else crush error, if never reaches within maxTime → error, if Fw-Fb negative and object floats before target → may be unreachable.
+Use classic RK4 with step dt. Loop until z >= target depth, returning interpolated time between last two steps (linear interpolation for accuracy). Validate inputs: target>0, g>0, dt>0, maxTime>0, target<=CrushDepth else error containing "crush". If never reaches within maxTime, error.
 
-Pre-selected case where Euler with same dt has >25% error vs RK4 reference dt/10, so tests enforce RK4 not Euler, tolerance ±15% vs reference dt/10 run.
+Accuracy requirement: Euler integration with same dt has >25% error vs RK4 reference with dt/10 on pre-selected case. Tests enforce RK4 accuracy within ±15% vs reference run with dt/10, so Euler will fail. You must use proper RK4.
+
+Edge handling:
+- Depth must not become negative during integration (clamp)
+- If object floats upward (velocity negative) and cannot reach deeper target, integration will not reach target within maxTime — should error appropriately
 
 ### Concurrent batch
 `BatchFindEquilibrium` and `BatchTimeToDepthConcurrent` must:
-- Preserve input order via Index
-- Invalid object → State="invalid" Fraction=0 Depth=0 etc, continue
-- Fluid invalid → nil,error
-- Empty/nil → non-nil empty slice
-- Race-free `go test -race` must pass – use WaitGroup + mutex
-- Crush handling: if target>CrushDepth → State="crush" (not invalid)
+- Preserve input order via Index field
+- Invalid object → State="invalid", continue processing others
+- Fluid invalid → return nil,error immediately
+- Empty/nil input → return non-nil empty slice (not nil)
+- Race-free: `go test -race` must pass — use sync.WaitGroup + sync.Mutex
+- Crush handling: if target > CrushDepth → State="crush" with CrushRisk=true (not invalid)
 
 ## File Location
 - `/app/buoyancy.go` (Step1) MUST stay
@@ -149,18 +139,18 @@ All exact signatures.
 ## Detailed Behavior
 
 **Validation:**
-- CompressibleObject: Mass>0, Volume0>0, Height>0, BulkModulus>0, DragCoefficient>=0 (0 allowed but Terminal errors), CrushDepth>0, MinVolumeFraction>0 and <1 (0.1). Else error.
+- CompressibleObject: Mass>0, Volume0>0, Height>0, BulkModulus>0, DragCoefficient>=0 (0 allowed but Terminal errors), CrushDepth>0, MinVolumeFraction>0 and <1 (expected 0.1). Else error.
 - StratifiedFluid: SurfaceDensity>0, Gradient>=0
-- Depth: >=0 else error containing "depth", g<=0 error containing "gravity", dt<=0 error "dt", maxTime<=0 error "maxTime", target<=0 error "target", tol<=0 error "tol"
-- PressureAtDepth: `P = g*(S*depth+0.5*G*depth²)`, error if fluid invalid, depth<0, g<=0
-- VolumeAtDepth: `V=V0*(1-P/K)` clamped to `MinVol`, if depth>CrushDepth → error contains "crush"
-- BuoyantForceAtDepth, NetForceAtDepth, TerminalVelocity, FindEquilibriumDepth, TimeToDepthRK4 as spec in overview.
+- Depth params: >=0 else error containing "depth", g<=0 error containing "gravity", dt<=0 error "dt", maxTime<=0 error "maxTime", target<=0 error "target", tol<=0 error "tol"
+- PressureAtDepth: derived from fluid density integral, error if fluid invalid, depth<0, g<=0
+- VolumeAtDepth: compressed volume clamped to MinVol, if depth>CrushDepth → error contains "crush"
+- BuoyantForceAtDepth, NetForceAtDepth, etc. as described in physics section
 
 **BatchFindEquilibrium:**
 - Validate fluid, g>0, maxDepth>0, tol>0 else nil,error
-- Empty/nil → non-nil empty slice
-- For each obj: if invalid → State="invalid", else compute equilibrium, terminal velocity, volume, pressure, crush risk
-- Preserve order, race-free
+- Empty/nil input → non-nil empty slice
+- For each obj: if invalid → State="invalid", else compute equilibrium depth, terminal velocity, volume at depth, pressure at depth, crush risk
+- Preserve order via Index, race-free
 
 **BatchTimeToDepthConcurrent:**
 - Validate fluid, g>0, dt>0, maxTime>0, len(objs)==len(targets) else error
@@ -168,19 +158,19 @@ All exact signatures.
 
 ## Requirements
 1. Reuse Step1/2 types/constants, do NOT redefine (AST check).
-2. Files `/app/partial.go` and `/app/dive.go`, package `buoyancy`, `go vet` and `go test -race` must pass, stdlib only.
+2. Files `/app/partial.go` and `/app/dive.go` must exist, package `buoyancy`, `go vet` and `go test -race` must pass, stdlib only.
 3. Structs exact fields as spec.
-4. Compressible functions (8+2 batch) exact signatures.
+4. Compressible functions (8+2 batch) exact signatures must exist.
 5. Error handling: crush contains "crush", drag contains "drag", depth contains "depth" (case-insensitive).
-6. No hardcoding; must implement pressure integral with 0.5 factor, drag sign `v|v|`, RK4 not Euler.
-7. Reduction checks: K→∞ and G=0 must match.
+6. No hardcoding; must implement pressure integral via derivation, drag with proper sign handling, RK4 for time integration.
+7. Reduction checks: K→∞ and G=0 must match uniform/stratified expectations.
 
 ## Grading Hidden Tests
-- Pressure: S=1000 G=2 depth10 → 99081 (with 0.5) vs naive 100062 without 0.5
-- Volume: V0=1 K=1e8 S=1025 G=0.5 depth100 g=9.81 → V≈V0*(1-P/K), clamp to min
-- BuoyantForce, NetForce with drag sign
-- TerminalVelocity sign, Cd<=0 error
+- Pressure: S=1000 G=2 depth10 → ~99081 with correct integration vs naive ~100062 without proper integration factor
+- Volume: clamping to min fraction, crush error handling
+- BuoyantForce, NetForce with drag sign correctness
+- TerminalVelocity sign and Cd<=0 error
 - FindEquilibriumDepth via bisection, reduction K→∞ → (M/V0-S)/G
 - TimeToDepthRK4: reference dt/10 tolerance ±15%, Euler fails >25%
-- Batch order, invalid, race-free
+- Batch order preservation, invalid handling, race detector with `go test -race`
 - vet and race pass
