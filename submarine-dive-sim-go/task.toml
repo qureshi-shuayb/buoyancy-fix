@@ -2,9 +2,9 @@ schema_version = "1.1"
 
 [task]
 name = "shuaybqureshi/submarine-dive-sim-go"
-description = "Ultra-hard two-step submarine simulator: dual exponential pycnocline stratification (shallow + deep halocline), thermocline temperature dependent hull thermal contraction, hydrostatic integral with quadratic + dual-exponential terms, exponential hull with thermal coupling, density gradient and Brunt-Vaisala frequency, Clift-Gauvin continuous drag with logistic crisis, added mass 0.5*rho*V, adaptive RK4 step-doubling with error control, implicit bistable terminal velocity via scanning + bisection, multi-root equilibrium scanning + stability classification, context-aware bounded worker-pool fleet with cancellation."
+description = "Rebalanced ultra-super-hard Step1 / easier Step2 submarine simulator: Step1 triple pycnocline + deep halocline salinity + thermocline temperature with T/S density coupling (beta 0.8, gamma 0.15), 18 constants, 5 exponentials in density, analytic gradient, second derivative, salinity gradient, temperature gradient, sound speed with SOFAR minimum, potential density with bulk modulus, potential temperature, Brunt-Vaisala frequency, Turner angle, hydrostatic integral quadratic + 5 exponentials, exponential hull with thermal contraction. Step2 easier: simple Re table Cd 1.2/0.5/0.2, fixed RK4 5% tolerance, implicit terminal bisection, multi-root equilibrium scanning 0.5m, bounded worker-pool fleet 20 order preserved with simple context cancellation."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "RK4", "concurrency", "pycnocline", "dual-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "reynolds", "clift-gauvin", "drag-crisis", "added-mass", "adaptive-rk4", "multi-root", "stability", "context-cancellation", "worker-pool"]
+keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "RK4", "concurrency", "pycnocline", "triple-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "turner-angle", "salinity", "sound-speed", "potential-density", "second-derivative", "reynolds", "multi-root", "worker-pool"]
 format = "terminal_bench_multi_turn"
 workstream = "swe_public_repo"
 language = "go"
@@ -16,10 +16,10 @@ difficulty = "hard"
 category = "iterate_on_feature"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 240.0
-junior_time_estimate_min = 480.0
+expert_time_estimate_min = 320.0
+junior_time_estimate_min = 600.0
 reward_type = "binary"
-tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "RK4", "concurrency", "hydrostatics", "drag", "pycnocline", "dual-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "reynolds", "clift-gauvin", "drag-crisis", "added-mass", "adaptive-rk4", "implicit-solving", "multi-root", "stability", "context-cancellation", "worker-pool", "exponential-hull"]
+tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "RK4", "concurrency", "hydrostatics", "drag", "pycnocline", "triple-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "salinity", "sound-speed", "potential-density", "second-derivative", "turner-angle", "reynolds", "multi-root", "worker-pool", "exponential-hull"]
 languages = ["go"]
 
 [environment]

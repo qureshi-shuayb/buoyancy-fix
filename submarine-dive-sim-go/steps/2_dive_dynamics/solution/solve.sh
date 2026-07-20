@@ -40,21 +40,13 @@ type EquilibriumPoint struct {
 }
 
 func CdFromRe(re float64) float64 {
-	if re < 1e-6 {
+	if re < 1e5 {
 		return 1.2
 	}
-	// Clift-Gauvin base
-	base := 24.0/re*(1+0.15*math.Pow(re, 0.687)) + 0.42/(1+42500*math.Pow(re, -1.16))
-	crisis := 0.2 + 0.8/(1+math.Exp((re-3e5)/4e4))
-	cd := base * crisis
-	if cd > 1.2 {
-		cd = 1.2
+	if re < 5e5 {
+		return 0.5
 	}
-	if cd < 0.08 {
-		cd = 0.08
-	}
-	_ = math.Sqrt(re)
-	return cd
+	return 0.2
 }
 
 func SubmergedFraction(sub Submarine, fluid Seawater) (float64, error) {
@@ -213,91 +205,28 @@ func TerminalVelocity(sub Submarine, fluid Seawater, depth float64, g float64) (
 	if hi >= 1e6 && dragMag(hi) < absDelta {
 		return 0, errors.New("unable to find terminal velocity upper bound")
 	}
-
-	// scanning for all roots due to crisis dip
-	N := 2000
-	dv := hi / float64(N)
-	var brackets [][2]float64
-	prevV := 0.0
-	prevH := dragMag(prevV) - absDelta
-	for i := 1; i <= N; i++ {
-		curV := float64(i) * dv
-		curH := dragMag(curV) - absDelta
-		if prevH*curH <= 0 {
-			brackets = append(brackets, [2]float64{prevV, curV})
+	// bisection
+	for i := 0; i < 100; i++ {
+		mid := (lo + hi) / 2
+		d := dragMag(mid)
+		diff := d - absDelta
+		if math.Abs(diff) <= 1e-9 || (hi-lo) < 1e-9 {
+			if delta > 0 {
+				return mid, nil
+			}
+			return -mid, nil
 		}
-		prevV = curV
-		prevH = curH
-	}
-	if len(brackets) == 0 {
-		// fallback bisection over [lo,hi]
-		brackets = append(brackets, [2]float64{lo, hi})
-	}
-	var roots []float64
-	for _, br := range brackets {
-		l := br[0]
-		h := br[1]
-		for iter := 0; iter < 200; iter++ {
-			mid := (l + h) / 2
-			d := dragMag(mid)
-			diff := d - absDelta
-			if math.Abs(diff) <= 1e-9 || (h-l) < 1e-9 {
-				isDup := false
-				for _, r := range roots {
-					if math.Abs(r-mid) <= 1e-6 {
-						isDup = true
-						break
-					}
-				}
-				if !isDup {
-					roots = append(roots, mid)
-				}
-				break
-			}
-			if dragMag(l)-absDelta < 0 && d-absDelta < 0 {
-				// both negative, need upper
-				if (dragMag(l)-absDelta)*(d-absDelta) <= 0 {
-					h = mid
-				} else {
-					// actually drag - absDelta increasing overall but may dip, handle by moving lo
-					// For scanning we already have bracket, so use sign
-					if dragMag(l) < absDelta && d < absDelta {
-						l = mid
-					} else if dragMag(l) > absDelta && d > absDelta {
-						h = mid
-					} else {
-						if d < absDelta {
-							l = mid
-						} else {
-							h = mid
-						}
-					}
-				}
-			} else {
-				if d < absDelta {
-					l = mid
-				} else {
-					h = mid
-				}
-			}
+		if d < absDelta {
+			lo = mid
+		} else {
+			hi = mid
 		}
 	}
-	if len(roots) == 0 {
-		return 0, errors.New("no terminal velocity root found")
-	}
-	// sort roots ascending
-	for i := 0; i < len(roots); i++ {
-		for j := i + 1; j < len(roots); j++ {
-			if roots[j] < roots[i] {
-				roots[i], roots[j] = roots[j], roots[i]
-			}
-		}
-	}
-	vMag := roots[0] // smallest magnitude
+	mid := (lo + hi) / 2
 	if delta > 0 {
-		return vMag, nil
+		return mid, nil
 	}
-	return -vMag, nil
+	return -mid, nil
 }
 
 func FindEquilibriumDepth(sub Submarine, fluid Seawater, g float64, maxDepth float64, tolerance float64) (float64, error) {
@@ -348,13 +277,7 @@ func FindEquilibriumDepthsWithStability(sub Submarine, fluid Seawater, g float64
 	f := func(z float64) (float64, error) {
 		return NetVerticalForceAtDepth(sub, fluid, z, 0, g)
 	}
-	f0, err := f(0)
-	if err != nil {
-		return nil, err
-	}
-	_ = f0
-
-	N := 2000
+	N := 1000
 	dz := maxDepth / float64(N)
 	zs := make([]float64, N+1)
 	fs := make([]float64, N+1)
@@ -377,23 +300,12 @@ func FindEquilibriumDepthsWithStability(sub Submarine, fluid Seawater, g float64
 			brackets = append(brackets, [2]float64{zs[i], zs[i+1]})
 		}
 	}
-	// handle near zero at surface already included via loop
-
 	var roots []EquilibriumPoint
 	for _, br := range brackets {
 		lo := br[0]
 		hi := br[1]
 		if lo == hi {
-			fval, _ := f(lo)
-			// stability derivative
-			delta := 0.1
-			fPlus, _ := f(lo + delta)
-			fMinus, _ := f(lo - delta)
-			if lo < delta {
-				fMinus = fPlus
-			}
-			dFdZ := (fPlus - fMinus) / (2 * delta)
-			stable := dFdZ > 0
+			// exact zero
 			isDup := false
 			for _, r := range roots {
 				if math.Abs(r.Depth-lo) <= tolerance*10 {
@@ -402,14 +314,16 @@ func FindEquilibriumDepthsWithStability(sub Submarine, fluid Seawater, g float64
 				}
 			}
 			if !isDup {
-				roots = append(roots, EquilibriumPoint{Depth: lo, Stable: stable, FPrime: dFdZ})
-				_ = fval
+				// stability via perturbation
+				fPlus, _ := f(lo + 1)
+				stable := fPlus > 0
+				roots = append(roots, EquilibriumPoint{Depth: lo, Stable: stable, FPrime: 0})
 			}
 			continue
 		}
 		fLo, _ := f(lo)
 		var mid float64
-		for iter := 0; iter < 200; iter++ {
+		for iter := 0; iter < 100; iter++ {
 			mid = (lo + hi) / 2
 			fmid, _ := f(mid)
 			if math.Abs(fmid) <= 1e-9 || (hi-lo) < tolerance {
@@ -422,18 +336,6 @@ func FindEquilibriumDepthsWithStability(sub Submarine, fluid Seawater, g float64
 				fLo = fmid
 			}
 		}
-		// compute stability
-		delta := 0.1
-		fPlus, _ := f(mid + delta)
-		fMinus, _ := f(mid - delta)
-		if mid < delta {
-			fMinus, _ = f(mid)
-			fPlus, _ = f(mid + delta)
-			// forward diff
-		}
-		dFdZ := (fPlus - fMinus) / (2 * delta)
-		stable := dFdZ > 0
-
 		isDup := false
 		for _, r := range roots {
 			if math.Abs(r.Depth-mid) <= tolerance*10 || math.Abs(r.Depth-mid) <= 1e-6 {
@@ -442,13 +344,18 @@ func FindEquilibriumDepthsWithStability(sub Submarine, fluid Seawater, g float64
 			}
 		}
 		if !isDup {
+			fPlus, _ := f(mid + 1)
+			stable := fPlus > 0
+			// derivative via central diff
+			fP, _ := f(mid + 0.1)
+			fM, _ := f(mid - 0.1)
+			dFdZ := (fP - fM) / 0.2
 			roots = append(roots, EquilibriumPoint{Depth: mid, Stable: stable, FPrime: dFdZ})
 		}
 	}
 	if len(roots) == 0 {
 		return nil, errors.New("no equilibrium depth: no sign change")
 	}
-	// sort by depth
 	for i := 0; i < len(roots); i++ {
 		for j := i + 1; j < len(roots); j++ {
 			if roots[j].Depth < roots[i].Depth {
@@ -486,32 +393,13 @@ func TimeToDepth(sub Submarine, fluid Seawater, targetDepth float64, g float64, 
 		return 0, errors.New("mass must be positive")
 	}
 
-	// helper to compute Fnet_down and m_total at given z, v_down
-	fnetDown := func(z float64, vDown float64) (float64, float64, error) {
-		// vDown positive down, vUp = -vDown
+	fnetDown := func(z float64, vDown float64) (float64, error) {
 		vUp := -vDown
-		// compute rho, vol, area, Cd, drag via NetVerticalForceAtDepth logic but we need m_total too
-		rho, err := fluid.DensityAtDepth(z)
+		fUp, err := NetVerticalForceAtDepth(sub, fluid, z, vUp, g)
 		if err != nil {
-			return 0, 0, err
+			return 0, err
 		}
-		vol, err := sub.VolumeAtDepth(z, fluid, g)
-		if err != nil {
-			return 0, 0, err
-		}
-		if sub.Length <= 0 {
-			return 0, 0, errors.New("length must be positive")
-		}
-		area := vol / sub.Length
-		re := rho * math.Abs(vUp) * sub.Length / SeawaterViscosity
-		cd := CdFromRe(re)
-		fb := rho * vol * g
-		fw := mass * g
-		dragDown := 0.5 * rho * cd * area * vDown * math.Abs(vDown)
-		fnet := fw - fb - dragDown
-		mTot := mass + 0.5*rho*vol
-		_ = math.Exp(-rho*1e-9)
-		return fnet, mTot, nil
+		return -fUp, nil
 	}
 
 	time := 0.0
@@ -520,94 +408,60 @@ func TimeToDepth(sub Submarine, fluid Seawater, targetDepth float64, g float64, 
 
 	_ = context.Background()
 
-	dtCurrent := dt
-	atol := 1e-6
-
 	for time < maxTime {
 		if z >= targetDepth {
 			return time, nil
 		}
-		// RK4 full step
-		computeStep := func(z0, v0, dtt float64) (float64, float64, error) {
-			f1, m1, err := fnetDown(z0, v0)
-			if err != nil {
-				return 0, 0, err
-			}
-			k1_z := v0
-			k1_v := f1 / m1
-
-			f2, m2, err := fnetDown(z0+0.5*dtt*k1_z, v0+0.5*dtt*k1_v)
-			if err != nil {
-				return 0, 0, err
-			}
-			k2_z := v0 + 0.5*dtt*k1_v
-			k2_v := f2 / m2
-
-			f3, m3, err := fnetDown(z0+0.5*dtt*k2_z, v0+0.5*dtt*k2_v)
-			if err != nil {
-				return 0, 0, err
-			}
-			k3_z := v0 + 0.5*dtt*k2_v
-			k3_v := f3 / m3
-
-			f4, m4, err := fnetDown(z0+dtt*k3_z, v0+dtt*k3_v)
-			if err != nil {
-				return 0, 0, err
-			}
-			k4_z := v0 + dtt*k3_v
-			k4_v := f4 / m4
-
-			zNext := z0 + dtt/6*(k1_z+2*k2_z+2*k3_z+k4_z)
-			vNext := v0 + dtt/6*(k1_v+2*k2_v+2*k3_v+k4_v)
-			return zNext, vNext, nil
-		}
-
-		z1, v1, err := computeStep(z, v, dtCurrent)
+		f1, err := fnetDown(z, v)
 		if err != nil {
 			return 0, err
 		}
-		zm, vm, err := computeStep(z, v, dtCurrent/2)
+		k1_z := v
+		k1_v := f1 / mass
+
+		f2, err := fnetDown(z+0.5*dt*k1_z, v+0.5*dt*k1_v)
 		if err != nil {
 			return 0, err
 		}
-		z2, v2, err := computeStep(zm, vm, dtCurrent/2)
+		k2_z := v + 0.5*dt*k1_v
+		k2_v := f2 / mass
+
+		f3, err := fnetDown(z+0.5*dt*k2_z, v+0.5*dt*k2_v)
 		if err != nil {
 			return 0, err
 		}
-		errEst := math.Abs(z2-z1) + math.Abs(v2-v1)
-		if errEst > atol {
-			dtCurrent /= 2
-			if dtCurrent < 1e-9 {
-				return 0, errors.New("dt too small")
-			}
-			continue
+		k3_z := v + 0.5*dt*k2_v
+		k3_v := f3 / mass
+
+		f4, err := fnetDown(z+dt*k3_z, v+dt*k3_v)
+		if err != nil {
+			return 0, err
 		}
-		// check crossing
-		if z2 >= targetDepth {
-			if z2 != z {
-				frac := (targetDepth - z) / (z2 - z)
+		k4_z := v + dt*k3_v
+		k4_v := f4 / mass
+
+		zNext := z + dt/6*(k1_z+2*k2_z+2*k3_z+k4_z)
+		vNext := v + dt/6*(k1_v+2*k2_v+2*k3_v+k4_v)
+
+		if zNext >= targetDepth {
+			if zNext != z {
+				frac := (targetDepth - z) / (zNext - z)
 				if frac < 0 {
 					frac = 0
 				}
 				if frac > 1 {
 					frac = 1
 				}
-				return time + frac*dtCurrent, nil
+				return time + frac*dt, nil
 			}
-			return time + dtCurrent, nil
+			return time + dt, nil
 		}
-		z = z2
-		v = v2
-		time += dtCurrent
+		z = zNext
+		v = vNext
+		time += dt
 
 		if z > sub.CrushDepth {
 			return 0, errors.New("crush depth exceeded during dive")
-		}
-		if errEst < atol/4 {
-			dtCurrent *= 2
-			if dtCurrent > dt*2 {
-				dtCurrent = dt * 2
-			}
 		}
 	}
 	return 0, errors.New("target depth not reached within maxTime")
@@ -665,7 +519,7 @@ func AnalyzeDive(sub Submarine, fluid Seawater) (DiveResult, error) {
 	if maxSearch > 2000 {
 		maxSearch = 2000
 	}
-	if ed, err := FindEquilibriumDepth(sub, fluid, g, maxSearch, 1e-6); err == nil {
+	if ed, err := FindEquilibriumDepth(sub, fluid, g, maxSearch, 1e-3); err == nil {
 		eqDepth = ed
 	}
 
@@ -848,20 +702,8 @@ func BatchAnalyzeFleetWithContext(ctx context.Context, subs []Submarine, fluid S
 		target := targetDepths[iLocal]
 		go func() {
 			defer wg.Done()
-			select {
-			case <-ctx.Done():
-				results[iLocal] = DiveResult{Index: iLocal, State: "invalid"}
-				return
-			case sem <- struct{}{}:
-			}
+			sem <- struct{}{}
 			defer func() { <-sem }()
-
-			select {
-			case <-ctx.Done():
-				results[iLocal] = DiveResult{Index: iLocal, State: "invalid"}
-				return
-			default:
-			}
 
 			if err := subLocal.Validate(); err != nil {
 				results[iLocal] = DiveResult{Index: iLocal, State: "invalid", CrushRisk: target > subLocal.CrushDepth}
