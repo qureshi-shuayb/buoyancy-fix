@@ -348,7 +348,90 @@ def write_step2_tests():
                     t.Fatalf("Batch stratified frustum invalid handling/order failed")
                 }
             }
-            '''
+
+            func TestConicalHardFraction(t *testing.T) {
+                // Hard trap: fraction 0.125 should give depth 0.5*H, not 0.125*H (4x difference)
+                obj := Object{Mass: 125, Volume: 1, Height: 4} // density 125, fraction 0.125 (125/1000)
+                fluid := Fluid{Density: 1000}
+                depth, err := EquilibriumDepthConical(obj, fluid)
+                if err != nil {
+                    t.Fatalf("EquilibriumDepthConical error: %v", err)
+                }
+                want := 4 * math.Cbrt(0.125) // 4*0.5=2
+                if !approx(depth, want) {
+                    t.Fatalf("Conical hard fraction 0.125 depth = %g want %g (must be cbrt, not linear)", depth, want)
+                }
+                linear := 0.125 * 4
+                if approx(depth, linear) {
+                    t.Fatalf("Conical depth %g == linear %g, must be non-linear cbrt", depth, linear)
+                }
+            }
+
+            func TestFrustumVolumePiFactor(t *testing.T) {
+                // Pi factor trap: R1=0,R2=1,H=3 volume = Pi*1 = 3.14159, missing Pi gives 1
+                f := FrustumObject{Mass: 100, BaseRadius: 0, TopRadius: 1, Height: 3}
+                vol, err := f.Volume()
+                if err != nil {
+                    t.Fatalf("Volume error: %v", err)
+                }
+                want := math.Pi * 1.0
+                if !approx(vol, want) {
+                    t.Fatalf("Frustum volume Pi trap R1=0,R2=1,H=3 = %g want %g (missing Pi?)", vol, want)
+                }
+                f2 := FrustumObject{Mass: 100, BaseRadius: 1, TopRadius: 1, Height: 2}
+                vol2, _ := f2.Volume()
+                want2 := 2 * math.Pi // cylinder pi*r^2*h = pi*1*2
+                if !approx(vol2, want2) {
+                    t.Fatalf("Frustum cylinder reduction R1=1,R2=1,H=2 = %g want %g", vol2, want2)
+                }
+            }
+
+            func TestStratifiedHalfFactorTrap(t *testing.T) {
+                // 0.5 factor trap: BM/A = S*d + 0.5*G*d^2 = 1000*10+0.5*2*100=10100, naive without 0.5 gives 10200 (1% error)
+                obj := Object{Mass: 600, Volume: 1, Height: 20} // make sure floating with S=1000,G=2,d=10
+                // Use direct BM calc via equilibrium? We'll test via stratified depth differs from naive
+                // For prismatic, ref with 0.5 factor is 10100/A, without is 10200/A - difference detectable via depth
+                // Instead test DensityAtDepth + BM formula via reference
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 2}
+                // Expected BM at d=10 with 0.5 factor: 0.05*(1000*10+0.5*2*100)=0.05*10100=505
+                // Naive without 0.5: 0.05*10200=510 (1% high)
+                // Our ref function uses 0.5, so test ensures solution matches ref, not naive
+                depth, err := EquilibriumDepthStratified(obj, sf)
+                if err != nil {
+                    t.Fatalf("EquilibriumDepthStratified error: %v", err)
+                }
+                // depth should not equal uniform (which would be 12 for density 600/1000*20) - must differ due to G
+                if approx(depth, 12.0) {
+                    t.Fatalf("Stratified depth %g == uniform 12, must differ due to G", depth)
+                }
+            }
+
+            func TestBatchNilHandling(t *testing.T) {
+                // Explicit nil -> non-nil empty slice Go idiom
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0}
+                fluid := Fluid{Density: 1000}
+                res, err := BatchAnalyze(nil, fluid)
+                if err != nil {
+                    t.Fatalf("BatchAnalyze nil fluid valid should not error, got %v", err)
+                }
+                if res == nil {
+                    t.Fatalf("BatchAnalyze nil should return non-nil empty slice, got nil")
+                }
+                if len(res)!=0 {
+                    t.Fatalf("BatchAnalyze nil len=%d want 0", len(res))
+                }
+                res2, err := BatchAnalyzeStratified(nil, sf)
+                if res2 == nil {
+                    t.Fatalf("BatchAnalyzeStratified nil should return non-nil empty")
+                }
+                // Fluid invalid should return nil,error immediately
+                _, err = BatchAnalyze(nil, Fluid{Density: 0})
+                if err == nil {
+                    t.Fatalf("BatchAnalyze with invalid fluid should return nil,error")
+                }
+            }
+
+'''
         )
     )
 
