@@ -203,15 +203,12 @@ func (sw Seawater) PotentialDensityAtDepth(depth float64) (float64, error) {
 	if depth < 0 {
 		return 0, errors.New("depth must be non-negative")
 	}
-	// Potential density without linear compressible gradient: rho0 + pycnoclines + beta*(S-35)+gamma*(15-T)
+	// rho_pot = rho without linear grad*z: rho0 + pycnoclines + beta*(S-35)+gamma*(15-T)
 	pyc1 := PycnoclineDelta * (1.0 - math.Exp(-depth/PycnoclineScale))
 	pyc2 := DeepPycnoclineDelta * (1.0 - math.Exp(-depth/DeepPycnoclineScale))
 	pyc3 := MidPycnoclineDelta * (1.0 - math.Exp(-depth/MidPycnoclineScale))
 	sal := HaloclineDelta * (1.0 - math.Exp(-depth/HaloclineScale))
 	therm := 12.0 * (1.0 - math.Exp(-depth/ThermoclineScale))
-	// also demonstrate BulkModulus usage via small correction factor (not affecting monotonic much)
-	// rho_pot = (rho0 + ...) / (1+P/K) approx, but we will return without grad for simplicity and still reference BulkModulus
-	_ = BulkModulus
 	rhoPot := sw.Density + pyc1 + pyc2 + pyc3 + SalinityDensityCoeff*sal + 0.15*therm
 	return rhoPot, nil
 }
@@ -224,15 +221,12 @@ func (sw Seawater) PotentialTemperatureAtDepth(depth float64) (float64, error) {
 		return 0, errors.New("depth must be non-negative")
 	}
 	T, _ := sw.TemperatureAtDepth(depth)
-	// small bulk modulus correction: theta = T * (1 - P*1e-10) but we return T for testability, still reference BulkModulus
+	// Authoritative: theta = T * (1 - P/BulkModulus*1e-3) using BulkModulus, P from PressureAtDepth
 	P, err := sw.PressureAtDepth(depth, StandardGravity)
 	if err != nil {
 		return 0, err
 	}
-	theta := T * (1.0 - P/BulkModulus*1e-3) // tiny correction 0.1% at 1000m
-	if theta < 0 {
-		theta = T
-	}
+	theta := T * (1.0 - P/BulkModulus*1e-3)
 	return theta, nil
 }
 
