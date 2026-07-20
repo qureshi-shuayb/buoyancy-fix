@@ -14,6 +14,13 @@ const StandardGravity = 9.81
 const StandardSeawaterDensity = 1025.0
 const DepthDensityGradient = 0.02
 const MinimumVolumeFraction = 0.1
+const PycnoclineDelta = 10.0
+const PycnoclineScale = 200.0
+const DeepPycnoclineDelta = 4.5
+const DeepPycnoclineScale = 45.0
+const SeawaterViscosity = 0.001
+const ThermoclineScale = 120.0
+const HullThermalExpansionCoeff = 2.0e-4
 
 type Submarine struct {
 	DryMass            float64
@@ -89,7 +96,56 @@ func (sw Seawater) DensityAtDepth(depth float64) (float64, error) {
 	if depth < 0 {
 		return 0, errors.New("depth must be non-negative")
 	}
-	return sw.Density + DepthDensityGradient*depth, nil
+	// rho(z)= rho0 + grad*z + D1*(1-exp(-z/S1)) + D2*(1-exp(-z/S2))
+	pyc1 := PycnoclineDelta * (1.0 - math.Exp(-depth/PycnoclineScale))
+	pyc2 := DeepPycnoclineDelta * (1.0 - math.Exp(-depth/DeepPycnoclineScale))
+	return sw.Density + DepthDensityGradient*depth + pyc1 + pyc2, nil
+}
+
+func (sw Seawater) DensityGradientAtDepth(depth float64) (float64, error) {
+	if err := sw.Validate(); err != nil {
+		return 0, err
+	}
+	if depth < 0 {
+		return 0, errors.New("depth must be non-negative")
+	}
+	// drho/dz = grad + D1/S1*exp(-z/S1) + D2/S2*exp(-z/S2)
+	term1 := PycnoclineDelta / PycnoclineScale * math.Exp(-depth/PycnoclineScale)
+	term2 := DeepPycnoclineDelta / DeepPycnoclineScale * math.Exp(-depth/DeepPycnoclineScale)
+	return DepthDensityGradient + term1 + term2, nil
+}
+
+func (sw Seawater) TemperatureAtDepth(depth float64) (float64, error) {
+	if err := sw.Validate(); err != nil {
+		return 0, err
+	}
+	if depth < 0 {
+		return 0, errors.New("depth must be non-negative")
+	}
+	// T(z)=15 -12*(1-exp(-z/ThermScale))
+	return 15.0 - 12.0*(1.0-math.Exp(-depth/ThermoclineScale)), nil
+}
+
+func (sw Seawater) BuoyancyFrequencySquared(depth float64, g float64) (float64, error) {
+	if err := sw.Validate(); err != nil {
+		return 0, err
+	}
+	if depth < 0 {
+		return 0, errors.New("depth must be non-negative")
+	}
+	if g <= 0 {
+		return 0, errors.New("gravity must be positive")
+	}
+	rho, err := sw.DensityAtDepth(depth)
+	if err != nil {
+		return 0, err
+	}
+	grad, err := sw.DensityGradientAtDepth(depth)
+	if err != nil {
+		return 0, err
+	}
+	// N^2 = g/rho * drho/dz
+	return g / rho * grad, nil
 }
 
 func (sw Seawater) PressureAtDepth(depth float64, g float64) (float64, error) {
@@ -102,10 +158,11 @@ func (sw Seawater) PressureAtDepth(depth float64, g float64) (float64, error) {
 	if g <= 0 {
 		return 0, errors.New("gravity must be positive")
 	}
-	// Integral of rho(z)*g dz = g * (rho0*z + 0.5*grad*z^2)
-	// rho(z)=rho0+grad*z
-	pressure := g * (sw.Density*depth + 0.5*DepthDensityGradient*depth*depth)
-	return pressure, nil
+	// integral rho dz = rho0*z +0.5*grad*z^2 + D1*(z+S1*exp(-z/S1)-S1) + D2*(z+S2*exp(-z/S2)-S2)
+	exp1 := math.Exp(-depth / PycnoclineScale)
+	exp2 := math.Exp(-depth / DeepPycnoclineScale)
+	integral := sw.Density*depth + 0.5*DepthDensityGradient*depth*depth + PycnoclineDelta*(depth+PycnoclineScale*exp1-PycnoclineScale) + DeepPycnoclineDelta*(depth+DeepPycnoclineScale*exp2-DeepPycnoclineScale)
+	return g * integral, nil
 }
 
 func (s Submarine) VolumeAtDepth(depth float64, fluid Seawater, g float64) (float64, error) {
@@ -124,27 +181,32 @@ func (s Submarine) VolumeAtDepth(depth float64, fluid Seawater, g float64) (floa
 	if depth > s.CrushDepth {
 		return 0, errors.New("crush depth exceeded")
 	}
-	if s.HullCompressibility == 0 {
-		return s.Volume, nil
-	}
 	pressure, err := fluid.PressureAtDepth(depth, g)
 	if err != nil {
 		return 0, err
 	}
-	factor := 1.0 - s.HullCompressibility*pressure
-	minVol := s.Volume * MinimumVolumeFraction
-	if factor < MinimumVolumeFraction {
-		factor = MinimumVolumeFraction
+	temp, err := fluid.TemperatureAtDepth(depth)
+	if err != nil {
+		return 0, err
 	}
-	vol := s.Volume * factor
+	factorExp := 1.0
+	if s.HullCompressibility != 0 {
+		factorExp = math.Exp(-s.HullCompressibility * pressure)
+	}
+	factorThermal := 1.0 + HullThermalExpansionCoeff*(temp-15.0)
+	// factorThermal may be slightly <1 due to cooling, but >0 for our alpha
+	if factorThermal < 0.1 {
+		factorThermal = 0.1
+	}
+	vol := s.Volume * factorExp * factorThermal
+	minVol := s.Volume * MinimumVolumeFraction
 	if vol < minVol {
 		vol = minVol
 	}
 	if vol <= 0 {
 		vol = minVol
 	}
-	// ensure math sanity
-	_ = math.Abs
+	_ = math.Abs(vol)
 	return vol, nil
 }
 
