@@ -1306,7 +1306,19 @@ func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if objs == nil && targets == nil {
+		return make([]DiveResult, 0), nil
+	}
 	if objs == nil {
+		if len(targets) != 0 {
+			return nil, errors.New("objects and targets length mismatch")
+		}
+		return make([]DiveResult, 0), nil
+	}
+	if targets == nil {
+		if len(objs) != 0 {
+			return nil, errors.New("objects and targets length mismatch")
+		}
 		return make([]DiveResult, 0), nil
 	}
 	if g <= 0 {
