@@ -22,17 +22,17 @@ You must derive these relations yourself. No closed-form formulas are given. Use
 
 ## Physics — Stratified Ocean
 
-Density profile: `rho(z) = SurfaceDensity + Gradient * z` where z is depth from surface downward, S>0, G>=0, z>=0.
-
-Buoyant mass at draft d is defined as:
+In this package, stratified ocean is modeled as:
+- Fluid density varies with depth: `rho(z) = SurfaceDensity + Gradient * z` where z is depth from surface, S>0, G>=0
+- Buoyant mass at draft d is defined by this package as:
 ```
-BM(d) = ∫_0^d rho(z) * A(z) dz
+BM(d) = integral_0^d rho(z) * A(z) dz
 ```
-where A(z) is cross-sectional area at depth z for the given geometry.
+where A(z) is cross-sectional area at that depth for the specific geometry. You must derive A(z) for each shape.
 
 Your task is to:
 - Derive A(z) for each geometry (prismatic constant, conical via similar triangles, frustum via linear radius interpolation)
-- Derive BM(d) by integrating rho(z)*A(z). This will involve quadratic terms for prismatic, higher-order terms for conical and frustum due to z-dependent area.
+- Derive BM(d) by integrating rho(z)*A(z) over [0,d] — the form of A(z) affects the resulting polynomial order
 - At full height H, average fluid density is rho_avg = BM(H)/Volume_total. Buoyancy state is via `CheckBuoyancyByDensity(obj_density, rho_avg)` using Tolerance from Step 1.
 - For floating objects, solve BM(d)=Mass via bisection. For neutral/sinking, draft = H.
 - Reduction: when Gradient G=0, stratified depth must equal uniform depth within 1e-6 (critical hidden test).

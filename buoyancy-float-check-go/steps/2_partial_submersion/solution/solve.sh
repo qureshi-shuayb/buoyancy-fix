@@ -419,6 +419,9 @@ func BatchAnalyze(objects []Object, fluid Fluid) ([]SubmersionResult, error) {
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if objects == nil {
+		return make([]SubmersionResult, 0), nil
+	}
 	results := make([]SubmersionResult, len(objects))
 	for i, obj := range objects {
 		if err := obj.Validate(); err != nil {

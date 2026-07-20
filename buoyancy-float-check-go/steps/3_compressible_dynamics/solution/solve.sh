@@ -1252,6 +1252,9 @@ func BatchFindEquilibrium(objs []CompressibleObject, fluid StratifiedFluid, g, m
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if objs == nil {
+		return make([]DiveResult, 0), nil
+	}
 	if g <= 0 {
 		return nil, errors.New("gravity must be positive")
 	}
@@ -1302,6 +1305,9 @@ func BatchFindEquilibrium(objs []CompressibleObject, fluid StratifiedFluid, g, m
 func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid, targets []float64, g, dt, maxTime float64) ([]DiveResult, error) {
 	if err := fluid.Validate(); err != nil {
 		return nil, err
+	}
+	if objs == nil {
+		return make([]DiveResult, 0), nil
 	}
 	if g <= 0 {
 		return nil, errors.New("gravity must be positive")
