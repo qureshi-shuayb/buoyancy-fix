@@ -2,9 +2,9 @@ schema_version = "1.1"
 
 [task]
 name = "shuaybqureshi/submarine-dive-sim-go"
-description = "Rebalanced ultra-super-hard Step1 / easier Step2 submarine simulator: Step1 triple pycnocline + deep halocline salinity + thermocline temperature with T/S density coupling (beta 0.8, gamma 0.15), 18 constants, 5 exponentials in density, analytic gradient, second derivative, salinity gradient, temperature gradient, sound speed with SOFAR minimum, potential density with bulk modulus, potential temperature, Brunt-Vaisala frequency, Turner angle, hydrostatic integral quadratic + 5 exponentials, exponential hull with thermal contraction. Step2 easier: simple Re table Cd 1.2/0.5/0.2, fixed RK4 5% tolerance, implicit terminal bisection, multi-root equilibrium scanning 0.5m, bounded worker-pool fleet 20 order preserved with simple context cancellation."
+description = "Ultra-super-hard Step1 rebalanced significantly harder: Step1 triple pycnocline + halocline + thermocline + cabbeling cross-coupling Cc*(S-35)*(15-T) introducing mixed exponential scale 24m Smix=Hs*Ts/(Hs+Ts) and product-rule differentiation, 22 constants (CabbelingCoeff 0.06, HullThermalExpansionQuadCoeff 1.2e-6, SoundSpeedPressureQuadCoeff 1.2e-5, ThermobaricCoeff 0.5), density 5 exps + mixed scale, gradient with product rule Cab*(dS*tAnom+sAnom*dtAnom), second derivative second product rule, cabbeling parameter, spiciness beta*(S-35)+0.15*(T-15), sound speed with quad pressure term c=1449.2+4.6T-0.055T^2+1.34(S-35)+0.016z+quad*z^2, sound speed gradient analytic 4.6*dT-0.11*T*dT+1.34*dS+0.016+2quad*z, SOFAR axis finder scanning 1000 + ternary bisection, potential density with cabbeling, potential temperature second-order theta=T*(1 -P/K*1e-3 -0.5*(P/K*1e-3)^2), Brunt-Vaisala, Turner angle, double-diffusive regime classification, pressure analytic quadratic+5 exps+mixed Smix term Cab*HD*12*[z+Hs*(expH-1)+Ts*(expT-1)+Smix*(1-expMix)], steric height (P/g -rho0*z)/rho0 analytic includes mixed, hull volume with quad thermal V0*exp(-kP)*(1+alpha*dT+alpha2*dT^2). Step2 easier: simple Re table Cd 1.2/0.5/0.2, fixed RK4 5% tol, terminal bisection, multi-root equilibrium scanning 0.5m, bounded worker-pool fleet 20 order preserved with context cancellation."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "RK4", "concurrency", "pycnocline", "triple-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "turner-angle", "salinity", "sound-speed", "potential-density", "second-derivative", "reynolds", "multi-root", "worker-pool"]
+keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "RK4", "concurrency", "pycnocline", "triple-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "turner-angle", "salinity", "sound-speed", "potential-density", "second-derivative", "reynolds", "multi-root", "worker-pool", "cabbeling", "SOFAR", "spiciness", "steric-height", "product-rule", "mixed-exponential"]
 format = "terminal_bench_multi_turn"
 workstream = "swe_public_repo"
 language = "go"
@@ -16,10 +16,10 @@ difficulty = "hard"
 category = "iterate_on_feature"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 320.0
-junior_time_estimate_min = 600.0
+expert_time_estimate_min = 480.0
+junior_time_estimate_min = 900.0
 reward_type = "binary"
-tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "RK4", "concurrency", "hydrostatics", "drag", "pycnocline", "triple-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "salinity", "sound-speed", "potential-density", "second-derivative", "turner-angle", "reynolds", "multi-root", "worker-pool", "exponential-hull"]
+tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "RK4", "concurrency", "hydrostatics", "drag", "pycnocline", "triple-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "salinity", "sound-speed", "potential-density", "second-derivative", "turner-angle", "reynolds", "multi-root", "worker-pool", "exponential-hull", "cabbeling", "SOFAR", "spiciness", "steric-height", "mixed-exponential", "product-rule", "double-diffusive"]
 languages = ["go"]
 
 [environment]
