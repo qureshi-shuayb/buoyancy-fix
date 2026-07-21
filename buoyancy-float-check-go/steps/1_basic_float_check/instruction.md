@@ -1,12 +1,12 @@
 # Step 1: Basic Buoyancy and Geometry
 
 ## Overview
-Step 1 of 3 building package `buoyancy`. Defines core types and primitives reused in Steps 2-3 (frustum, stratified integrals, compressible dynamics).
+Step 1 of 3 building package `buoyancy`. Defines core types and primitives reused in Steps 2-3.
 
 ## File Location
 - File: `/app/buoyancy.go`, package `buoyancy`
 - Go 1.23+, stdlib only: `math`, `fmt`, `errors`, `sync`
-- Must compile `GO111MODULE=off go test`, `go vet` and `go test -race` pass. File preserved for later steps.
+- Must compile `GO111MODULE=off go test`, `go vet` and `go test -race` pass. File preserved.
 
 ## Constants
 ```go
@@ -27,14 +27,14 @@ type BuoyancyReport struct { Index int; State string; Density, BuoyantForce, Wei
 ## Validation Rules
 
 - `Object.Density()`: validates Mass>0 finite, Volume>0 finite. **Does NOT validate Height.**
-- `Object.Validate()`: validates Mass>0, Volume>0, Height>0 all finite.
-- `Fluid.Validate()`: validates Density>0 finite.
+- `Object.Validate()`: validates Mass>0, Volume>0, Height>0.
+- `Fluid.Validate()`: validates Density>0.
 - `CylinderObject.Validate()`: validates Mass>0, Radius>0, Height>0.
 - `CylinderObject.Volume()`: validates Radius>0, Height>0 only. **Does NOT validate Mass.**
-- `CylinderObject.Density()`: validates Mass>0, uses Volume() for geometry.
+- `CylinderObject.Density()`: validates Mass>0.
 - `SphereObject.Validate()`: validates Mass>0, Radius>0.
 - `SphereObject.Volume()`: validates Radius>0 only. **Does NOT validate Mass.**
-- `SphereObject.Density()`: validates Mass>0, uses Volume().
+- `SphereObject.Density()`: validates Mass>0.
 
 ## Functions
 ```go
@@ -49,20 +49,36 @@ func BatchCheckBuoyancy(objs []Object, fluid Fluid, g float64) ([]BuoyancyReport
 
 ## Behavior
 
-- `Object.Density()`: `Mass/Volume` with overflow check post-division.
+- `Object.Density()`: `Mass/Volume`.
 - `CylinderObject.Volume()`: `π*R²*H` via `math.Pi`.
 - `SphereObject.Volume()`: `4/3*π*R³` via `math.Pi`.
 - `BuoyantForce`: `fluid.Density*volume*g` via passed g.
 - `WeightForce`: `mass*g`.
-- `CheckBuoyancyByDensity`: "float", "sink", "neutral" lowercase; neutral when `|objDensity-fluidDensity|<=Tolerance` inclusive.
-- `CheckBuoyancy`: validates Object, Fluid, delegates to `CheckBuoyancyByDensity`.
+- `CheckBuoyancyByDensity`: "float"/"sink"/"neutral" lowercase; neutral when `|objDensity-fluidDensity|<=Tolerance`.
+- `CheckBuoyancy`: validates Object, Fluid, delegates.
 - `ApparentWeight`: if `|density-fluid.Density|<=Tolerance` returns exactly 0 else `(Mass-fluid.Density*Volume)*g`.
 - `RequiredBallastMass`: if within Tolerance returns exactly 0 else `fluid.Density*Volume-Mass`.
-- `BatchCheckBuoyancy`: if Fluid invalid → nil,error; if g invalid → nil,error; if `objs==nil` → `make([]BuoyancyReport,0),nil` non-nil empty; preserve order via `Index=i`; invalid Object → State="invalid" continue; valid → Density, Buoyant, Weight via g, State via CheckBuoyancyByDensity. Must be concurrent with `sync.WaitGroup` and `sync.Mutex`, race-free.
+- `BatchCheckBuoyancy`: Fluid invalid→nil,error; g invalid→nil,error; `objs==nil`→`make(...,0),nil`; order via `Index=i`; invalid→State="invalid" continue; concurrent with `WaitGroup`+`Mutex` race-free.
 
 ## Error Handling
-All inputs >0 finite except as in Validation Rules; z/d must be >=0 where applicable. After any multiplication/division that can overflow, if result Inf or NaN return error. On error return 0 value and error containing field name: mass, volume, height, radius, density, gravity.
+
+Explicit mapping, error must contain field name case-insensitive:
+- Mass invalid → contains "mass"
+- Volume invalid → contains "volume"
+- Height invalid → contains "height"
+- Radius invalid → contains "radius"
+- Density invalid → contains "density"
+- g invalid → contains "gravity"
+- depth/d invalid → contains "depth"
+Return 0 value and non-nil error on invalid.
+
+## Overflow Handling
+
+After any multiplication or division that can overflow, if intermediate or final result is Inf or NaN return error.
+Example: `BuoyantForce(Fluid{Density:1e200},1e200,1e10)` must error not return Inf.
+Example: `Object{Mass:1e308,Volume:1e-308,Height:1}.Density()` must error.
+Example: `CylinderObject{Mass:1,Radius:1e150,Height:1e150}.Volume()` must error.
+Tiny values like `1e-9` or `1e-12` must still succeed.
 
 ## General
-- No external dependencies, no hardcoded tables, no redefinition of future types.
-- Structs and constants exact spelling and values.
+- No external deps, no hardcoded tables, exact spelling and values.
