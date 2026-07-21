@@ -241,16 +241,6 @@ func CheckBuoyancy(obj Object, fluid Fluid) (string, error) {
 	return CheckBuoyancyByDensity(density, fluid.Density)
 }
 
-func IsNeutrallyBuoyant(objDensity, fluidDensity float64) (bool, error) {
-	if objDensity <= 0 || math.IsNaN(objDensity) || math.IsInf(objDensity, 0) {
-		return false, errors.New("object density must be positive")
-	}
-	if fluidDensity <= 0 || math.IsNaN(fluidDensity) || math.IsInf(fluidDensity, 0) {
-		return false, errors.New("fluid density must be positive")
-	}
-	return math.Abs(objDensity-fluidDensity) <= Tolerance, nil
-}
-
 func ApparentWeight(obj Object, fluid Fluid, g float64) (float64, error) {
 	if err := obj.Validate(); err != nil {
 		return 0, err

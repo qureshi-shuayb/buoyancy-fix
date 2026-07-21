@@ -13,7 +13,7 @@ Step 1 of 3 building package `buoyancy`. Defines core types and primitives reuse
 const Tolerance = 1e-9
 const StandardGravity = 9.81
 ```
-Exact values. Must reference `Tolerance` in `CheckBuoyancyByDensity`, `ApparentWeight`, `RequiredBallastMass`, `IsNeutrallyBuoyant`. Must NOT use `StandardGravity` in `BuoyantForce`, `WeightForce`, `ApparentWeight`, `RequiredBallastMass`, `BatchCheckBuoyancy`; use passed `g`.
+Exact values. Must reference `Tolerance` in `CheckBuoyancyByDensity`, `ApparentWeight`, `RequiredBallastMass`. Must NOT use `StandardGravity` in `BuoyantForce`, `WeightForce`, `ApparentWeight`, `RequiredBallastMass`, `BatchCheckBuoyancy`; use passed `g`.
 
 ## Types
 ```go
@@ -45,23 +45,20 @@ func CheckBuoyancy(obj Object, fluid Fluid) (string, error)
 func ApparentWeight(obj Object, fluid Fluid, g float64) (float64, error)
 func RequiredBallastMass(obj Object, fluid Fluid) (float64, error)
 func BatchCheckBuoyancy(objs []Object, fluid Fluid, g float64) ([]BuoyancyReport, error)
-func IsNeutrallyBuoyant(objDensity, fluidDensity float64) (bool, error)
 ```
 
 ## Behavior
 
-- `Object.Density()`: `Mass/Volume`, must use `Volume()` call for Cylinder/Sphere variants.
-- `CylinderObject.Volume()`: `π*R²*H` via `math.Pi`. `SphereObject.Volume()`: `4/3*π*R³` via `math.Pi`.
-- `BuoyantForce`: `fluid.Density*volume*g` via passed g. `WeightForce`: `mass*g`.
-- `CheckBuoyancyByDensity`: "float"/"sink"/"neutral" lowercase; neutral when `|objDensity-fluidDensity|<=Tolerance` inclusive. Test with 0.999*Tol→neutral, 1.001*Tol→non-neutral, exact Tol inclusive.
+- `Object.Density()`: `Mass/Volume`.
+- `CylinderObject.Volume()`: `π*R²*H` via `math.Pi`.
+- `SphereObject.Volume()`: `4/3*π*R³` via `math.Pi`.
+- `BuoyantForce`: `fluid.Density*volume*g` via passed g.
+- `WeightForce`: `mass*g`.
+- `CheckBuoyancyByDensity`: "float"/"sink"/"neutral" lowercase; neutral when `|objDensity-fluidDensity|<=Tolerance`.
 - `CheckBuoyancy`: validates Object, Fluid, delegates.
-- `ApparentWeight`: if `|density-fluid.Density|<=Tolerance` returns exactly 0 else `(Mass-fluid.Density*Volume)*g`. Must check intermediate `rhoV=fluid.Density*Volume` for overflow before diff.
+- `ApparentWeight`: if `|density-fluid.Density|<=Tolerance` returns exactly 0 else `(Mass-fluid.Density*Volume)*g`.
 - `RequiredBallastMass`: if within Tolerance returns exactly 0 else `fluid.Density*Volume-Mass`.
-- `IsNeutrallyBuoyant`: validates densities >0 finite, returns `|diff|<=Tolerance` using Tolerance constant, error contains "density".
-- `BatchCheckBuoyancy`: Fluid invalid→nil,error; g invalid→nil,error; `objs==nil`→`make(...,0),nil`; order via `Index=i`; invalid→State="invalid" continue; concurrent `WaitGroup`+`Mutex` race-free.
-- Negative zero: `Mass=-0.0` invalid must error (requires `<=0` not `<0`).
-- Zero value on error: On any error return exactly 0 value (or nil,error or non-nil empty for batch nil case) not NaN/Inf/partial.
-- Intermediate overflow: `ApparentWeight` must check `rhoV` for Inf before computing diff.
+- `BatchCheckBuoyancy`: Fluid invalid→nil,error; g invalid→nil,error; `objs==nil`→`make(...,0),nil`; order via `Index=i`; invalid→State="invalid" continue; concurrent with `WaitGroup`+`Mutex` race-free.
 
 ## Error Handling
 
