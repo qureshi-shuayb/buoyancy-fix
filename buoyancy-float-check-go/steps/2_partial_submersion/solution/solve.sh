@@ -1,6 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-# Clean up any leftover Go test files from previous verifier runs to avoid duplicate symbol errors in multi-turn inherited sessions (bespoke package multi-turn hygiene)
 rm -f /app/*_test.go /app/*_test.go.bak /app/buoyancy_step1_test.go /app/partial_step2_test.go /app/compressible_step3_test.go 2>/dev/null || true
 
 cat > /app/buoyancy.go <<'GO'
@@ -9,6 +8,7 @@ package buoyancy
 import (
 	"errors"
 	"math"
+	"sync"
 )
 
 const Tolerance = 1e-9
@@ -312,43 +312,63 @@ func BatchCheckBuoyancy(objs []Object, fluid Fluid, g float64) ([]BuoyancyReport
 		return make([]BuoyancyReport, 0), nil
 	}
 	if len(objs) == 0 {
-		// return non-nil empty for empty slice as well
 		return make([]BuoyancyReport, 0), nil
 	}
 	results := make([]BuoyancyReport, len(objs))
-	for i, obj := range objs {
-		if err := obj.Validate(); err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		density, err := obj.Density()
-		if err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		buoyant, err := BuoyantForce(fluid, obj.Volume, g)
-		if err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		weight, err := WeightForce(obj.Mass, g)
-		if err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		state, err := CheckBuoyancyByDensity(density, fluid.Density)
-		if err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		results[i] = BuoyancyReport{
-			Index:        i,
-			State:        state,
-			Density:      density,
-			BuoyantForce: buoyant,
-			WeightForce:  weight,
-		}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range objs {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			obj := objs[idx]
+			if err := obj.Validate(); err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			density, err := obj.Density()
+			if err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			buoyant, err := BuoyantForce(fluid, obj.Volume, g)
+			if err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			weight, err := WeightForce(obj.Mass, g)
+			if err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			state, err := CheckBuoyancyByDensity(density, fluid.Density)
+			if err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			report := BuoyancyReport{
+				Index:        idx,
+				State:        state,
+				Density:      density,
+				BuoyantForce: buoyant,
+				WeightForce:  weight,
+			}
+			mu.Lock()
+			results[idx] = report
+			mu.Unlock()
+		}(i)
 	}
+	wg.Wait()
 	return results, nil
 }
 GO
@@ -359,6 +379,7 @@ package buoyancy
 import (
 	"errors"
 	"math"
+	"sync"
 )
 
 type SubmersionResult struct {
@@ -496,6 +517,47 @@ func buoyantMassConicalStratified(obj Object, fluid StratifiedFluid, d float64) 
 	S := fluid.SurfaceDensity
 	G := fluid.Gradient
 	return math.Pi * R2 / (H * H) * (S*d*d*d/3.0 + G*d*d*d*d/4.0)
+}
+
+// New exported BuoyantMass functions - super hard, expose polynomial directly
+
+func BuoyantMass(obj Object, fluid StratifiedFluid, d float64) (float64, error) {
+	if err := obj.Validate(); err != nil {
+		return 0, err
+	}
+	if err := fluid.Validate(); err != nil {
+		return 0, err
+	}
+	if d < 0 || math.IsNaN(d) || math.IsInf(d, 0) {
+		return 0, errors.New("depth must be non-negative")
+	}
+	return buoyantMassPrismaticStratified(obj, fluid, d), nil
+}
+
+func BuoyantMassConical(obj Object, fluid StratifiedFluid, d float64) (float64, error) {
+	if err := obj.Validate(); err != nil {
+		return 0, err
+	}
+	if err := fluid.Validate(); err != nil {
+		return 0, err
+	}
+	if d < 0 || math.IsNaN(d) || math.IsInf(d, 0) {
+		return 0, errors.New("depth must be non-negative")
+	}
+	return buoyantMassConicalStratified(obj, fluid, d), nil
+}
+
+func (f FrustumObject) BuoyantMass(fluid StratifiedFluid, d float64) (float64, error) {
+	if err := f.Validate(); err != nil {
+		return 0, err
+	}
+	if err := fluid.Validate(); err != nil {
+		return 0, err
+	}
+	if d < 0 || math.IsNaN(d) || math.IsInf(d, 0) {
+		return 0, errors.New("depth must be non-negative")
+	}
+	return f.buoyantMassAtDepthStratified(fluid, d), nil
 }
 
 func SubmergedFraction(obj Object, fluid Fluid) (float64, error) {
@@ -667,19 +729,33 @@ func BatchAnalyze(objects []Object, fluid Fluid) ([]SubmersionResult, error) {
 		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
-	for i, obj := range objects {
-		if err := obj.Validate(); err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res, err := AnalyzeObject(obj, fluid)
-		if err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res.Index = i
-		results[i] = res
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range objects {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			obj := objects[idx]
+			if err := obj.Validate(); err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res, err := AnalyzeObject(obj, fluid)
+			if err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res.Index = idx
+			mu.Lock()
+			results[idx] = res
+			mu.Unlock()
+		}(i)
 	}
+	wg.Wait()
 	return results, nil
 }
 
@@ -691,19 +767,33 @@ func BatchAnalyzeConical(objects []Object, fluid Fluid) ([]SubmersionResult, err
 		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
-	for i, obj := range objects {
-		if err := obj.Validate(); err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res, err := AnalyzeConicalObject(obj, fluid)
-		if err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res.Index = i
-		results[i] = res
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range objects {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			obj := objects[idx]
+			if err := obj.Validate(); err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res, err := AnalyzeConicalObject(obj, fluid)
+			if err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res.Index = idx
+			mu.Lock()
+			results[idx] = res
+			mu.Unlock()
+		}(i)
 	}
+	wg.Wait()
 	return results, nil
 }
 
@@ -820,19 +910,33 @@ func BatchAnalyzeFrustum(objects []FrustumObject, fluid Fluid) ([]SubmersionResu
 		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
-	for i, obj := range objects {
-		if err := obj.Validate(); err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res, err := AnalyzeFrustumObject(obj, fluid)
-		if err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res.Index = i
-		results[i] = res
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range objects {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			obj := objects[idx]
+			if err := obj.Validate(); err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res, err := AnalyzeFrustumObject(obj, fluid)
+			if err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res.Index = idx
+			mu.Lock()
+			results[idx] = res
+			mu.Unlock()
+		}(i)
 	}
+	wg.Wait()
 	return results, nil
 }
 
@@ -1086,19 +1190,33 @@ func BatchAnalyzeStratified(objects []Object, fluid StratifiedFluid) ([]Submersi
 		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
-	for i, obj := range objects {
-		if err := obj.Validate(); err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res, err := AnalyzeStratifiedObject(obj, fluid)
-		if err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res.Index = i
-		results[i] = res
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range objects {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			obj := objects[idx]
+			if err := obj.Validate(); err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res, err := AnalyzeStratifiedObject(obj, fluid)
+			if err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res.Index = idx
+			mu.Lock()
+			results[idx] = res
+			mu.Unlock()
+		}(i)
 	}
+	wg.Wait()
 	return results, nil
 }
 
@@ -1110,19 +1228,33 @@ func BatchAnalyzeConicalStratified(objects []Object, fluid StratifiedFluid) ([]S
 		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
-	for i, obj := range objects {
-		if err := obj.Validate(); err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res, err := AnalyzeConicalStratifiedObject(obj, fluid)
-		if err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res.Index = i
-		results[i] = res
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range objects {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			obj := objects[idx]
+			if err := obj.Validate(); err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res, err := AnalyzeConicalStratifiedObject(obj, fluid)
+			if err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res.Index = idx
+			mu.Lock()
+			results[idx] = res
+			mu.Unlock()
+		}(i)
 	}
+	wg.Wait()
 	return results, nil
 }
 
@@ -1134,19 +1266,34 @@ func BatchAnalyzeFrustumStratified(objects []FrustumObject, fluid StratifiedFlui
 		return make([]SubmersionResult, 0), nil
 	}
 	results := make([]SubmersionResult, len(objects))
-	for i, obj := range objects {
-		if err := obj.Validate(); err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res, err := AnalyzeFrustumStratifiedObject(obj, fluid)
-		if err != nil {
-			results[i] = SubmersionResult{Index: i, State: "invalid"}
-			continue
-		}
-		res.Index = i
-		results[i] = res
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range objects {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			obj := objects[idx]
+			if err := obj.Validate(); err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res, err := AnalyzeFrustumStratifiedObject(obj, fluid)
+			if err != nil {
+				mu.Lock()
+				results[idx] = SubmersionResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			res.Index = idx
+			mu.Lock()
+			results[idx] = res
+			mu.Unlock()
+		}(i)
 	}
+	wg.Wait()
 	return results, nil
 }
+
 GO

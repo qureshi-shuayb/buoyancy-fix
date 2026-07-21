@@ -8,6 +8,7 @@ package buoyancy
 import (
 	"errors"
 	"math"
+	"sync"
 )
 
 const Tolerance = 1e-9
@@ -311,43 +312,63 @@ func BatchCheckBuoyancy(objs []Object, fluid Fluid, g float64) ([]BuoyancyReport
 		return make([]BuoyancyReport, 0), nil
 	}
 	if len(objs) == 0 {
-		// return non-nil empty for empty slice as well
 		return make([]BuoyancyReport, 0), nil
 	}
 	results := make([]BuoyancyReport, len(objs))
-	for i, obj := range objs {
-		if err := obj.Validate(); err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		density, err := obj.Density()
-		if err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		buoyant, err := BuoyantForce(fluid, obj.Volume, g)
-		if err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		weight, err := WeightForce(obj.Mass, g)
-		if err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		state, err := CheckBuoyancyByDensity(density, fluid.Density)
-		if err != nil {
-			results[i] = BuoyancyReport{Index: i, State: "invalid"}
-			continue
-		}
-		results[i] = BuoyancyReport{
-			Index:        i,
-			State:        state,
-			Density:      density,
-			BuoyantForce: buoyant,
-			WeightForce:  weight,
-		}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range objs {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			obj := objs[idx]
+			if err := obj.Validate(); err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			density, err := obj.Density()
+			if err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			buoyant, err := BuoyantForce(fluid, obj.Volume, g)
+			if err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			weight, err := WeightForce(obj.Mass, g)
+			if err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			state, err := CheckBuoyancyByDensity(density, fluid.Density)
+			if err != nil {
+				mu.Lock()
+				results[idx] = BuoyancyReport{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
+			}
+			report := BuoyancyReport{
+				Index:        idx,
+				State:        state,
+				Density:      density,
+				BuoyantForce: buoyant,
+				WeightForce:  weight,
+			}
+			mu.Lock()
+			results[idx] = report
+			mu.Unlock()
+		}(i)
 	}
+	wg.Wait()
 	return results, nil
 }
 GO

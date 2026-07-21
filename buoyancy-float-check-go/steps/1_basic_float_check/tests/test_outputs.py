@@ -1008,6 +1008,9 @@ def test_go_file_exists_and_uses_expected_package():
     assert BUOYANCY_FILE.exists(), "/app/buoyancy.go must exist"
     source = BUOYANCY_FILE.read_text()
     assert "package buoyancy" in source
+    # Step1 super hard: Batch must be concurrent with WaitGroup+Mutex
+    assert "WaitGroup" in source, "BatchCheckBuoyancy must be concurrent using sync.WaitGroup"
+    assert "Mutex" in source, "BatchCheckBuoyancy must be race-free using sync.Mutex"
 
 
 def test_step1_go_behavior_and_vet():
@@ -1017,3 +1020,7 @@ def test_step1_go_behavior_and_vet():
 
     vet = run(["go", "vet", "."])
     assert vet.returncode == 0, vet.stdout
+
+    # Super hard: race detector for concurrent batch
+    race = run(["go", "test", "-run", "TestBatchCheckBuoyancy", "-race", "-count=1"])
+    assert race.returncode == 0, race.stdout

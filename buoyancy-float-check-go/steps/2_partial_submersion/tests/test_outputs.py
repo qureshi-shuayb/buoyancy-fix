@@ -193,7 +193,6 @@ def write_step2_tests():
             }
 
             func TestFrustumVolume(t *testing.T) {
-                // Harder: includes cylinder reduction and tall bucket
                 cases := []struct{
                     R1, R2, H float64
                 }{
@@ -212,12 +211,6 @@ def write_step2_tests():
                     if !approx(vol, want) {
                         t.Fatalf("Volume R1=%g R2=%g H=%g = %g want %g", tc.R1, tc.R2, tc.H, vol, want)
                     }
-                }
-                // invalid both 0 should still be handled (volume 0)
-                invalid := FrustumObject{Mass: 100, BaseRadius: 0, TopRadius: 0, Height: 1}
-                vol, _ := invalid.Volume()
-                if vol != 0 {
-                    // allow 0 volume for degenerate, but must not panic
                 }
             }
 
@@ -242,7 +235,6 @@ def write_step2_tests():
                 if _, err := sf.DensityAtDepth(-1); err == nil {
                     t.Fatalf("DensityAtDepth should error on negative z")
                 }
-                // Frustum invalid both radii 0 and negative height
                 frInvalid := FrustumObject{Mass: 0, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
                 if err := frInvalid.Validate(); err == nil {
                     t.Fatalf("should error on invalid frustum mass")
@@ -254,6 +246,44 @@ def write_step2_tests():
                 d, _ := sf.DensityAtDepth(3)
                 if !approx(d, 1006) {
                     t.Fatalf("DensityAtDepth(3) = %g want 1006", d)
+                }
+            }
+
+            func TestBuoyantMassPolynomial(t *testing.T) {
+                // Super hard: directly test BM(d) polynomial coefficients
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 2}
+                // d=10, S=1000,G=2 → BM/A = S*d+0.5*G*d^2 = 1000*10+0.5*2*100=10100, missing 0.5 gives 10200 (1% error)
+                d := 10.0
+                // Use Height 20 so d <= Height
+                obj2 := Object{Mass: 600, Volume: 1, Height: 20}
+                A2 := obj2.Volume / obj2.Height
+                bm, err := BuoyantMass(obj2, sf, d)
+                if err != nil {
+                    t.Fatalf("BuoyantMass error: %v", err)
+                }
+                want := refBuoyantMassPrismatic(A2, sf.SurfaceDensity, sf.Gradient, d)
+                // Use tighter tolerance for direct BM check
+                if math.Abs(bm-want) > 1e-6 {
+                    t.Fatalf("BuoyantMass prismatic = %g want %g (0.5 factor missing?)", bm, want)
+                }
+                // Conical
+                bmCon, err := BuoyantMassConical(obj2, sf, 5)
+                if err != nil {
+                    t.Fatalf("BuoyantMassConical error: %v", err)
+                }
+                wantCon := refBuoyantMassConical(obj2.Volume, obj2.Height, sf.SurfaceDensity, sf.Gradient, 5)
+                if math.Abs(bmCon-wantCon) > 1e-6 {
+                    t.Fatalf("BuoyantMass conical = %g want %g", bmCon, wantCon)
+                }
+                // Frustum
+                frustum := FrustumObject{Mass: 100, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                bmFru, err := frustum.BuoyantMass(sf, 1.5)
+                if err != nil {
+                    t.Fatalf("Frustum BuoyantMass error: %v", err)
+                }
+                wantFru := refBuoyantMassFrustum(0.5, 1.5, 2, sf.SurfaceDensity, sf.Gradient, 1.5)
+                if math.Abs(bmFru-wantFru) > 1e-6 {
+                    t.Fatalf("BuoyantMass frustum = %g want %g (R1*R2 or Pi missing?)", bmFru, wantFru)
                 }
             }
 
@@ -278,8 +308,6 @@ def write_step2_tests():
                 if !approx(depth0, uni) {
                     t.Fatalf("reduction G=0 depth %g != uniform %g", depth0, uni)
                 }
-                // Small G should still differ from uniform (tests that G is actually used, not ignored)
-                // Use absolute diff check, not approx, since even 0.01 gives small diff under approx's 1e-4 relative tol
                 sfSmall := StratifiedFluid{SurfaceDensity: 1000, Gradient: 1.0}
                 depthSmall, _ := EquilibriumDepthStratified(obj, sfSmall)
                 if math.Abs(depthSmall-uni) < 1e-9 {
@@ -333,7 +361,6 @@ def write_step2_tests():
                 if math.Abs(depth-uni) < 1e-9 {
                     t.Fatalf("G=1.0 should differ from uniform even for frustum, got %g vs %g", depth, uni)
                 }
-                // Batch order + invalid handling
                 batch := []FrustumObject{
                     {Mass: 600 * refFrustumVolume(0.5, 1.5, 2), BaseRadius: 0.5, TopRadius: 1.5, Height: 2},
                     {Mass: 0, BaseRadius: 0.5, TopRadius: 1.5, Height: 2},
@@ -350,16 +377,15 @@ def write_step2_tests():
             }
 
             func TestConicalHardFraction(t *testing.T) {
-                // Hard trap: fraction 0.125 should give depth 0.5*H, not 0.125*H (4x difference)
-                obj := Object{Mass: 125, Volume: 1, Height: 4} // density 125, fraction 0.125 (125/1000)
+                obj := Object{Mass: 125, Volume: 1, Height: 4}
                 fluid := Fluid{Density: 1000}
                 depth, err := EquilibriumDepthConical(obj, fluid)
                 if err != nil {
                     t.Fatalf("EquilibriumDepthConical error: %v", err)
                 }
-                want := 4 * math.Cbrt(0.125) // 4*0.5=2
+                want := 4 * math.Cbrt(0.125)
                 if !approx(depth, want) {
-                    t.Fatalf("Conical hard fraction 0.125 depth = %g want %g (must be cbrt, not linear)", depth, want)
+                    t.Fatalf("Conical hard fraction 0.125 depth = %g want %g", depth, want)
                 }
                 linear := 0.125 * 4
                 if approx(depth, linear) {
@@ -368,7 +394,6 @@ def write_step2_tests():
             }
 
             func TestFrustumVolumePiFactor(t *testing.T) {
-                // Pi factor trap: R1=0,R2=1,H=3 volume = Pi*1 = 3.14159, missing Pi gives 1
                 f := FrustumObject{Mass: 100, BaseRadius: 0, TopRadius: 1, Height: 3}
                 vol, err := f.Volume()
                 if err != nil {
@@ -376,46 +401,37 @@ def write_step2_tests():
                 }
                 want := math.Pi * 1.0
                 if !approx(vol, want) {
-                    t.Fatalf("Frustum volume Pi trap R1=0,R2=1,H=3 = %g want %g (missing Pi?)", vol, want)
+                    t.Fatalf("Frustum volume Pi trap R1=0,R2=1,H=3 = %g want %g", vol, want)
                 }
                 f2 := FrustumObject{Mass: 100, BaseRadius: 1, TopRadius: 1, Height: 2}
                 vol2, _ := f2.Volume()
-                want2 := 2 * math.Pi // cylinder pi*r^2*h = pi*1*2
+                want2 := 2 * math.Pi
                 if !approx(vol2, want2) {
-                    t.Fatalf("Frustum cylinder reduction R1=1,R2=1,H=2 = %g want %g", vol2, want2)
+                    t.Fatalf("Frustum cylinder reduction = %g want %g", vol2, want2)
                 }
             }
 
             func TestStratifiedHalfFactorTrap(t *testing.T) {
-                // 0.5 factor trap: BM/A = S*d + 0.5*G*d^2 = 1000*10+0.5*2*100=10100, naive without 0.5 gives 10200 (1% error)
-                obj := Object{Mass: 600, Volume: 1, Height: 20} // make sure floating with S=1000,G=2,d=10
-                // Use direct BM calc via equilibrium? We'll test via stratified depth differs from naive
-                // For prismatic, ref with 0.5 factor is 10100/A, without is 10200/A - difference detectable via depth
-                // Instead test DensityAtDepth + BM formula via reference
+                obj := Object{Mass: 600, Volume: 1, Height: 20}
                 sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 2}
-                // Expected BM at d=10 with 0.5 factor: 0.05*(1000*10+0.5*2*100)=0.05*10100=505
-                // Naive without 0.5: 0.05*10200=510 (1% high)
-                // Our ref function uses 0.5, so test ensures solution matches ref, not naive
                 depth, err := EquilibriumDepthStratified(obj, sf)
                 if err != nil {
                     t.Fatalf("EquilibriumDepthStratified error: %v", err)
                 }
-                // depth should not equal uniform (which would be 12 for density 600/1000*20) - must differ due to G
                 if approx(depth, 12.0) {
                     t.Fatalf("Stratified depth %g == uniform 12, must differ due to G", depth)
                 }
             }
 
             func TestBatchNilHandling(t *testing.T) {
-                // Explicit nil -> non-nil empty slice Go idiom
                 sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0}
                 fluid := Fluid{Density: 1000}
                 res, err := BatchAnalyze(nil, fluid)
                 if err != nil {
-                    t.Fatalf("BatchAnalyze nil fluid valid should not error, got %v", err)
+                    t.Fatalf("BatchAnalyze nil should not error, got %v", err)
                 }
                 if res == nil {
-                    t.Fatalf("BatchAnalyze nil should return non-nil empty slice, got nil")
+                    t.Fatalf("BatchAnalyze nil should return non-nil empty slice")
                 }
                 if len(res)!=0 {
                     t.Fatalf("BatchAnalyze nil len=%d want 0", len(res))
@@ -424,7 +440,6 @@ def write_step2_tests():
                 if res2 == nil {
                     t.Fatalf("BatchAnalyzeStratified nil should return non-nil empty")
                 }
-                // Fluid invalid should return nil,error immediately
                 _, err = BatchAnalyze(nil, Fluid{Density: 0})
                 if err == nil {
                     t.Fatalf("BatchAnalyze with invalid fluid should return nil,error")
@@ -453,6 +468,9 @@ def test_partial_go_does_not_redefine_step1_symbols():
     ]
     for pattern in forbidden:
         assert not re.search(pattern, source), f"partial.go must not redefine {pattern}"
+    # Super hard: check concurrent batch uses WaitGroup+Mutex
+    assert "WaitGroup" in source, "BatchAnalyze must be concurrent using sync.WaitGroup"
+    assert "Mutex" in source, "BatchAnalyze must be race-free using sync.Mutex"
 
 
 def test_step2_go_behavior_and_vet():
@@ -462,3 +480,11 @@ def test_step2_go_behavior_and_vet():
 
     vet = run(["go", "vet", "./..."])
     assert vet.returncode == 0, vet.stdout
+
+    # Super hard: race detector for concurrent batch
+    race = run(["go", "test", "-run", "TestBatch", "-race", "-count=1"])
+    assert race.returncode == 0, race.stdout
+
+    # Super hard: BuoyantMass polynomial directly
+    bm = run(["go", "test", "-run", "TestBuoyantMass", "-v"])
+    assert bm.returncode == 0, bm.stdout
