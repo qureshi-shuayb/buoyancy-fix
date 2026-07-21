@@ -214,7 +214,7 @@ func (sw Seawater) SoundSpeedAtDepth(depth float64) (float64, error) {
 	if depth<0 { return 0,errors.New("depth must be non-negative") }
 	T,_:=sw.TemperatureAtDepth(depth)
 	S,_:=sw.SalinityAtDepth(depth)
-	c:=1449.2+4.6*T-0.055*T*T+1.34*(S-35.0)+0.016*depth+SoundSpeedPressureQuadCoeff*depth*depth
+	c:=1449.2+4.6*T-0.055*T*T+1.34*(S-35.0)+0.016*depth+SoundSpeedPressureQuadCoeff*depth*depth+0.01*T*(S-35.0)
 	return c, nil
 }
 func (sw Seawater) SoundSpeedGradientAtDepth(depth float64) (float64, error) {
@@ -223,7 +223,8 @@ func (sw Seawater) SoundSpeedGradientAtDepth(depth float64) (float64, error) {
 	T,_:=sw.TemperatureAtDepth(depth)
 	dT,_:=sw.TemperatureGradientAtDepth(depth)
 	dS,_:=sw.SalinityGradientAtDepth(depth)
-	return 4.6*dT -0.11*T*dT +1.34*dS +0.016 +2.0*SoundSpeedPressureQuadCoeff*depth, nil
+	S,_:=sw.SalinityAtDepth(depth)
+	return 4.6*dT -0.11*T*dT +1.34*dS +0.016 +2.0*SoundSpeedPressureQuadCoeff*depth+0.01*dT*(S-35.0)+0.01*T*dS, nil
 }
 func (sw Seawater) FindSOFARAxis(maxDepth float64, tolerance float64) (float64, error) {
 	if maxDepth<=0 { return 0,errors.New("maxDepth must be positive") }
@@ -280,6 +281,34 @@ func (sw Seawater) FindPycnoclineMaxGradient(maxDepth float64, tolerance float64
 		g1,_:=sw.DensityGradientAtDepth(m1)
 		g2,_:=sw.DensityGradientAtDepth(m2)
 		if g1>g2 { hi=m2 } else { lo=m1 }
+	}
+	return (lo+hi)/2.0, nil
+}
+func (sw Seawater) FindSpicinessMaximum(maxDepth float64, tolerance float64) (float64, error) {
+	if maxDepth<=0 { return 0,errors.New("maxDepth must be positive") }
+	if tolerance<=0 { return 0,errors.New("tolerance must be positive") }
+	N:=1000
+	dz:=maxDepth/float64(N)
+	bestS:=-1e99
+	bestIdx:=0
+	zs:=make([]float64,N+1)
+	for i:=0;i<=N;i++{
+		z:=float64(i)*dz
+		s,_:=sw.SpicinessAtDepth(z)
+		zs[i]=z
+		if s>bestS { bestS=s; bestIdx=i }
+	}
+	lo:=0.0
+	if bestIdx>0 { lo=zs[bestIdx-1] } else { lo=0 }
+	hi:=maxDepth
+	if bestIdx<N { hi=zs[bestIdx+1] } else { hi=maxDepth }
+	for iter:=0; iter<100; iter++{
+		if hi-lo < tolerance { break }
+		m1:=lo+(hi-lo)/3.0
+		m2:=hi-(hi-lo)/3.0
+		s1,_:=sw.SpicinessAtDepth(m1)
+		s2,_:=sw.SpicinessAtDepth(m2)
+		if s1>s2 { hi=m2 } else { lo=m1 }
 	}
 	return (lo+hi)/2.0, nil
 }
