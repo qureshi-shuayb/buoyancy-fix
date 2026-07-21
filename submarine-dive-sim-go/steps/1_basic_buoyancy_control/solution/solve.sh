@@ -32,16 +32,11 @@ const SoundSpeedPressureQuadCoeff = 1.2e-5
 const ThermobaricCoeff = 0.5
 const ThermalCouplingCoeff = 0.15
 const GammaDepthFactor = 0.0001
+const TAnomQuadCoeff = 0.002
+const SAnomQuadCoeff = 0.01
 
 type Submarine struct {
-	DryMass float64
-	Volume float64
-	Length float64
-	BallastCapacity float64
-	BallastLevel float64
-	HullCompressibility float64
-	CrushDepth float64
-	DragCoefficient float64
+	DryMass float64; Volume float64; Length float64; BallastCapacity float64; BallastLevel float64; HullCompressibility float64; CrushDepth float64; DragCoefficient float64
 }
 type Seawater struct { Density float64 }
 
@@ -57,10 +52,7 @@ func (s Submarine) Validate() error {
 	if s.DragCoefficient<0 { return errors.New("drag coefficient must be non-negative") }
 	return nil
 }
-func (sw Seawater) Validate() error {
-	if sw.Density<=0 { return errors.New("seawater density must be positive") }
-	return nil
-}
+func (sw Seawater) Validate() error { if sw.Density<=0 { return errors.New("seawater density must be positive") }; return nil }
 func (s Submarine) EffectiveMass() float64 { return s.DryMass+s.BallastLevel }
 func (s Submarine) EffectiveDensity() (float64, error) {
 	if err:=s.Validate(); err!=nil { return 0,err }
@@ -92,8 +84,10 @@ func (sw Seawater) CabbelingParameterAtDepth(depth float64) (float64, error) {
 	if depth<0 { return 0,errors.New("depth must be non-negative") }
 	sAnom:=HaloclineDelta*(1.0-math.Exp(-depth/HaloclineScale))
 	tAnom:=12.0*(1.0-math.Exp(-depth/ThermoclineScale))
+	pyc1:=PycnoclineDelta*(1.0-math.Exp(-depth/PycnoclineScale))
+	pyc2:=DeepPycnoclineDelta*(1.0-math.Exp(-depth/DeepPycnoclineScale))
 	pyc3:=MidPycnoclineDelta*(1.0-math.Exp(-depth/MidPycnoclineScale))
-	return CabbelingCoeff*sAnom*tAnom + CabbelingCoeff*pyc3*sAnom, nil
+	return CabbelingCoeff*sAnom*tAnom + CabbelingCoeff*pyc3*sAnom + CabbelingCoeff*pyc1*sAnom + CabbelingCoeff*pyc2*tAnom + TAnomQuadCoeff*tAnom*tAnom + SAnomQuadCoeff*sAnom*sAnom, nil
 }
 func (sw Seawater) SpicinessAtDepth(depth float64) (float64, error) {
 	if err:=sw.Validate(); err!=nil { return 0,err }
@@ -112,8 +106,12 @@ func (sw Seawater) DensityAtDepth(depth float64) (float64, error) {
 	pyc3:=MidPycnoclineDelta*(1.0-math.Exp(-depth/MidPycnoclineScale))
 	cab1:=CabbelingCoeff*sAnom*tAnom
 	cab2:=CabbelingCoeff*pyc3*sAnom
+	cab3:=CabbelingCoeff*pyc1*sAnom
+	cab4:=CabbelingCoeff*pyc2*tAnom
+	quadT:=TAnomQuadCoeff*tAnom*tAnom
+	quadS:=SAnomQuadCoeff*sAnom*sAnom
 	gammaTerm:=ThermalCouplingCoeff*tAnom*(1.0+GammaDepthFactor*depth)
-	return sw.Density+DepthDensityGradient*depth+pyc1+pyc2+pyc3+SalinityDensityCoeff*sAnom+gammaTerm+cab1+cab2, nil
+	return sw.Density+DepthDensityGradient*depth+pyc1+pyc2+pyc3+SalinityDensityCoeff*sAnom+gammaTerm+cab1+cab2+cab3+cab4+quadT+quadS, nil
 }
 func (sw Seawater) DensityGradientAtDepth(depth float64) (float64, error) {
 	if err:=sw.Validate(); err!=nil { return 0,err }
@@ -125,6 +123,8 @@ func (sw Seawater) DensityGradientAtDepth(depth float64) (float64, error) {
 	expT:=math.Exp(-depth/ThermoclineScale)
 	sAnom:=HaloclineDelta*(1.0-expH)
 	tAnom:=12.0*(1.0-expT)
+	pyc1:=PycnoclineDelta*(1.0-exp1)
+	pyc2:=DeepPycnoclineDelta*(1.0-exp2)
 	pyc3:=MidPycnoclineDelta*(1.0-expMid)
 	dS:=HaloclineDelta/HaloclineScale*expH
 	dtAnom:=12.0/ThermoclineScale*expT
@@ -132,11 +132,13 @@ func (sw Seawater) DensityGradientAtDepth(depth float64) (float64, error) {
 	dp2:=DeepPycnoclineDelta/DeepPycnoclineScale*exp2
 	dp3:=MidPycnoclineDelta/MidPycnoclineScale*expMid
 	df:=dtAnom*(1.0+GammaDepthFactor*depth)+tAnom*GammaDepthFactor
-	termH:=SalinityDensityCoeff*dS
-	termGamma:=ThermalCouplingCoeff*df
 	termCab1:=CabbelingCoeff*(dS*tAnom+sAnom*dtAnom)
 	termCab2:=CabbelingCoeff*(dp3*sAnom+pyc3*dS)
-	return DepthDensityGradient+dp1+dp2+dp3+termH+termGamma+termCab1+termCab2, nil
+	termCab3:=CabbelingCoeff*(dp1*sAnom+pyc1*dS)
+	termCab4:=CabbelingCoeff*(dp2*tAnom+pyc2*dtAnom)
+	termQuadT:=TAnomQuadCoeff*2.0*tAnom*dtAnom
+	termQuadS:=SAnomQuadCoeff*2.0*sAnom*dS
+	return DepthDensityGradient+dp1+dp2+dp3+SalinityDensityCoeff*dS+ThermalCouplingCoeff*df+termCab1+termCab2+termCab3+termCab4+termQuadT+termQuadS, nil
 }
 func (sw Seawater) DensitySecondDerivativeAtDepth(depth float64) (float64, error) {
 	if err:=sw.Validate(); err!=nil { return 0,err }
@@ -148,22 +150,27 @@ func (sw Seawater) DensitySecondDerivativeAtDepth(depth float64) (float64, error
 	expT:=math.Exp(-depth/ThermoclineScale)
 	sAnom:=HaloclineDelta*(1.0-expH)
 	tAnom:=12.0*(1.0-expT)
+	pyc1:=PycnoclineDelta*(1.0-exp1)
+	pyc2:=DeepPycnoclineDelta*(1.0-exp2)
 	pyc3:=MidPycnoclineDelta*(1.0-expMid)
 	dS:=HaloclineDelta/HaloclineScale*expH
 	dtAnom:=12.0/ThermoclineScale*expT
 	d2S:=-HaloclineDelta/(HaloclineScale*HaloclineScale)*expH
 	d2tAnom:=-12.0/(ThermoclineScale*ThermoclineScale)*expT
-	d2p3:=-MidPycnoclineDelta/(MidPycnoclineScale*MidPycnoclineScale)*expMid
+	dp1:=PycnoclineDelta/PycnoclineScale*exp1
+	dp2:=DeepPycnoclineDelta/DeepPycnoclineScale*exp2
+	dp3:=MidPycnoclineDelta/MidPycnoclineScale*expMid
 	d2p1:=-PycnoclineDelta/(PycnoclineScale*PycnoclineScale)*exp1
 	d2p2:=-DeepPycnoclineDelta/(DeepPycnoclineScale*DeepPycnoclineScale)*exp2
-	dp3:=MidPycnoclineDelta/MidPycnoclineScale*expMid
+	d2p3:=-MidPycnoclineDelta/(MidPycnoclineScale*MidPycnoclineScale)*expMid
 	d2f:=d2tAnom*(1.0+GammaDepthFactor*depth)+2.0*GammaDepthFactor*dtAnom
-	_ = dp3
-	tH:=SalinityDensityCoeff*d2S
-	tGamma:=ThermalCouplingCoeff*d2f
 	tCab1:=CabbelingCoeff*(d2S*tAnom+2.0*dS*dtAnom+sAnom*d2tAnom)
 	tCab2:=CabbelingCoeff*(d2p3*sAnom+2.0*dp3*dS+pyc3*d2S)
-	return d2p1+d2p2+d2p3+tH+tGamma+tCab1+tCab2, nil
+	tCab3:=CabbelingCoeff*(d2p1*sAnom+2.0*dp1*dS+pyc1*d2S)
+	tCab4:=CabbelingCoeff*(d2p2*tAnom+2.0*dp2*dtAnom+pyc2*d2tAnom)
+	tQuadT:=TAnomQuadCoeff*(2.0*dtAnom*dtAnom+2.0*tAnom*d2tAnom)
+	tQuadS:=SAnomQuadCoeff*(2.0*dS*dS+2.0*sAnom*d2S)
+	return d2p1+d2p2+d2p3+SalinityDensityCoeff*d2S+ThermalCouplingCoeff*d2f+tCab1+tCab2+tCab3+tCab4+tQuadT+tQuadS, nil
 }
 func (sw Seawater) DensityThirdDerivativeAtDepth(depth float64) (float64, error) {
 	if err:=sw.Validate(); err!=nil { return 0,err }
@@ -175,6 +182,8 @@ func (sw Seawater) DensityThirdDerivativeAtDepth(depth float64) (float64, error)
 	expT:=math.Exp(-depth/ThermoclineScale)
 	sAnom:=HaloclineDelta*(1.0-expH)
 	tAnom:=12.0*(1.0-expT)
+	pyc1:=PycnoclineDelta*(1.0-exp1)
+	pyc2:=DeepPycnoclineDelta*(1.0-exp2)
 	pyc3:=MidPycnoclineDelta*(1.0-expMid)
 	dS:=HaloclineDelta/HaloclineScale*expH
 	dtAnom:=12.0/ThermoclineScale*expT
@@ -182,17 +191,23 @@ func (sw Seawater) DensityThirdDerivativeAtDepth(depth float64) (float64, error)
 	d2tAnom:=-12.0/(ThermoclineScale*ThermoclineScale)*expT
 	d3S:=HaloclineDelta/(HaloclineScale*HaloclineScale*HaloclineScale)*expH
 	d3tAnom:=12.0/(ThermoclineScale*ThermoclineScale*ThermoclineScale)*expT
-	d2p3:=-MidPycnoclineDelta/(MidPycnoclineScale*MidPycnoclineScale)*expMid
-	d3p3:=MidPycnoclineDelta/(MidPycnoclineScale*MidPycnoclineScale*MidPycnoclineScale)*expMid
+	dp1:=PycnoclineDelta/PycnoclineScale*exp1
+	dp2:=DeepPycnoclineDelta/DeepPycnoclineScale*exp2
 	dp3:=MidPycnoclineDelta/MidPycnoclineScale*expMid
+	d2p1:=-PycnoclineDelta/(PycnoclineScale*PycnoclineScale)*exp1
+	d2p2:=-DeepPycnoclineDelta/(DeepPycnoclineScale*DeepPycnoclineScale)*exp2
+	d2p3:=-MidPycnoclineDelta/(MidPycnoclineScale*MidPycnoclineScale)*expMid
 	d3p1:=PycnoclineDelta/(PycnoclineScale*PycnoclineScale*PycnoclineScale)*exp1
 	d3p2:=DeepPycnoclineDelta/(DeepPycnoclineScale*DeepPycnoclineScale*DeepPycnoclineScale)*exp2
+	d3p3:=MidPycnoclineDelta/(MidPycnoclineScale*MidPycnoclineScale*MidPycnoclineScale)*expMid
 	d3f:=d3tAnom*(1.0+GammaDepthFactor*depth)+3.0*GammaDepthFactor*d2tAnom
-	tH:=SalinityDensityCoeff*d3S
-	tGamma:=ThermalCouplingCoeff*d3f
 	tCab1:=CabbelingCoeff*(d3S*tAnom+3.0*d2S*dtAnom+3.0*dS*d2tAnom+sAnom*d3tAnom)
 	tCab2:=CabbelingCoeff*(d3p3*sAnom+3.0*d2p3*dS+3.0*dp3*d2S+pyc3*d3S)
-	return d3p1+d3p2+d3p3+tH+tGamma+tCab1+tCab2, nil
+	tCab3:=CabbelingCoeff*(d3p1*sAnom+3.0*d2p1*dS+3.0*dp1*d2S+pyc1*d3S)
+	tCab4:=CabbelingCoeff*(d3p2*tAnom+3.0*d2p2*dtAnom+3.0*dp2*d2tAnom+pyc2*d3tAnom)
+	tQuadT:=TAnomQuadCoeff*(6.0*dtAnom*d2tAnom+2.0*tAnom*d3tAnom)
+	tQuadS:=SAnomQuadCoeff*(6.0*dS*d2S+2.0*sAnom*d3S)
+	return d3p1+d3p2+d3p3+SalinityDensityCoeff*d3S+ThermalCouplingCoeff*d3f+tCab1+tCab2+tCab3+tCab4+tQuadT+tQuadS, nil
 }
 func (sw Seawater) SoundSpeedAtDepth(depth float64) (float64, error) {
 	if err:=sw.Validate(); err!=nil { return 0,err }
@@ -326,6 +341,12 @@ func (sw Seawater) PressureAtDepth(depth float64, g float64) (float64, error) {
 	inv22:=1.0/MidPycnoclineScale+1.0/HaloclineScale
 	sMix22:=1.0/inv22
 	expMix22:=math.Exp(-depth*inv22)
+	invS1Hs:=1.0/PycnoclineScale+1.0/HaloclineScale
+	sMixS1Hs:=1.0/invS1Hs
+	expMixS1Hs:=math.Exp(-depth*invS1Hs)
+	invS2Ts:=1.0/DeepPycnoclineScale+1.0/ThermoclineScale
+	sMixS2Ts:=1.0/invS2Ts
+	expMixS2Ts:=math.Exp(-depth*invS2Ts)
 	integral:=sw.Density*depth+0.5*DepthDensityGradient*depth*depth+
 		PycnoclineDelta*(depth+PycnoclineScale*exp1-PycnoclineScale)+
 		DeepPycnoclineDelta*(depth+DeepPycnoclineScale*exp2-DeepPycnoclineScale)+
@@ -334,7 +355,11 @@ func (sw Seawater) PressureAtDepth(depth float64, g float64) (float64, error) {
 		ThermalCouplingCoeff*12.0*(depth+ThermoclineScale*expT-ThermoclineScale)+
 		ThermalCouplingCoeff*GammaDepthFactor*12.0*(0.5*depth*depth+ThermoclineScale*depth*expT+ThermoclineScale*ThermoclineScale*expT-ThermoclineScale*ThermoclineScale)+
 		CabbelingCoeff*HaloclineDelta*12.0*(depth+HaloclineScale*(expH-1.0)+ThermoclineScale*(expT-1.0)+sMix24*(1.0-expMix24))+
-		CabbelingCoeff*MidPycnoclineDelta*HaloclineDelta*(depth+MidPycnoclineScale*(expMid-1.0)+HaloclineScale*(expH-1.0)+sMix22*(1.0-expMix22))
+		CabbelingCoeff*MidPycnoclineDelta*HaloclineDelta*(depth+MidPycnoclineScale*(expMid-1.0)+HaloclineScale*(expH-1.0)+sMix22*(1.0-expMix22))+
+		CabbelingCoeff*PycnoclineDelta*HaloclineDelta*(depth+PycnoclineScale*(exp1-1.0)+HaloclineScale*(expH-1.0)+sMixS1Hs*(1.0-expMixS1Hs))+
+		CabbelingCoeff*DeepPycnoclineDelta*12.0*(depth+DeepPycnoclineScale*(exp2-1.0)+ThermoclineScale*(expT-1.0)+sMixS2Ts*(1.0-expMixS2Ts))+
+		TAnomQuadCoeff*144.0*(depth+2.0*ThermoclineScale*expT-2.0*ThermoclineScale+(ThermoclineScale/2.0)*(1.0-math.Exp(-2.0*depth/ThermoclineScale)))+
+		SAnomQuadCoeff*HaloclineDelta*HaloclineDelta*(depth+2.0*HaloclineScale*expH-2.0*HaloclineScale+(HaloclineScale/2.0)*(1.0-math.Exp(-2.0*depth/HaloclineScale)))
 	return g*integral, nil
 }
 func (sw Seawater) StericHeightAtDepth(depth float64, g float64) (float64, error) {
