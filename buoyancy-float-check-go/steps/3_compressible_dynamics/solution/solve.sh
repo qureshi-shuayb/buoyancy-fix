@@ -531,7 +531,11 @@ func BuoyantMass(obj Object, fluid StratifiedFluid, d float64) (float64, error) 
 	if d < 0 || math.IsNaN(d) || math.IsInf(d, 0) {
 		return 0, errors.New("depth must be non-negative")
 	}
-	return buoyantMassPrismaticStratified(obj, fluid, d), nil
+	bm := buoyantMassPrismaticStratified(obj, fluid, d)
+	if math.IsInf(bm, 0) || math.IsNaN(bm) {
+		return 0, errors.New("buoyant mass overflow")
+	}
+	return bm, nil
 }
 
 func BuoyantMassConical(obj Object, fluid StratifiedFluid, d float64) (float64, error) {
@@ -544,7 +548,11 @@ func BuoyantMassConical(obj Object, fluid StratifiedFluid, d float64) (float64, 
 	if d < 0 || math.IsNaN(d) || math.IsInf(d, 0) {
 		return 0, errors.New("depth must be non-negative")
 	}
-	return buoyantMassConicalStratified(obj, fluid, d), nil
+	bm := buoyantMassConicalStratified(obj, fluid, d)
+	if math.IsInf(bm, 0) || math.IsNaN(bm) {
+		return 0, errors.New("buoyant mass overflow")
+	}
+	return bm, nil
 }
 
 func (f FrustumObject) BuoyantMass(fluid StratifiedFluid, d float64) (float64, error) {
@@ -557,7 +565,11 @@ func (f FrustumObject) BuoyantMass(fluid StratifiedFluid, d float64) (float64, e
 	if d < 0 || math.IsNaN(d) || math.IsInf(d, 0) {
 		return 0, errors.New("depth must be non-negative")
 	}
-	return f.buoyantMassAtDepthStratified(fluid, d), nil
+	bm := f.buoyantMassAtDepthStratified(fluid, d)
+	if math.IsInf(bm, 0) || math.IsNaN(bm) {
+		return 0, errors.New("buoyant mass overflow")
+	}
+	return bm, nil
 }
 
 func SubmergedFraction(obj Object, fluid Fluid) (float64, error) {
@@ -1796,5 +1808,6 @@ func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid
 	return results, nil
 }
 GO
+
 
 
