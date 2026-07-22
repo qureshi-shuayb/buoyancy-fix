@@ -1,0 +1,55 @@
+schema_version = "1.1"
+
+[task]
+name = "codimango/fuel-fleet-analyzer"
+description = "Build a fuel calculator CLI then use it to analyze fleet fuel costs with variable daily prices"
+authors = [{name = "shuaybqureshi", email = "shuaybqureshi@meta.com"}]
+keywords = ["cli", "fuel", "data-processing", "fleet"]
+format = "terminal_bench_multi_turn"
+workstream = "swe_public_repo"
+
+[metadata]
+author_name = "shuaybqureshi"
+author_email = "shuaybqureshi@meta.com"
+difficulty = "medium"
+category = "new_cli_tool"
+category_usecase = "new_cli_tool"
+category_subdomain = "data_analytics"
+reward_type = "binary"
+tags = ["multi-turn", "context-following", "fleet", "fuel-calculator"]
+languages = ["python"]
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+allow_internet = true
+mcp_servers = []
+
+[environment.env]
+[solution.env]
+
+[[steps]]
+name = "1_build_calculator"
+dependencies = []
+min_reward = 1.0
+
+[steps.verifier]
+timeout_sec = 120.0
+
+[steps.agent]
+timeout_sec = 600.0
+
+[[steps]]
+name = "2_fleet_report"
+dependencies = ["1_build_calculator"]
+min_reward = 1.0
+inherit_prior_session = true
+
+[steps.verifier]
+timeout_sec = 120.0
+
+[steps.agent]
+timeout_sec = 600.0

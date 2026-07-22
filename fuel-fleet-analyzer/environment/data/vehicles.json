@@ -1,0 +1,5 @@
+[
+  {"id": "V001", "make": "Ford Transit", "mpg": 22.5},
+  {"id": "V002", "make": "Mercedes Sprinter", "mpg": 18.0},
+  {"id": "V003", "make": "RAM ProMaster", "mpg": 15.2}
+]
