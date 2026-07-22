@@ -1,5 +1,5 @@
 [
-  {"id": "V001", "make": "Ford Transit", "mpg": 22.5},
-  {"id": "V002", "make": "Mercedes Sprinter", "mpg": 18.0},
-  {"id": "V003", "make": "RAM ProMaster", "mpg": 15.2}
+  {"id": "V001", "make": "Ford Transit", "mpg": 22.5, "fuel_type": "gasoline", "cargo_capacity_kg": 1500},
+  {"id": "V002", "make": "Mercedes Sprinter", "mpg": 18.0, "fuel_type": "diesel", "cargo_capacity_kg": 2000},
+  {"id": "V003", "make": "RAM ProMaster", "mpg": 15.2, "fuel_type": "diesel", "cargo_capacity_kg": 1800}
 ]

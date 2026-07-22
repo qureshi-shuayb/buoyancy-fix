@@ -2,7 +2,7 @@ schema_version = "1.1"
 
 [task]
 name = "codimango/fuel-fleet-analyzer"
-description = "Build a fuel calculator CLI then use it to analyze fleet fuel costs with variable daily prices"
+description = "Build a fuel calculator CLI with cargo-adjusted fuel, CO2, tax and subcommands, then use it to analyze fleet fuel costs with fuel-type-specific prices, cargo penalties, monthly aggregation and CO2"
 authors = [{name = "shuaybqureshi", email = "shuaybqureshi@meta.com"}]
 keywords = ["cli", "fuel", "data-processing", "fleet"]
 format = "terminal_bench_multi_turn"
@@ -11,7 +11,7 @@ workstream = "swe_public_repo"
 [metadata]
 author_name = "shuaybqureshi"
 author_email = "shuaybqureshi@meta.com"
-difficulty = "medium"
+difficulty = "hard"
 category = "new_cli_tool"
 category_usecase = "new_cli_tool"
 category_subdomain = "data_analytics"
