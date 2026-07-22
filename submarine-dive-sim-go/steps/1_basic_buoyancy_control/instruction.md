@@ -168,7 +168,14 @@ Section D – Hull & Buoyancy (4 methods):
 - `VolumeAtDepth(depth,fluid Seawater,g float64) (float64,error)` exp + quad thermal clamp crush
 - `EffectiveDensityAtDepth(depth,fluid Seawater,g float64) (float64,error)`
 
+Section E – Validation & Helpers (required for Step 2 reuse, kept explicit here so no hidden dependency):
+- `(Submarine) Validate() error` checks DryMass>0, Volume>0, Length>0, BallastCapacity>0, BallastLevel>=0 and <=Capacity, HullCompressibility>=0, CrushDepth>0, DragCoefficient>=0, error messages contain field name keyword
+- `(Seawater) Validate() error` checks Density>0
+- `(Submarine) EffectiveMass() float64` returns DryMass+BallastLevel, no error
+- `(Submarine) EffectiveDensity() (float64,error)` returns EffectiveMass/Volume
+
 All depth methods validate depth>=0 else error contains "depth". Methods use math.Exp, Abs, Atan2.
+Step 2 tests call `sub.EffectiveMass()` directly, so it must exist with exact signature.
 
 Note: ~800 lines estimate includes all analytic derivatives and closed-form integrals verified against Simpson 500k and central diff h=0.01; kept as single milestone because Step2 with inherit_prior_session reuses all 26 constants and all depth methods – splitting would require redefining constants and breaking multi-turn dependency.
 

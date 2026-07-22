@@ -696,15 +696,29 @@ func BatchAnalyzeFleetWithContext(ctx context.Context, subs []Submarine, fluid S
 	var wg sync.WaitGroup
 
 	for i := range subs {
+		// Check context before launching more work
+		if ctx.Err() != nil {
+			break
+		}
 		wg.Add(1)
 		iLocal := i
 		subLocal := subs[iLocal]
 		target := targetDepths[iLocal]
 		go func() {
 			defer wg.Done()
-			sem <- struct{}{}
+			// Respect context while waiting for semaphore slot (bounded pool)
+			select {
+			case <-ctx.Done():
+				results[iLocal] = DiveResult{Index: iLocal, State: "invalid"}
+				return
+			case sem <- struct{}{}:
+			}
 			defer func() { <-sem }()
 
+			if ctx.Err() != nil {
+				results[iLocal] = DiveResult{Index: iLocal, State: "invalid"}
+				return
+			}
 			if err := subLocal.Validate(); err != nil {
 				results[iLocal] = DiveResult{Index: iLocal, State: "invalid", CrushRisk: target > subLocal.CrushDepth}
 				return
@@ -721,8 +735,16 @@ func BatchAnalyzeFleetWithContext(ctx context.Context, subs []Submarine, fluid S
 				results[iLocal] = res
 				return
 			}
+			if ctx.Err() != nil {
+				results[iLocal] = DiveResult{Index: iLocal, State: "invalid"}
+				return
+			}
 			res, err := AnalyzeDive(subLocal, fluid)
 			if err != nil {
+				results[iLocal] = DiveResult{Index: iLocal, State: "invalid"}
+				return
+			}
+			if ctx.Err() != nil {
 				results[iLocal] = DiveResult{Index: iLocal, State: "invalid"}
 				return
 			}

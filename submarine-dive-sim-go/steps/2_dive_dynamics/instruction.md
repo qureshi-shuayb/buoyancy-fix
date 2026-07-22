@@ -44,7 +44,29 @@ type EquilibriumPoint struct { Depth float64; Stable bool; FPrime float64 }
 ```
 
 ## Functions Required
-SubmergedFraction, NetVerticalForce, VerticalAcceleration, AnalyzeDive, BatchAnalyzeFleet, NetVerticalForceAtDepth, CdFromRe, TerminalVelocity, FindEquilibriumDepth, FindEquilibriumDepths, FindEquilibriumDepthsWithStability, TimeToDepth, BatchAnalyzeFleetWithTargets, BatchAnalyzeFleetWithContext exact signatures.
+All 14 functions must have exact signatures as in this block – do NOT change parameter order or return types. Tests compile against these.
+
+```go
+func SubmergedFraction(sub Submarine, fluid Seawater) (float64, error)
+func NetVerticalForce(sub Submarine, fluid Seawater, g float64) (float64, error)
+func VerticalAcceleration(sub Submarine, fluid Seawater, g float64) (float64, error)
+func CdFromRe(re float64) float64
+func NetVerticalForceAtDepth(sub Submarine, fluid Seawater, depth float64, velocity float64, g float64) (float64, error)
+func TerminalVelocity(sub Submarine, fluid Seawater, depth float64, g float64) (float64, error)
+func FindEquilibriumDepth(sub Submarine, fluid Seawater, g float64, maxDepth float64, tolerance float64) (float64, error)
+func FindEquilibriumDepths(sub Submarine, fluid Seawater, g float64, maxDepth float64, tolerance float64) ([]float64, error)
+func FindEquilibriumDepthsWithStability(sub Submarine, fluid Seawater, g float64, maxDepth float64, tolerance float64) ([]EquilibriumPoint, error)
+func TimeToDepth(sub Submarine, fluid Seawater, targetDepth float64, g float64, dt float64, maxTime float64) (float64, error)
+func AnalyzeDive(sub Submarine, fluid Seawater) (DiveResult, error)
+func BatchAnalyzeFleet(subs []Submarine, fluid Seawater) ([]DiveResult, error)
+func BatchAnalyzeFleetWithTargets(subs []Submarine, fluid Seawater, targetDepths []float64, g float64) ([]DiveResult, error)
+func BatchAnalyzeFleetWithContext(ctx context.Context, subs []Submarine, fluid Seawater, targetDepths []float64, g float64) ([]DiveResult, error)
+```
+
+- `CdFromRe` has no error return, others do.
+- `NetVerticalForceAtDepth` includes both depth and velocity parameters (velocity may be 0 for static equilibrium searches).
+- `BatchAnalyzeFleetWithContext` must check `ctx.Err()` before starting and respect cancellation during flight; error message must contain "context" or "cancel" when cancelled.
+- `BatchAnalyzeFleetWithTargets` and `BatchAnalyzeFleetWithContext` must error containing "length" or "mismatch" when subs and targetDepths lengths differ.
 
 ## Requirements
-Reuse types/constants, do NOT redefine, go vet and race pass, order preserved 20.
+Reuse types/constants, do NOT redefine, go vet and race pass, order preserved 20. Must import `context` and `sync` and use bounded semaphore `make(chan struct{},4)` with `sync.WaitGroup` and `go` statements for fleet.
