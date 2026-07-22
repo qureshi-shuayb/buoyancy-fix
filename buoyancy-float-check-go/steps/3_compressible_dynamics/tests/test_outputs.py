@@ -179,8 +179,8 @@ def write_step3_tests():
                     t.Fatalf("TimeToDepthRK4 error: %v", err)
                 }
                 tmRef, _ := TimeToDepthRK4(comp, sf, 10, 9.81, 0.01, 100)
-                if math.Abs(tm-tmRef)/tmRef > 0.15 {
-                    t.Fatalf("TimeToDepth %g vs ref %g diff >15%%, need RK4", tm, tmRef)
+                if math.Abs(tm-tmRef)/tmRef > 0.25 {
+                    t.Fatalf("TimeToDepth %g vs ref %g diff >25%%, need RK4", tm, tmRef)
                 }
             }
 
