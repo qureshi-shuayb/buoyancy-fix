@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --break-system-packages --no-cache-dir \
+RUN pip3 install --break-system-packages --retries 10 --timeout 60 --no-cache-dir \
     pytest==8.4.1 \
     pytest-json-ctrf==0.3.5
 

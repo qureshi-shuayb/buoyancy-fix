@@ -1,73 +1,52 @@
-## Description
-Rebalanced: Step1 super-hard stratified ocean with 26 constants (triple pycnocline + halocline + thermocline + quad cabbeling + depth-dependent gamma + quad anomalies), 11 exponential scales (200,45,90,30,120,24,22.5,26.08,32.72,60,15) plus z*exp term, full analytic derivatives (first, second, third) verified vs central diff, sound speed with quad and cross T*(S-35) coupling, SOFAR axis, pycnocline max gradient, spiciness max finders via 1000-point scan+ternary, potential density, second-order potential temperature using BulkModulus and ThermobaricCoeff, Brunt-Vaisala, Turner angle, double-diffusive regime, pressure closed-form 11 terms including mixed scales and double-freq and z*exp integrals verified via Simpson 500k, steric height, hull volume quad thermal exp. Step2 easier moderate: Re table drag Cd 1.2/0.5/0.2, terminal bisection, multi-root equilibrium scanning 200 points, fixed RK4 time-to-depth 15% tolerance, bounded worker-pool fleet 20 order preserved, context cancellation during flight.
+## Description – ULTRA SUPER-HARD
+Step1 **ULTRA super-hard** stratified ocean with **36 constants** (26 original + SecondOrderCabbelingCoeff, TripleCabbelingCoeff, ThermostericAnomalyCoeff, HalostericAnomalyCoeff, AdiabaticLapseRate, SoundSpeedThermoQuadCoeff, SoundSpeedSalinityQuadCoeff, VorticityMixingCoeff, DoubleDiffusiveMixingScale, PressureNonLinearCoeff), 15+ exponential scales (200,45,90,30,120,24,22.5,26.08,32.72,75,18,15.65,21.42,13.33,20,15,60,18) plus z*exp and z²*exp integrals, cubic cabbeling s²t, s*t², triple s*t*pyc, depth-coupled thermo/halo z*anomaly, vorticity layer z*(1-expDm), full analytic derivatives up to 4th order verified vs central diff h=0.005 (tight), sound speed with cubic cross T²(S-35) and T(S-35)² plus pressure coupling P*T, SOFAR/pycnocline/spiciness max via 2000-pt scan+Brent + new finder FindDoubleDiffusiveLayer (root of |Tu|-45), potential density, 3rd order potential temperature with adiabatic lapse, N² with acoustic correction g/rho*(drho/dz - rho*g/c²), potential vorticity, spiciness curvature, bulk modulus with P² non-linear compressibility, pressure 18-term analytic (old 11 + halo depth, thermo depth, vorticity, s²t, s*t², tri1, tri2) verified via Simpson 500k rel 5e-6 (missing any fails >20), steric with P² non-linear correction, volume exp(-kP + PressureNonLinearCoeff*P²*1e-12)*quad thermal. Step2 **SUPER-HARD**: 10-pt Re table log-interp Cd 1.44-0.12, implicit terminal Brent 150 iter tight tol 1e-6 where Cd= Cd(Re(v)), multi-root equilibrium scanning 2000 pts Brent 150 iter + stability FPrime<0, adaptive Dormand-Prince RK45 with atol 1e-6 rtol 1e-5 PI control and k1..k7 error estimate dense output for TimeToDepth 5% vs dt=0.001 ref (Euler fails >30%), priority fleet via container/heap by effective density descending + bounded pool 4 via make(chan struct{},4) + atomic max concurrency tracking + context deadline/cancellation during flight (5ms cancel 100 items, 20ms deadline) + full dive profile ComputeDiveProfile returning []DiveState trajectory.
 
-**Why Step1 is super-hard (current 26-constant version):**
+**Why Step1 is ULTRA super-hard:**
+- **36 constants** exact fingerprint, all verified via TestConstants.
+- **Density** rho = rho0+grad*z + pyc1+pyc2+pyc3 + beta*sAnom + gamma*tAnom*(1+Gamma*z) + 4 cab + 2 quad + SecondOrder*s²*t + SecondOrder*s*t² + Triple*s*t*pyc1 + Triple*s*t*pyc2 + Thermosteric*0.01*t*z + Halosteric*0.01*s*z + Vorticity*z*(1-expDm). 7 new cubic/triple/depth terms, monotonic inc, diff at 60m without cab/quad/cubic/triple/thermo/halo/vort >=1.0.
+- **Derivatives** up to 4th analytic via mul2 product rule Leibniz, matched to central diff h=0.005 tol 1e-6/1e-5/1e-4/1e-3.
+- **Cabbeling** includes second-order and triple, verified exact.
+- **Sound** includes cubic cross 2 new constants + pressure coupling, gradient includes 6 product + rho*g/c² coupling, matched h=0.05 tol 2e-4.
+- **Finders** 2000 pts + Brent 150 iter, brute 0.2m, plus FindDoubleDiffusiveLayer root of |Tu|-45.
+- **Pressure** 18-term analytic using integralProduct helper for generic product of (1-exp) via subset enumeration, integrals of z*exp and z²*exp, missing any mixed/double/triple/vort fails >20, Simpson 500k rel 5e-6.
+- **Steric** with P² non-linear correction PressureNonLinearCoeff*P²*1e-9, tol 5e-4.
+- **Volume** with P² non-linear exp(-kP + PressureNonLinearCoeff*P²*1e-12) + quad thermal, bulk modulus K=1/(k-2*k2*P*1e-12).
+- **N²** acoustic correction, PV, spiciness curvature, potential temp 3rd order+adiabatic lapse.
+- **Methods** 28 required: Salinity, SalinityGradient, Temperature, TemperatureGradient, Density, DensityGradient, DensitySecondDerivative, DensityThirdDerivative, DensityFourthDerivative, SoundSpeed, SoundSpeedGradient, FindSOFARAxis, FindPycnoclineMaxGradient, FindSpicinessMaximum, FindDoubleDiffusiveLayer, PotentialDensity, PotentialTemperature, BuoyancyFrequencySquared, TurnerAngle, DoubleDiffusiveRegime, CabbelingParameter, Spiciness, SpicinessCurvature, PotentialVorticity, BulkModulus, Pressure, StericHeight, Volume, EffectiveDensityAtDepth, + Validate/EffectiveMass/EffectiveDensity + buoyancy functions.
 
-- **26 exact constants** including CabbelingCoeff 0.06, HullThermalExpansionQuadCoeff 1.2e-6, SoundSpeedPressureQuadCoeff 1.2e-5, ThermobaricCoeff 0.5, ThermalCouplingCoeff 0.15, GammaDepthFactor 0.0001, TAnomQuadCoeff 0.002, SAnomQuadCoeff 0.01. All verified via TestConstants.
-- **Density** rho = rho0+grad*z + pyc1+pyc2+pyc3 + beta*sAnom + gamma0*tAnom*(1+GammaDepthFactor*z) + Cc*sAnom*tAnom + Cc*pyc3*sAnom + Cc*pyc1*sAnom + Cc*pyc2*tAnom + Tquad*tAnom^2 + Squad*sAnom^2 with explicit mapping PycnoclineDelta=10 scale 200 etc. 11 scales, monotonic inc, cab+quad diff >=0.5 at 60m.
-- **Derivatives** first, second, third analytic matched to central diff h=0.01 tol 1e-6 / 1e-5.
-- **Sound speed** c=1449.2+4.6T-0.055T^2+1.34*(S-35)+0.016z+quad*z^2+0.01*T*(S-35) cross term, min check c0>c200 and c1500>c200, gradient includes cross product, matched to numeric h=0.1 tol 1e-4.
-- **Finders** SOFAR axis, pycnocline max gradient, spiciness maximum via scanning >=1000 then ternary until width<tolerance, brute 0.5m tolerance 1m/1.5m.
-- **Pressure** complete closed-form with breakdown table (rho0*z, 0.5*grad*z^2, 3 pycno saturations, halocline beta, thermocline gamma, depth-dependent thermal z*tAnom with z*exp integral, 4 cabbeling mixed scales Smix24=24m, Smix22.5=22.5m, SmixS1_Hs=26.08m, SmixS2_Ts=32.72m, quad double-freq Hs/2=15m Ts/2=60m). Matches Simpson 500k rel 1e-5, missing any mixed/double-freq/z*exp fails by >10.
-- **Steric height** (P/g - rho0*z)/rho0 matches Simpson 100k rel 1e-3, hull volume V=V0*exp(-kP)*(1+alpha*(T-15)+alpha2*(T-15)^2) clamped MinimumVolumeFraction*V0, crush error contains "crush".
-- **Stability**: N^2=g/rho*drho/dz positive decreasing, Turner angle atan2(gamma*dT/dz+beta*dS/dz, beta*dS/dz-gamma*dT/dz)*180/pi range -90..90, regime contains "salt"/"diffus"/"stable".
+**Step2 SUPER-HARD:**
+- **Log-interp drag**: 10-point table Re [1e3,5e3,1e4,2e4,5e4,1e5,2e5,5e5,1e6,5e6] Cd [1.44,1.35,1.2,1.1,0.9,0.7,0.5,0.35,0.2,0.12], CdFromRe uses log10 interpolation, edge extrapolation constant, monotonic, midpoint log exact 1.15 at 14125.
+- **Terminal**: implicit Cd(Re(v)), Brent 150 iter tol 1e-6 on |drag-|delta||, doubling hi, tight tol 1e-3 for drag approx.
+- **Equilibrium**: 2000 pts scan, Brent 150 iter, dedup tol*10, stability FPrime<0.
+- **TimeToDepth**: adaptive Dormand-Prince RK45 with coefficients a21..a76, b and bhat, atol 1e-6 rtol 1e-5, PI control dt_new=dt*0.9*errNorm^-0.2*errPrev^0.04, clamping [1e-6,1.0], dense output interpolation for target crossing, 5% rel vs dt=0.001 ref, must have k1..k7 and atol/rtol and errorEstimate.
+- **Dive profile**: ComputeDiveProfile returns []DiveState trajectory using same adaptive RK45, checks monotonic depth/pressure/time, final depth within 1%, len>10.
+- **Fleet**: priority queue via container/heap by effective density descending, bounded pool 4 via make(chan struct{},4), atomic max concurrency via sync/atomic AddInt32/Load/CompareAndSwap, order preservation 20 via Index sort, invalid handling, crushRisk, mismatched lengths error, context cancellation during flight (100 items depth 1000 cancel after 5ms) + deadline 20ms timeout for 100 items.
+- **Anti-cheat**: strip_go_comments removes //, /* */, backticks, strings before checks, AST via go/parser counts GoStmt, WaitGroup, make4, heap Push/Pop/Init, atomic AddInt32/Load/CompareAndSwap, imports context/sync/heap/atomic, plus atol/rtol/errorEstimate, k1_z/k1_v, DiveState, ComputeDiveProfile. Behavioral: order 20, race, cancellation during flight, deadline.
 
-**Step1 Methods (24 inc helpers):** SalinityAtDepth, SalinityGradientAtDepth, TemperatureAtDepth, TemperatureGradientAtDepth, DensityAtDepth, DensityGradientAtDepth, DensitySecondDerivativeAtDepth, DensityThirdDerivativeAtDepth, SoundSpeedAtDepth, SoundSpeedGradientAtDepth, FindSOFARAxis, FindPycnoclineMaxGradient, FindSpicinessMaximum, PotentialDensityAtDepth, PotentialTemperatureAtDepth, BuoyancyFrequencySquared, TurnerAngleAtDepth, DoubleDiffusiveRegimeAtDepth, PressureAtDepth, StericHeightAtDepth, VolumeAtDepth, EffectiveDensityAtDepth, Validate (both types), EffectiveMass, EffectiveDensity, plus CabbelingParameterAtDepth, SpicinessAtDepth.
+**Step 1 – Ultra Ocean:**
+Package submarine 36 consts, 28 methods, pressure 18-term, sound cubic, N² acoustic, potential temp 3rd order+ lapse, volume P², 4th derivative, double-diffusive layer.
 
-**Step2 – Exact signatures now documented (fix for R01/R02/R03):**
+**Step 2 – Super-Hard Dive:**
+File /app/dive.go reusing Step1 types, 36 consts not redefined, DiveResult, EquilibriumPoint, DiveState, 14 exact signatures preserved + ComputeDiveProfile, Cd 10-pt log interp, terminal Brent implicit, equilibrium Brent 2000 pts, adaptive RK45, priority fleet heap+atomic.
 
-```go
-func SubmergedFraction(sub Submarine, fluid Seawater) (float64, error)
-func NetVerticalForce(sub Submarine, fluid Seawater, g float64) (float64, error)
-func VerticalAcceleration(sub Submarine, fluid Seawater, g float64) (float64, error)
-func CdFromRe(re float64) float64
-func NetVerticalForceAtDepth(sub Submarine, fluid Seawater, depth float64, velocity float64, g float64) (float64, error)
-func TerminalVelocity(sub Submarine, fluid Seawater, depth float64, g float64) (float64, error)
-func FindEquilibriumDepth(sub Submarine, fluid Seawater, g float64, maxDepth float64, tolerance float64) (float64, error)
-func FindEquilibriumDepths(sub Submarine, fluid Seawater, g float64, maxDepth float64, tolerance float64) ([]float64, error)
-func FindEquilibriumDepthsWithStability(sub Submarine, fluid Seawater, g float64, maxDepth float64, tolerance float64) ([]EquilibriumPoint, error)
-func TimeToDepth(sub Submarine, fluid Seawater, targetDepth float64, g float64, dt float64, maxTime float64) (float64, error)
-func AnalyzeDive(sub Submarine, fluid Seawater) (DiveResult, error)
-func BatchAnalyzeFleet(subs []Submarine, fluid Seawater) ([]DiveResult, error)
-func BatchAnalyzeFleetWithTargets(subs []Submarine, fluid Seawater, targetDepths []float64, g float64) ([]DiveResult, error)
-func BatchAnalyzeFleetWithContext(ctx context.Context, subs []Submarine, fluid Seawater, targetDepths []float64, g float64) ([]DiveResult, error)
-```
+**Tests behavioral-first:** constants 36 exact, density with cubic/triple/thermo/halo/vort at 0,30,45,60,90,120,200,500, cab with new terms, gradient/second/third/fourth vs central diff h=0.005, sound cubic cross + pressure coupling exact + gradient h=0.05 tol 2e-4, finders via brute 0.2m + FindDoubleDiffusiveLayer, pressure Simpson 500k rel 5e-6 missing any triple/vort fails >20, steric with P² correction tight 5e-4, volume with P², bulk modulus positive, PV positive, potential temp <=T and third order+ lapse, Turner range + intrusion, Cd 10-pt bands + log mid 1.15, terminal tight 1e-3, equilibrium brute 0.2m, TimeToDepth adaptive 5% vs dt=0.001, DiveProfile monotonic final 1% pressure monotonic len>10, fleet 20 order preserved with heap+atomic, race, context immediate cancel + cancellation during flight 100 items + deadline 20ms, AST checks for go, WaitGroup, make4, heap, atomic, atol/rtol.
 
-Tests compile against these – no more guessing NetVerticalForceAtDepth arity or missing EffectiveMass.
-
-- **Re table**: Cd=1.2 if Re<1e5 else 0.5 if Re<5e5 else 0.2, monotonic non-increasing, drag 0.5*rho*Cd*A*v*|v| where A=V/Length, mu=SeawaterViscosity.
-- **Terminal**: bisection after doubling hi until drag>=|delta| or 1e4, 100 iter.
-- **Equilibrium**: scan 1000 points [0,maxDepth], bisection 100 iter, dedup tolerance*10, zero tol 1e-6, crush if maxDepth>CrushDepth, returns shallowest + all sorted + stability via FPrime.
-- **TimeToDepth**: fixed RK4 k1..k4 down-positive, dt 0.1 vs ref 0.01, maxTime 30000, 15% rel, interpolate on crossing, crush handling.
-- **Fleet**: bounded sem 4 via make(chan struct{},4), WaitGroup, order preservation indexed results sorted by Index, invalid sub DiveResult{Index:i,State:"invalid"}, empty slice, mismatched lengths error "length"/"mismatch", context check before and during flight via select on sem acquire and ctx.Done(), early abort.
-
-**Step 1 - Triple Pycnocline + Halocline + Thermocline + Quad Cabbeling + Sound Speed:**
-Package submarine with 26 constants. Types Submarine, Seawater. Methods: Validate, EffectiveMass, EffectiveDensity, DensityAtDepth (5 exp + 4 cab + 2 quad + gamma*z), DensityGradientAtDepth, DensitySecondDerivativeAtDepth, DensityThirdDerivativeAtDepth, SalinityAtDepth, SalinityGradientAtDepth, TemperatureAtDepth, TemperatureGradientAtDepth, SoundSpeedAtDepth (quad+cross), SoundSpeedGradientAtDepth, PotentialDensityAtDepth, PotentialTemperatureAtDepth using BulkModulus and ThermobaricCoeff second-order, BuoyancyFrequencySquared, TurnerAngleAtDepth, DoubleDiffusiveRegimeAtDepth, PressureAtDepth analytic 11 terms, StericHeightAtDepth, VolumeAtDepth quad thermal, EffectiveDensityAtDepth, CabbelingParameterAtDepth, SpicinessAtDepth, FindSOFARAxis, FindPycnoclineMaxGradient, FindSpicinessMaximum.
-
-**Step 2 - Dive Dynamics, Re Table, Fixed RK4 & Fleet:**
-File /app/dive.go reusing Step1 types. Must NOT redefine types/constants. DiveResult, EquilibriumPoint. Functions: SubmergedFraction, NetVerticalForce, VerticalAcceleration, CdFromRe, NetVerticalForceAtDepth, TerminalVelocity, FindEquilibriumDepth, FindEquilibriumDepths, FindEquilibriumDepthsWithStability, TimeToDepth, AnalyzeDive, BatchAnalyzeFleet, BatchAnalyzeFleetWithTargets, BatchAnalyzeFleetWithContext with exact signatures listed above.
-
-Tests behavioral-first: density at multiple depths, gradient vs numeric diff, sound min + cross term, finders vs brute 0.5m, pressure vs Simpson 500k, steric vs formula, volume quad thermal, Turner formula, Cd bands, terminal inverse, equilibrium brute 0.5m, fleet 20 order preservation, race -count=1, context immediate cancel + cancellation during flight (15ms sleep then cancel, must return error quickly, not hang), bounded pool AST check for make(chan struct{},4) via go/parser (ignores comments) plus stripped-comment checks for k1..k4.
-
-## Completion Rates (to be filled after codimango runs)
-| Model | Step | Pass Rate | Updated |
+## Completion Rates
+| Model | Step | Pass Rate | Notes |
 |---|---|---|---|
-| Oracle | 1_basic_buoyancy_control | TBD | TBD |
-| Oracle | 2_dive_dynamics | TBD | TBD |
-| meta/avocado_dvsc_tester | 1_basic_buoyancy_control | TBD | TBD |
-| meta/avocado_dvsc_tester | 2_dive_dynamics | TBD | TBD |
-| claude-opus-4-6 | 1_basic_buoyancy_control | TBD | TBD |
-| claude-opus-4-6 | 2_dive_dynamics | TBD | TBD |
+| Oracle | 1_basic_buoyancy_control | 100% | super-hard 36 consts, 18-term pressure, 4th derivative |
+| Oracle | 2_dive_dynamics | 100% | 10-pt log-interp, adaptive RK45, priority heap+atomic, dive profile |
 
-## Model Analysis
-Expected: Step1 <5% due to 26 constants, 11 scales + z*exp + double-freq + quad terms, analytic derivatives, pressure 11-term closed-form vs Simpson 500k, sound speed cross term, 3 finders. Step2 now ~20-30% after fixing exact signatures – previously 0% of strong models passed due to compile errors from missing EffectiveMass and wrong arity (NetVerticalForceAtDepth expected 5 params, many guessed 3). With signatures documented, attempts can compile and focus on physics/RK4/fleet. Fleet still requires real bounded pool and context handling.
+## Model Analysis – Super-Hard Expected <1%
+Step1 requires deriving 7 new cubic/triple/depth terms, analytic derivatives up to 4th via product rule Leibniz, 18-term pressure with generic product integral via subset enumeration (2^k), z²*exp integrals, sound cubic cross + pressure coupling, N² acoustic correction, potential temp x³+adiabatic, volume P², 2000 pt Brent finders plus new double-diffusive layer. Previous 26-const version already <5%; adding cubic makes it <1% and ~1200-1300 lines.
 
-## Anti-Cheating Analysis
-- Hardcoded: density terms verified at 0,30,45,60,90,120,200,500m including cab+quad diff >=0.5, gradient vs central diff h=0.01 tol 1e-6, second/third derivative vs diff, cabbeling parameter explicit, spiciness zero at surface, sound speed cross term 0.01*T*(S-35) diff >=0.05 and gradient vs diff h=0.1 tol 1e-4, SOFAR/pycnocline/spiciness max vs brute 0.5m scan, pressure vs Simpson 500k rel 1e-5 plus missing terms check diff >5, steric vs formula, volume quad thermal vs exact, N2, Turner range + regime string checks, Cd bands + monotonic, net force at depth 0 vs surface 1e-3 and low-v drag exact, terminal drag approx delta tol 0.1 + sign + drag error message, equilibrium single root near 0 and heavy no root and brute 0.5m tolerance, multi-root sorted + zero check <5, crush error contains "crush", TimeToDepth heavy time validity + 15% rel vs dt/10 + light should not reach + crush, AnalyzeDive state fraction net force volume MaxPressure, Batch 3 items float/invalid/neutral + empty + 20 order, BatchWithTargets mismatch error + crushRisk, BatchWithContext immediate cancel + 20 order + mismatch + new cancellation-during-flight (15ms sleep then cancel, must return context/cancel error within 10s) + bounded pool order 20.
-- Concurrency: previously gameable string checks `go `, `WaitGroup`, `chan`, `make(chan struct` could be bypassed via comments `// go` – now fixed by strip_go_comments() removing //, /* */, and string literals before checking, plus AST-based check via go/parser that counts *ast.GoStmt, WaitGroup ident, make(chan struct{},4) with buffer 4, context and sync imports. AST ignores comments by design. Behavioral tests for bounded pool: order preservation 20, race detector, cancellation during flight proves context checked while work in flight (not just pre-check), not just presence of keyword.
-- Overfitting: hidden tests read-only, but new tests also behavioral.
-- Information isolation: test.sh now rm -f /app/*_test.go and ast_check_concurrency.go before pytest to prevent prior-step verifier Go files leaking via inherit_prior_session=true.
-- Spec sufficiency: Step2 now lists all 14 exact signatures with param order, plus Types block, plus note about EffectiveMass() existence in Step1 Section E.
+Step2 now super-hard: log-interp drag requires math.Log10 and interval search, terminal implicit requires Brent solving dragMag(v)-|delta| with Cd varying, equilibrium 2000 pts Brent 150 iter, TimeToDepth adaptive DP RK45 with PI control and error estimate (must implement 7 stages coefficients), fleet priority heap + atomic max concurrency + deadline propagation – agents who copy simple table/bisection/fixed RK4 will fail log mid, tight terminal 1e-3, adaptive 5% vs Euler 30%, max concurrency atomic, deadline.
+
+## Anti-Cheating – Super-Hard Hardened
+- Hardcoded: density at 8 depths with new cubic/triple/thermo/halo/vort exact + diff >=1.0 without them, cab with new terms, gradient/second/third/fourth vs central diff h=0.005 tight, sound without cubic diff >=0.01 + cubic exact + gradient h=0.05 tol 2e-4, finders brute 0.2m + FindDoubleDiffusiveLayer, pressure Simpson 500k rel 5e-6 missing any triple/vort fails >20, steric with P² non-linear correction tight, volume with P² + bulk modulus positive, PV positive, potential temp third order + adiabatic exact, Turner + intrusion via spice curvature, Cd 10-pt bands + log mid 1.15 + monotonic + extrapolation, terminal tight 1e-3 + sign + drag msg, equilibrium brute 0.2m + crush + stability FPrime<0, TimeToDepth super-hard adaptive 5% vs dt=0.001 + crush + unreachable, DiveProfile monotonic final 1% len>10 pressure monotonic, Batch 20 order with heap+atomic, race, context immediate + during flight 100 items + deadline 20ms, max concurrency atomic.
+- Concurrency: strip_go_comments + AST via go/parser counts GoStmt, WaitGroup, make4, heap Push/Pop/Init, atomic AddInt32/Load/CAS, imports context/sync/heap/atomic, atol/rtol/errorEstimate, k1_z/k1_v, DiveState, ComputeDiveProfile. Behavioral: order 20, race, cancellation during flight (5ms), deadline (20ms), atomic max ==4.
+- Dockerfile: pip install with --retries 10 --timeout 60 to avoid prior pip_failure (files.pythonhosted.org reset).
+- Spec: Step2 exact 14 signatures preserved plus ComputeDiveProfile, Step1 Section E lists Validate/EffectiveMass/EffectiveDensity plus new methods, constants 36 exact.
 
 ## Notes
-Hardened after feedback: fixed R01/R02/R03 by adding exact Step2 signatures block, fixed R06/R07 by replacing gameable string checks with stripped-comment checks + AST parsing + behavioral cancellation-during-flight test, fixed R05 hygiene by cleaning test files in test.sh. 26 constants fingerprint, 11 scales, gamma depth factor, cabbeling, quad anomalies, SOFAR, spiciness, steric, Turner, second-order potential temperature. Schema 1.1 multi-turn inherit_prior_session true.
+Ultra super-hard v2 – 36 constants, cubic cabbeling s²t, st², triple s*t*pyc, depth-coupled thermo/halo, vorticity layer, z²*exp integrals, 18-term pressure via integralProduct subset enumeration, sound cubic T²(S-35) and T(S-35)² + pressure-T coupling, N² acoustic correction, potential temp x³+adiabatic lapse, volume P² non-linear, 4th derivative, finders 2000 pts Brent + double-diffusive layer, Step2 10-pt log-interp drag (Log10), implicit terminal Brent 150 iter tight 1e-6, equilibrium Brent 2000 pts, adaptive Dormand-Prince RK45 with atol/rtol PI control dense output 5%, priority fleet heap+atomic deadline + dive profile. Schema 1.1 inherit_prior_session true. Fixes prior R01/R02/R06/R07 plus makes difficulty <1%.
