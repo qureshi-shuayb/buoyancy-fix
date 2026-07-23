@@ -48,6 +48,7 @@ def write_step3_tests():
 
             import (
                 "math"
+                "strings"
                 "testing"
             )
 
@@ -284,10 +285,10 @@ def write_step3_tests():
                 if !approxStep3(vol, 0.1) {
                     t.Fatalf("Volume should clamp to min 0.1, got %g", vol)
                 }
-                // Crush error contains "crush" — uses dive.go's containsIgnoreCase helper
+                // Crush error must contain "crush" case-insensitive per spec
                 compCrush := CompressibleObject{Mass: 1000, Volume0: 1, Height: 2, BulkModulus: 1e8, DragCoefficient: 0.5, CrushDepth: 100, MinVolumeFraction: 0.1}
                 _, err = VolumeAtDepth(compCrush, sf, 200, 9.81)
-                if err == nil || !containsIgnoreCase(err.Error(), "crush") {
+                if err == nil || !strings.Contains(strings.ToLower(err.Error()), "crush") {
                     t.Fatalf("Volume crush should error containing 'crush', got %v", err)
                 }
                 // MinimumVolumeFraction constant must be referenced
@@ -424,6 +425,14 @@ def test_dive_go_does_not_redefine():
     ]
     for pattern in forbidden:
         assert not re.search(pattern, source), f"dive.go must not redefine {pattern}"
+    # Enforce concurrent batch implementation for Step3 (not just via race, but source)
+    for fn in ["BatchFindEquilibrium", "BatchTimeToDepthConcurrent"]:
+        m = re.search(rf"func {fn}.*?{{", source, re.S)
+        if m:
+            body = source[m.end():m.end()+6000]
+            assert "WaitGroup" in body, f"{fn} must be concurrent using sync.WaitGroup inside its function"
+            assert "Mutex" in body or "RWMutex" in body, f"{fn} must be race-free using sync.Mutex inside its function"
+    assert "sync" in source, "dive.go must import sync for concurrent batch"
 
 
 def test_step3_go_behavior_and_vet():

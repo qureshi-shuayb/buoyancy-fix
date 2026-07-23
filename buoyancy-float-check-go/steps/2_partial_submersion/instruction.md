@@ -26,8 +26,10 @@ type StratifiedFluid struct { SurfaceDensity, Gradient float64 }
 
 ## Functions
 ```go
+func (f FrustumObject) Validate() error
 func (f FrustumObject) Volume() (float64, error)
 func (f FrustumObject) Density() (float64, error)
+func (s StratifiedFluid) Validate() error
 func (s StratifiedFluid) DensityAtDepth(z float64) (float64, error)
 func BuoyantMass(obj Object, fluid StratifiedFluid, d float64) (float64, error)
 func BuoyantMassConical(obj Object, fluid StratifiedFluid, d float64) (float64, error)

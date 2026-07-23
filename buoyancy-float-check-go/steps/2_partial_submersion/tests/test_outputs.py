@@ -652,9 +652,16 @@ def test_partial_go_does_not_redefine_step1_symbols():
     ]
     for pattern in forbidden:
         assert not re.search(pattern, source), f"partial.go must not redefine {pattern}"
-    # Super hard: check concurrent batch uses WaitGroup+Mutex
-    assert "WaitGroup" in source, "BatchAnalyze must be concurrent using sync.WaitGroup"
-    assert "Mutex" in source, "BatchAnalyze must be race-free using sync.Mutex"
+    # Super hard: check concurrent batch uses WaitGroup+Mutex - function-scoped (AST-like)
+    # Check each Batch* function contains WaitGroup and Mutex
+    for fn in ["BatchAnalyze", "BatchAnalyzeConical", "BatchAnalyzeFrustum", "BatchAnalyzeStratified"]:
+        m = re.search(rf"func {fn}.*?{{", source, re.S)
+        if m:
+            body = source[m.end():m.end()+5000]
+            assert "WaitGroup" in body, f"{fn} must be concurrent using sync.WaitGroup inside its function"
+            assert "Mutex" in body or "RWMutex" in body, f"{fn} must be race-free using sync.Mutex inside its function"
+            assert "go " in body or "go\t" in body or "go func" in body, f"{fn} must launch goroutines"
+    assert "sync" in source, "Must import sync"
 
 
 def test_step2_go_behavior_and_vet():
