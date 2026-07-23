@@ -481,6 +481,14 @@ def check_no_redef():
     assert "const SecondOrderCabbelingCoeff" not in stripped, "must NOT redefine SecondOrderCabbelingCoeff"
     assert "const TripleCabbelingCoeff" not in stripped
     assert "const PressureNonLinearCoeff" not in stripped
+    assert "const QuadrupleCabbelingCoeff" not in stripped, "must NOT redefine QuadrupleCabbelingCoeff"
+    assert "const CompensatedLayerCoeff" not in stripped
+    assert "const ThermohalineIntrusionScale" not in stripped
+    assert "const BaroclinicShearCoeff" not in stripped
+    assert "const ThermostericSecondOrderCoeff" not in stripped
+    assert "const HalostericSecondOrderCoeff" not in stripped
+    assert "const SoundSpeedDepthCubeCoeff" not in stripped
+    assert "const PressureCubicNonLinearCoeff" not in stripped
 
     assert "CdFromRe" in stripped
     assert "EquilibriumPoint" in stripped
