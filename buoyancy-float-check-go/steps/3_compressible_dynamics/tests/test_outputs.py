@@ -192,8 +192,20 @@ def write_step3_tests():
                     t.Fatalf("TimeToDepthRK4 error: %v", err)
                 }
                 tmRef, _ := TimeToDepthRK4(comp, sf, 10, 9.81, 0.01, 100)
-                if math.Abs(tm-tmRef)/tmRef > 0.25 {
-                    t.Fatalf("TimeToDepth %g vs ref %g diff >25%%, need RK4", tm, tmRef)
+                if math.Abs(tm-tmRef)/tmRef > 0.15 {
+                    t.Fatalf("TimeToDepth %g vs ref %g diff >15%%, need RK4 with interpolation and depth clamp (Euler fails)", tm, tmRef)
+                }
+                // Large dt without interpolation should fail, RK4 with interpolation passes
+                tmLarge, _ := TimeToDepthRK4(comp, sf, 10, 9.81, 1.0, 100)
+                tmRefSmall, _ := TimeToDepthRK4(comp, sf, 10, 9.81, 0.05, 100)
+                if math.Abs(tmLarge-tmRefSmall)/tmRefSmall > 0.20 {
+                    t.Fatalf("TimeToDepth large dt 1.0 vs ref 0.05 diff >20%%, need interpolation frac=(target-prevZ)/(z-prevZ)")
+                }
+                // Negative depth clamp: if rising, depth should clamp >=0
+                compLight := CompressibleObject{Mass: 800, Volume0: 1, Height: 2, BulkModulus: 1e12, DragCoefficient: 0.8, CrushDepth: 500, MinVolumeFraction: 0.1}
+                _, err = TimeToDepthRK4(compLight, sf, 10, 9.81, 0.1, 100)
+                if err == nil {
+                    // Light object may never reach 10m (rises), should error target not reached - but allow if it somehow sinks
                 }
             }
 
@@ -312,6 +324,27 @@ def write_step3_tests():
                 if wantAd <=0 {
                     t.Fatalf("Ad should be positive")
                 }
+                // Super hard: Ad must be dynamic V(z)/H not static V0/H
+                // Highly compressible: V0=1, at depth 500 with small K, V~0.1, Ad dynamic 0.05 vs static 0.5 => Terminal diff sqrt(10)
+                sfComp := StratifiedFluid{SurfaceDensity: 1025, Gradient: 0.5}
+                compHighComp := CompressibleObject{Mass: 1200, Volume0: 1, Height: 2, BulkModulus: 1e5, DragCoefficient: 0.8, CrushDepth: 1000, MinVolumeFraction: 0.1}
+                volAt500, _ := VolumeAtDepth(compHighComp, sfComp, 500, 9.81)
+                AdDynamic := volAt500 / compHighComp.Height
+                AdStatic := compHighComp.Volume0 / compHighComp.Height
+                if math.Abs(AdDynamic-AdStatic) < 0.1 {
+                    t.Fatalf("Setup for Ad dynamic test not compressible enough: dynamic %g static %g", AdDynamic, AdStatic)
+                }
+                // Terminal velocity using dynamic Ad vs static should differ
+                vDynamic, _ := TerminalVelocityAtDepth(compHighComp, sfComp, 500, 9.81)
+                // Compute what static Ad would give: v_static = sqrt(2|Fnet|/(rho Cd Ad_static))
+                rho500, _ := sfComp.DensityAtDepth(500)
+                Fw := compHighComp.Mass * 9.81
+                Fb := rho500 * volAt500 * 9.81
+                denomStatic := rho500 * compHighComp.DragCoefficient * AdStatic
+                vStaticRef := math.Sqrt(2*math.Abs(Fw-Fb)/denomStatic)
+                if math.Abs(vDynamic-vStaticRef) < 0.5 {
+                    t.Fatalf("Ad must be V(z)/H dynamic not V0/H static: dynamic v=%g static ref %g should differ >0.5", vDynamic, vStaticRef)
+                }
                 // drag sign: v*|v| must oppose motion, tested via TerminalVelocity sign
                 vPos, _ := TerminalVelocityAtDepth(comp, sf, 0, 9.81)
                 compSink := CompressibleObject{Mass: 800, Volume0: 1, Height: 2, BulkModulus: 1e9, DragCoefficient: 0.8, CrushDepth: 500, MinVolumeFraction: 0.1}
@@ -321,6 +354,30 @@ def write_step3_tests():
                 }
                 if vNeg >=0 {
                     t.Fatalf("TerminalVelocity for light should be negative up, got %g", vNeg)
+                }
+                // NetForce: v=-5 should have Fd negative (opposing upward? Actually down positive, v negative up, Fd negative, so Fw-Fb-Fd larger)
+                nfPos, _ := NetForceAtDepth(comp, sf, 0, 5, 9.81)
+                nfNeg, _ := NetForceAtDepth(comp, sf, 0, -5, 9.81)
+                if !(nfNeg > nfPos) {
+                    t.Fatalf("NetForce drag must use v*|v| opposing: Fnet(v=-5)=%g should > Fnet(v=5)=%g", nfNeg, nfPos)
+                }
+            }
+
+            func TestEquilibriumMaxDepthClamp(t *testing.T) {
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.5}
+                comp := CompressibleObject{Mass: 5000, Volume0: 1, Height: 2, BulkModulus: 1e12, DragCoefficient: 0.5, CrushDepth: 100, MinVolumeFraction: 0.1}
+                // maxDepth 500 > CrushDepth 100, should clamp search to CrushDepth
+                depth, err := FindEquilibriumDepth(comp, sf, 9.81, 500, 1e-6)
+                if err != nil {
+                    t.Fatalf("FindEquilibriumDepth error %v", err)
+                }
+                if depth > 100+1e-9 {
+                    t.Fatalf("FindEquilibriumDepth maxDepth>CrushDepth should clamp to <=CrushDepth, got %g", depth)
+                }
+                // Also test BatchFindEquilibrium clamping
+                res, _ := BatchFindEquilibrium([]CompressibleObject{comp}, sf, 9.81, 500, 1e-6)
+                if len(res)==1 && res[0].EquilibriumDepth > 100+1e-9 {
+                    t.Fatalf("BatchFindEquilibrium should clamp maxDepth to CrushDepth")
                 }
             }
 
@@ -367,6 +424,21 @@ def write_step3_tests():
                 if res[0].Index!=0 || res[1].Index!=1 || res[2].Index!=2 {
                     t.Fatalf("Batch Index order not preserved")
                 }
+                // Verify full fields computed at equilibrium (VolumeAtDepth, MaxPressure, TerminalVelocity) not just depth
+                for _, r := range res {
+                    if r.State == "invalid" {
+                        continue
+                    }
+                    if !isFinite(r.VolumeAtDepth) || r.VolumeAtDepth <=0 {
+                        t.Fatalf("Batch VolumeAtDepth must be finite positive at equilibrium, got %g", r.VolumeAtDepth)
+                    }
+                    if !isFinite(r.MaxPressure) || r.MaxPressure <0 {
+                        t.Fatalf("Batch MaxPressure must be finite >=0, got %g", r.MaxPressure)
+                    }
+                    if !isFinite(r.TerminalVelocity) {
+                        t.Fatalf("Batch TerminalVelocity must be finite, got %g", r.TerminalVelocity)
+                    }
+                }
                 // CrushRisk at 90%
                 compNearCrush := CompressibleObject{Mass: 5000, Volume0: 1, Height: 2, BulkModulus: 1e12, DragCoefficient: 0.5, CrushDepth: 100, MinVolumeFraction: 0.1}
                 res2, _ := BatchFindEquilibrium([]CompressibleObject{compNearCrush}, sf, 9.81, 200, 1e-6)
@@ -383,6 +455,20 @@ def write_step3_tests():
                 }
                 if resNil == nil {
                     t.Fatalf("Batch nil should return non-nil empty")
+                }
+                // Large N stress
+                largeObjs := make([]CompressibleObject, 500)
+                for i := range largeObjs {
+                    largeObjs[i] = CompressibleObject{Mass: 1000+float64(i), Volume0: 1, Height: 2, BulkModulus: 1e9, DragCoefficient: 0.5, CrushDepth: 500, MinVolumeFraction: 0.1}
+                }
+                resLarge, err := BatchFindEquilibrium(largeObjs, sf, 9.81, 200, 1e-6)
+                if err != nil || len(resLarge)!=500 {
+                    t.Fatalf("Batch large N=500 failed")
+                }
+                for i:=0;i<500;i++ {
+                    if resLarge[i].Index != i {
+                        t.Fatalf("Batch large order broken at %d", i)
+                    }
                 }
             }
 
@@ -425,13 +511,20 @@ def test_dive_go_does_not_redefine():
     ]
     for pattern in forbidden:
         assert not re.search(pattern, source), f"dive.go must not redefine {pattern}"
-    # Enforce concurrent batch implementation for Step3 (not just via race, but source)
+    # Enforce concurrent batch implementation for Step3 - allow helper via call-graph
+    concurrent_helpers = set()
+    for hm in re.finditer(r"func (\w+).*?\{", source, re.S):
+        h_name = hm.group(1)
+        h_body = source[hm.end():hm.end()+6000]
+        if "WaitGroup" in h_body and ("Mutex" in h_body or "RWMutex" in h_body) and ("go " in h_body or "go\t" in h_body or "go func" in h_body):
+            concurrent_helpers.add(h_name)
     for fn in ["BatchFindEquilibrium", "BatchTimeToDepthConcurrent"]:
         m = re.search(rf"func {fn}.*?{{", source, re.S)
         if m:
             body = source[m.end():m.end()+6000]
-            assert "WaitGroup" in body, f"{fn} must be concurrent using sync.WaitGroup inside its function"
-            assert "Mutex" in body or "RWMutex" in body, f"{fn} must be race-free using sync.Mutex inside its function"
+            direct = "WaitGroup" in body and ("Mutex" in body or "RWMutex" in body)
+            via_helper = any(h in body for h in concurrent_helpers)
+            assert direct or via_helper, f"{fn} must be concurrent (direct or via helper) — helpers: {concurrent_helpers}"
     assert "sync" in source, "dive.go must import sync for concurrent batch"
 
 

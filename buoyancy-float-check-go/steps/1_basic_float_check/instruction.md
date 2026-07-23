@@ -26,15 +26,16 @@ type BuoyancyReport struct { Index int; State string; Density, BuoyantForce, Wei
 
 ## Validation Rules
 
-- `Object.Density()`: validates Mass>0 finite, Volume>0 finite. **Does NOT validate Height.**
-- `Object.Validate()`: validates Mass>0, Volume>0, Height>0.
-- `Fluid.Validate()`: validates Density>0.
-- `CylinderObject.Validate()`: validates Mass>0, Radius>0, Height>0.
-- `CylinderObject.Volume()`: validates Radius>0, Height>0 only. **Does NOT validate Mass.**
-- `CylinderObject.Density()`: validates Mass>0.
-- `SphereObject.Validate()`: validates Mass>0, Radius>0.
-- `SphereObject.Volume()`: validates Radius>0 only. **Does NOT validate Mass.**
-- `SphereObject.Density()`: validates Mass>0.
+- `Object.Density()`: validates Mass>0 finite, Volume>0 finite.
+- `Object.Validate()`: validates Mass>0, Volume>0, Height>0 finite.
+- `Fluid.Validate()`: validates Density>0 finite.
+- `CylinderObject.Validate()`: validates Mass>0, Radius>0, Height>0 finite.
+- `CylinderObject.Volume()`: validates Radius>0, Height>0 finite.
+- `CylinderObject.Density()`: validates Mass>0 finite.
+- `SphereObject.Validate()`: validates Mass>0, Radius>0 finite.
+- `SphereObject.Volume()`: validates Radius>0 finite.
+- `SphereObject.Density()`: validates Mass>0 finite.
+- All validations must reject non-finite (NaN/Inf).
 
 ## Functions
 ```go
@@ -50,18 +51,16 @@ func IsNeutrallyBuoyant(objDensity, fluidDensity float64) (bool, error)
 
 ## Behavior
 
-- `Object.Density()`: `Mass/Volume`, must use `Volume()` call for Cylinder/Sphere variants.
-- `CylinderObject.Volume()`: `π*R²*H` via `math.Pi`. `SphereObject.Volume()`: `4/3*π*R³` via `math.Pi`.
-- `BuoyantForce`: `fluid.Density*volume*g` via passed g. `WeightForce`: `mass*g`.
-- `CheckBuoyancyByDensity`: "float"/"sink"/"neutral" lowercase; neutral when `|objDensity-fluidDensity|<=Tolerance` inclusive. Test with 0.999*Tol→neutral, 1.001*Tol→non-neutral, exact Tol inclusive.
-- `CheckBuoyancy`: validates Object, Fluid, delegates.
-- `ApparentWeight`: if `|density-fluid.Density|<=Tolerance` returns exactly 0 else `(Mass-fluid.Density*Volume)*g`. Must check intermediate `rhoV=fluid.Density*Volume` for overflow before diff.
-- `RequiredBallastMass`: if within Tolerance returns exactly 0 else `fluid.Density*Volume-Mass`.
-- `IsNeutrallyBuoyant`: validates densities >0 finite, returns `|diff|<=Tolerance` using Tolerance constant, error contains "density".
-- `BatchCheckBuoyancy`: Fluid invalid→nil,error; g invalid→nil,error; `objs==nil`→`make(...,0),nil`; order via `Index=i`; invalid→State="invalid" continue; concurrent `WaitGroup`+`Mutex` race-free.
-- Negative zero: `Mass=-0.0` invalid must error (requires `<=0` not `<0`).
-- Zero value on error: On any error return exactly 0 value (or nil,error or non-nil empty for batch nil case) not NaN/Inf/partial.
-- Intermediate overflow: `ApparentWeight` must check `rhoV` for Inf before computing diff.
+- `Object.Density()`: `Mass/Volume`.
+- `CylinderObject`: `Volume()` is `π*R²*H` via `math.Pi`; `Density()` must call `Volume()` for geometry (not recompute). `SphereObject`: `Volume()` `4/3*π*R³` via `math.Pi`; `Density()` must call `Volume()`.
+- `BuoyantForce`: `fluid.Density*volume*g` using passed `g`. `WeightForce`: `mass*g`.
+- `CheckBuoyancyByDensity`: returns "float"/"sink"/"neutral" lowercase; neutral when `|objDensity-fluidDensity|<=Tolerance` inclusive.
+- `CheckBuoyancy`: validates Object, Fluid, delegates to density version.
+- `ApparentWeight`: returns neutral handling with exact zero when within tolerance, otherwise `(Mass-fluid.Density*Volume)*g`.
+- `RequiredBallastMass`: returns exact zero within tolerance, otherwise `fluid.Density*Volume-Mass`.
+- `IsNeutrallyBuoyant`: validates densities >0 finite, returns whether within Tolerance using Tolerance constant.
+- `BatchCheckBuoyancy`: order and invalid handling with concurrency, race-free with `WaitGroup`+`Mutex` (or via shared helper).
+- All error returns must be zero-value (or nil,error) and error message contains relevant field name.
 
 ## Error Handling
 

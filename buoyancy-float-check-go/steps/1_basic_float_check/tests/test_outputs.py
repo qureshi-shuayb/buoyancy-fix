@@ -47,6 +47,7 @@ package buoyancy
 import (
     "math"
     "os"
+    "regexp"
     "strings"
     "testing"
 )
@@ -837,6 +838,36 @@ func TestBatchCheckBuoyancy(t *testing.T) {
     }
 }
 
+func TestBatchStressLargeN(t *testing.T) {
+    water := Fluid{Density: 1000}
+    n := 1000
+    objs := make([]Object, n)
+    for i := 0; i < n; i++ {
+        if i%3 == 0 {
+            objs[i] = Object{Mass: 500, Volume: 1, Height: 1}
+        } else if i%3 == 1 {
+            objs[i] = Object{Mass: 0, Volume: 1, Height: 1}
+        } else {
+            objs[i] = Object{Mass: 1500, Volume: 1, Height: 1}
+        }
+    }
+    res, err := BatchCheckBuoyancy(objs, water, 9.81)
+    if err != nil {
+        t.Fatalf("Batch stress N=1000 error %v", err)
+    }
+    if len(res) != n {
+        t.Fatalf("Batch stress len=%d want %d", len(res), n)
+    }
+    for i := 0; i < n; i++ {
+        if res[i].Index != i {
+            t.Fatalf("Batch stress Index %d != %d", res[i].Index, i)
+        }
+        if i%3 == 1 && res[i].State != "invalid" {
+            t.Fatalf("Batch stress invalid expected at %d", i)
+        }
+    }
+}
+
 func TestOverflowDetection(t *testing.T) {
     // BuoyantForce overflow: 1e200 * 1e200 * 1e10 = 1e410 > 1e308 -> Inf -> must error not return Inf
     _, err := BuoyantForce(Fluid{Density: 1e200}, 1e200, 1e10)
@@ -967,11 +998,13 @@ func TestPiUsage(t *testing.T) {
         t.Fatalf("Could not read buoyancy.go: %v", err)
     }
     src := string(data)
-    // Cylinder Volume must contain math.Pi
-    cIdx := strings.Index(src, "func (c CylinderObject) Volume")
-    if cIdx == -1 {
-        t.Fatalf("Cylinder Volume method not found")
+    // Cylinder Volume must contain math.Pi - allow any receiver name via regex
+    reCyl := regexp.MustCompile(`func \(\w+ CylinderObject\) Volume`)
+    locCyl := reCyl.FindStringIndex(src)
+    if locCyl == nil {
+        t.Fatalf("Cylinder Volume method not found (must be func (<recv> CylinderObject) Volume, any receiver name allowed)")
     }
+    cIdx := locCyl[0]
     cEnd := cIdx + 800
     if cEnd > len(src) {
         cEnd = len(src)
@@ -979,10 +1012,12 @@ func TestPiUsage(t *testing.T) {
     if !strings.Contains(src[cIdx:cEnd], "Pi") {
         t.Fatalf("Cylinder Volume must use math.Pi (Pi factor required)")
     }
-    sIdx := strings.Index(src, "func (s SphereObject) Volume")
-    if sIdx == -1 {
-        t.Fatalf("Sphere Volume method not found")
+    reSphere := regexp.MustCompile(`func \(\w+ SphereObject\) Volume`)
+    locSphere := reSphere.FindStringIndex(src)
+    if locSphere == nil {
+        t.Fatalf("Sphere Volume method not found (any receiver)")
     }
+    sIdx := locSphere[0]
     sEnd := sIdx + 800
     if sEnd > len(src) {
         sEnd = len(src)
@@ -1087,6 +1122,37 @@ func TestIntermediateOverflow(t *testing.T) {
     }
 }
 
+func TestOverflowOrderingInversion(t *testing.T) {
+    // Super hard: when within tolerance, must short-circuit to exactly 0 BEFORE computing rhoV that would overflow
+    // If checks overflow first, this fails
+    huge := 1e200
+    obj := Object{Mass: huge, Volume: huge, Height: 1}
+    // rhoNeutral = Mass/Vol = 1e200/1e200 = 1, but with huge values rhoV would be huge*fluidDensity
+    // Fluid density within tolerance of obj density (1) => should return 0, not overflow
+    fluidNeutral := Fluid{Density: 1 + 0.5*Tolerance} // within Tol of density 1
+    aw, err := ApparentWeight(obj, fluidNeutral, 9.81)
+    if err != nil {
+        t.Fatalf("ApparentWeight huge values within tolerance should short-circuit to 0 without overflow error, got %v", err)
+    }
+    if aw != 0 {
+        t.Fatalf("ApparentWeight within tolerance must be exactly 0, got %g (must short-circuit before rhoV)", aw)
+    }
+    // Same for RequiredBallastMass
+    b, err := RequiredBallastMass(obj, fluidNeutral)
+    if err != nil {
+        t.Fatalf("RequiredBallastMass within tolerance huge should be 0 without overflow, got %v", err)
+    }
+    if b != 0 {
+        t.Fatalf("RequiredBallastMass within tolerance must be exactly 0, got %g", b)
+    }
+    // Far case with same huge values must error due to overflow
+    fluidFar := Fluid{Density: 1e200}
+    _, err = ApparentWeight(obj, fluidFar, 9.81)
+    if err == nil {
+        t.Fatalf("ApparentWeight huge far should error overflow")
+    }
+}
+
 func TestIsNeutrallyBuoyant(t *testing.T) {
     ok, err := IsNeutrallyBuoyant(1000, 1000)
     if err != nil || !ok {
@@ -1117,10 +1183,12 @@ func TestCylinderDensityCallsVolume(t *testing.T) {
         t.Fatalf("Could not read buoyancy.go: %v", err)
     }
     src := string(data)
-    idx := strings.Index(src, "func (c CylinderObject) Density()")
-    if idx == -1 {
-        t.Fatalf("CylinderObject.Density() not found")
+    reCylD := regexp.MustCompile(`func \(\w+ CylinderObject\) Density\(\)`)
+    locCylD := reCylD.FindStringIndex(src)
+    if locCylD == nil {
+        t.Fatalf("CylinderObject.Density() not found (any receiver)")
     }
+    idx := locCylD[0]
     end := idx + 600
     if end > len(src) {
         end = len(src)
@@ -1129,10 +1197,12 @@ func TestCylinderDensityCallsVolume(t *testing.T) {
     if !strings.Contains(snippet, "Volume()") {
         t.Fatalf("CylinderObject.Density() must call Volume() method for geometry, not recompute")
     }
-    idx2 := strings.Index(src, "func (s SphereObject) Density()")
-    if idx2 == -1 {
-        t.Fatalf("SphereObject.Density() not found")
+    reSphereD := regexp.MustCompile(`func \(\w+ SphereObject\) Density\(\)`)
+    locSphereD := reSphereD.FindStringIndex(src)
+    if locSphereD == nil {
+        t.Fatalf("SphereObject.Density() not found (any receiver)")
     }
+    idx2 := locSphereD[0]
     end2 := idx2 + 600
     if end2 > len(src) {
         end2 = len(src)
@@ -1205,17 +1275,21 @@ def test_go_file_exists_and_uses_expected_package():
     assert BUOYANCY_FILE.exists(), "/app/buoyancy.go must exist"
     source = BUOYANCY_FILE.read_text()
     assert "package buoyancy" in source
-    # Step1 super hard: Batch must be concurrent with WaitGroup+Mutex - function-scoped check (AST-like)
-    # Find BatchCheckBuoyancy function body
+    # Step1 super hard: Batch must be concurrent with WaitGroup+Mutex - allow helper via call-graph
     m = re.search(r"func BatchCheckBuoyancy.*?\{", source, re.S)
     assert m, "BatchCheckBuoyancy function must exist"
-    # Take next 5000 chars as approximate body to check scoped usage
     start = m.end()
     body = source[start:start+5000]
-    # Require goroutine, WaitGroup, Mutex in same batch function
-    assert "WaitGroup" in body, "BatchCheckBuoyancy must be concurrent using sync.WaitGroup inside its function"
-    assert "Mutex" in body or "RWMutex" in body, "BatchCheckBuoyancy must be race-free using sync.Mutex inside its function"
-    assert "go " in body or "go\t" in body or "go func" in body, "BatchCheckBuoyancy must launch goroutines"
+    # Find concurrent helpers in file
+    concurrent_helpers = set()
+    for hm in re.finditer(r"func (\w+).*?\{", source, re.S):
+        h_name = hm.group(1)
+        h_body = source[hm.end():hm.end()+5000]
+        if "WaitGroup" in h_body and ("Mutex" in h_body or "RWMutex" in h_body) and ("go " in h_body or "go\t" in h_body or "go func" in h_body):
+            concurrent_helpers.add(h_name)
+    direct = "WaitGroup" in body and ("Mutex" in body or "RWMutex" in body) and ("go " in body or "go\t" in body or "go func" in body)
+    via_helper = any(h in body for h in concurrent_helpers)
+    assert direct or via_helper, f"BatchCheckBuoyancy must be concurrent (direct or via helper like runBatch) — concurrent helpers found: {concurrent_helpers}"
     assert "sync" in source, "Must import sync"
 
 

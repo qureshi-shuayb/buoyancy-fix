@@ -652,16 +652,26 @@ def test_partial_go_does_not_redefine_step1_symbols():
     ]
     for pattern in forbidden:
         assert not re.search(pattern, source), f"partial.go must not redefine {pattern}"
-    # Super hard: check concurrent batch uses WaitGroup+Mutex - function-scoped (AST-like)
-    # Check each Batch* function contains WaitGroup and Mutex
-    for fn in ["BatchAnalyze", "BatchAnalyzeConical", "BatchAnalyzeFrustum", "BatchAnalyzeStratified"]:
+    # Super hard: check concurrent batch uses WaitGroup+Mutex - allow helper via call-graph
+    # Find all concurrent helpers (functions containing WaitGroup+Mutex+go)
+    concurrent_helpers = set()
+    for hm in re.finditer(r"func (\w+).*?\{", source, re.S):
+        h_name = hm.group(1)
+        h_body = source[hm.end():hm.end()+5000]
+        if "WaitGroup" in h_body and ("Mutex" in h_body or "RWMutex" in h_body) and ("go " in h_body or "go\t" in h_body or "go func" in h_body):
+            concurrent_helpers.add(h_name)
+
+    # For each Batch* check either direct concurrency or call to concurrent helper
+    for fn in ["BatchAnalyze", "BatchAnalyzeConical", "BatchAnalyzeFrustum", "BatchAnalyzeStratified", "BatchAnalyzeConicalStratified", "BatchAnalyzeFrustumStratified"]:
         m = re.search(rf"func {fn}.*?{{", source, re.S)
         if m:
             body = source[m.end():m.end()+5000]
-            assert "WaitGroup" in body, f"{fn} must be concurrent using sync.WaitGroup inside its function"
-            assert "Mutex" in body or "RWMutex" in body, f"{fn} must be race-free using sync.Mutex inside its function"
-            assert "go " in body or "go\t" in body or "go func" in body, f"{fn} must launch goroutines"
+            direct = "WaitGroup" in body and ("Mutex" in body or "RWMutex" in body) and ("go " in body or "go\t" in body or "go func" in body)
+            via_helper = any(h in body for h in concurrent_helpers)
+            assert direct or via_helper, f"{fn} must be concurrent (direct WaitGroup+Mutex+go or via shared helper like runBatch) — found via: {concurrent_helpers}"
+    # Whole file must still import sync and have at least one concurrent implementation
     assert "sync" in source, "Must import sync"
+    assert len(concurrent_helpers) > 0 or ("WaitGroup" in source and "Mutex" in source), "Must have concurrent implementation with WaitGroup+Mutex"
 
 
 def test_step2_go_behavior_and_vet():

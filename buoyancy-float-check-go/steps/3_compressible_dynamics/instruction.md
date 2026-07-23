@@ -39,14 +39,14 @@ func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid
 
 ## Behavior
 
-- `PressureAtDepth`: `P(z)=g*(S*z+0.5*G*z²)` from integral ∫rho(z')g dz'.
-- `VolumeAtDepth`: `V(z)=V0*(1-P/K)` clamped to `Vmin=V0*MinFraction`, respects package `MinimumVolumeFraction` constant and object field, both lower-bounded. Error if depth>CrushDepth containing "crush". Must reference `MinimumVolumeFraction`.
-- `BuoyantForceAtDepth`: `rho(z)*V(z)*g`.
-- `NetForceAtDepth`: `Fw-Fb-Fd`, `Fd=0.5*rho*Cd*Ad*v*|v|`, `Ad=V(z)/Height`, drag opposes via `v*|v|`.
-- `TerminalVelocityAtDepth`: solve `Fnet=0` for v, 0 when |Fw-Fb|<1e-12, sign matches Fw-Fb, error if Cd<=0 containing "drag".
-- `FindEquilibriumDepth`: solve `Mass=rho(z)V(z)` via bisection [0,maxDepth] 100 iters with tol param.
-- `TimeToDepthRK4`: integrate `dz/dt=v`, `dv/dt=Fnet/M` from rest via RK4 Butcher [0,0.5,0.5,1], clamp intermediate depths >=0, return interpolated time. Must be within ±15% of reference dt/10.
-- Batch: validate fluid,g,maxDepth,tol,dt,maxTime,len match; if nil → `make(...,0),nil`; order via Index; invalid→State="invalid" continue; target>CrushDepth→State="crush" CrushRisk=true; depth>=0.9*CrushDepth→CrushRisk=true; concurrent with WaitGroup+Mutex race-free.
+- `PressureAtDepth`: hydrostatic pressure from integrating `rho(z')*g` from 0 to depth, where `rho(z)=S+G*z` stratified. Must handle overflow chain stepwise.
+- `VolumeAtDepth`: compressible volume from pressure and bulk modulus `K`, clamped to minimum fraction. Must respect both object field `MinVolumeFraction` and package constant `MinimumVolumeFraction`, lower-bounded by their max. Error if depth exceeds CrushDepth.
+- `BuoyantForceAtDepth`: buoyant force using density at depth and volume at depth.
+- `NetForceAtDepth`: net force `weight - buoyant - drag` with quadratic drag using reference area derived from volume at depth and height, drag opposes motion via signed velocity.
+- `TerminalVelocityAtDepth`: terminal velocity solving net force zero, handling zero net case and sign, with drag validation.
+- `FindEquilibriumDepth`: equilibrium where mass equals buoyant mass `rho(z)*V(z)` via bisection with tolerance, handling edge cases for surface and max depth and crush clamping when maxDepth exceeds CrushDepth.
+- `TimeToDepthRK4`: time to reach target depth integrating `dz/dt=v`, `dv/dt=Fnet/M` from rest via RK4, with depth clamping and interpolated crossing time.
+- Batch: validates inputs, nil handling, Index ordering, invalid and crush states, CrushRisk near crush depth, and concurrent implementation.
 
 ## Error Handling
 
