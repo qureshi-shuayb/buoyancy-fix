@@ -17,9 +17,11 @@ type DiveResult struct { Index int; State string; EquilibriumDepth, TerminalVelo
 
 ## Validation Rules
 
-- `CompressibleObject.Validate()`: Mass>0, Volume0>0, Height>0, BulkModulus>0, DragCoefficient>=0, CrushDepth>0, MinVolumeFraction in (0,1).
-- `StratifiedFluid`: SurfaceDensity>0, Gradient>=0.
-- Depth params: depth, targetDepth >=0; g, dt, maxTime, tol, maxDepth >0; Cd<=0 allowed for general but TerminalVelocity requires Cd>0.
+- `CompressibleObject.Validate()`: Mass>0, Volume0>0, Height>0, BulkModulus>0, DragCoefficient>=0, CrushDepth>0, MinVolumeFraction in (0,1), all finite (reject NaN/Inf).
+- `StratifiedFluid`: SurfaceDensity>0 finite, Gradient>=0 finite.
+- Depth params: depth, targetDepth >=0 finite; g, dt, maxTime, tol, maxDepth >0 finite; Cd<=0 allowed for general but TerminalVelocity requires Cd>0 finite. All numeric inputs must be finite.
+- `PressureAtDepth`, `VolumeAtDepth`, `BuoyantForceAtDepth`, `NetForceAtDepth`, `TerminalVelocityAtDepth` must error on overflow to Inf/NaN.
+- `BatchFindEquilibrium` must be concurrent with WaitGroup+Mutex like `BatchTimeToDepthConcurrent`, with Index ordering preserved.
 
 ## Functions
 ```go

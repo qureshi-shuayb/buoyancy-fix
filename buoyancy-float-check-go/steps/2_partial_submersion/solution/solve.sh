@@ -32,14 +32,21 @@ type StratifiedFluid struct {
 }
 
 func (f FrustumObject) Validate() error {
-	if f.Mass <= 0 {
+	// Mass must be positive and finite
+	if f.Mass <= 0 || math.IsNaN(f.Mass) || math.IsInf(f.Mass, 0) {
 		return errors.New("mass must be positive")
 	}
-	if f.Height <= 0 {
+	if f.Height <= 0 || math.IsNaN(f.Height) || math.IsInf(f.Height, 0) {
 		return errors.New("height must be positive")
+	}
+	if math.IsNaN(f.BaseRadius) || math.IsInf(f.BaseRadius, 0) {
+		return errors.New("base radius must be non-negative")
 	}
 	if f.BaseRadius < 0 {
 		return errors.New("base radius must be non-negative")
+	}
+	if math.IsNaN(f.TopRadius) || math.IsInf(f.TopRadius, 0) {
+		return errors.New("top radius must be non-negative")
 	}
 	if f.TopRadius < 0 {
 		return errors.New("top radius must be non-negative")
@@ -51,10 +58,30 @@ func (f FrustumObject) Validate() error {
 }
 
 func (f FrustumObject) Volume() (float64, error) {
-	if err := f.Validate(); err != nil {
-		return 0, err
+	// Geometry-only: validates radii and Height only, NOT Mass per spec
+	if math.IsNaN(f.BaseRadius) || math.IsInf(f.BaseRadius, 0) {
+		return 0, errors.New("base radius must be non-negative")
 	}
-	return math.Pi * f.Height / 3.0 * (f.BaseRadius*f.BaseRadius + f.BaseRadius*f.TopRadius + f.TopRadius*f.TopRadius), nil
+	if f.BaseRadius < 0 {
+		return 0, errors.New("base radius must be non-negative")
+	}
+	if math.IsNaN(f.TopRadius) || math.IsInf(f.TopRadius, 0) {
+		return 0, errors.New("top radius must be non-negative")
+	}
+	if f.TopRadius < 0 {
+		return 0, errors.New("top radius must be non-negative")
+	}
+	if math.IsNaN(f.Height) || math.IsInf(f.Height, 0) || f.Height <= 0 {
+		return 0, errors.New("height must be positive")
+	}
+	if f.BaseRadius == 0 && f.TopRadius == 0 {
+		return 0, errors.New("both radii zero degenerate")
+	}
+	vol := math.Pi * f.Height / 3.0 * (f.BaseRadius*f.BaseRadius + f.BaseRadius*f.TopRadius + f.TopRadius*f.TopRadius)
+	if math.IsInf(vol, 0) || math.IsNaN(vol) {
+		return 0, errors.New("radius and height cause volume overflow")
+	}
+	return vol, nil
 }
 
 func (f FrustumObject) Density() (float64, error) {
@@ -65,10 +92,14 @@ func (f FrustumObject) Density() (float64, error) {
 	if vol <= 0 {
 		return 0, errors.New("volume must be positive")
 	}
-	if f.Mass <= 0 {
+	if f.Mass <= 0 || math.IsNaN(f.Mass) || math.IsInf(f.Mass, 0) {
 		return 0, errors.New("mass must be positive")
 	}
-	return f.Mass / vol, nil
+	d := f.Mass / vol
+	if math.IsInf(d, 0) || math.IsNaN(d) {
+		return 0, errors.New("mass and volume cause density overflow")
+	}
+	return d, nil
 }
 
 func (f FrustumObject) submergedVolumeAtDepth(d float64) float64 {
@@ -83,8 +114,11 @@ func (f FrustumObject) submergedVolumeAtDepth(d float64) float64 {
 }
 
 func (s StratifiedFluid) Validate() error {
-	if s.SurfaceDensity <= 0 {
+	if s.SurfaceDensity <= 0 || math.IsNaN(s.SurfaceDensity) || math.IsInf(s.SurfaceDensity, 0) {
 		return errors.New("surface density must be positive")
+	}
+	if math.IsNaN(s.Gradient) || math.IsInf(s.Gradient, 0) {
+		return errors.New("gradient must be non-negative")
 	}
 	if s.Gradient < 0 {
 		return errors.New("gradient must be non-negative")
@@ -96,10 +130,19 @@ func (s StratifiedFluid) DensityAtDepth(z float64) (float64, error) {
 	if err := s.Validate(); err != nil {
 		return 0, err
 	}
-	if z < 0 {
+	if math.IsNaN(z) || math.IsInf(z, 0) || z < 0 {
 		return 0, errors.New("depth must be non-negative")
 	}
-	return s.SurfaceDensity + s.Gradient*z, nil
+	// Check overflow after computation? ρ(z)=S+G*z
+	d := s.Gradient * z
+	if math.IsInf(d, 0) || math.IsNaN(d) {
+		return 0, errors.New("density overflow")
+	}
+	rho := s.SurfaceDensity + d
+	if math.IsInf(rho, 0) || math.IsNaN(rho) {
+		return 0, errors.New("density overflow")
+	}
+	return rho, nil
 }
 
 func (f FrustumObject) buoyantMassAtDepthStratified(fluid StratifiedFluid, d float64) float64 {
@@ -148,7 +191,7 @@ func buoyantMassConicalStratified(obj Object, fluid StratifiedFluid, d float64) 
 	return math.Pi * R2 / (H * H) * (S*d*d*d/3.0 + G*d*d*d*d/4.0)
 }
 
-// New exported BuoyantMass functions - super hard, expose polynomial directly
+// Exported BuoyantMass functions - super hard, expose polynomial directly
 
 func BuoyantMass(obj Object, fluid StratifiedFluid, d float64) (float64, error) {
 	if err := obj.Validate(); err != nil {
@@ -253,10 +296,13 @@ func EquilibriumDepthStratifiedWithTol(obj Object, fluid StratifiedFluid, tol fl
 		return 0, err
 	}
 	bmFull := buoyantMassPrismaticStratified(obj, fluid, obj.Height)
-	if bmFull <= 0 {
+	if bmFull <= 0 || math.IsNaN(bmFull) || math.IsInf(bmFull, 0) {
 		return 0, errors.New("buoyant mass must be positive")
 	}
 	avgFluid := bmFull / obj.Volume
+	if math.IsNaN(avgFluid) || math.IsInf(avgFluid, 0) {
+		return 0, errors.New("buoyant mass overflow")
+	}
 	state, err := CheckBuoyancyByDensity(density, avgFluid)
 	if err != nil {
 		return 0, err
@@ -584,11 +630,17 @@ func EquilibriumDepthFrustum(obj FrustumObject, fluid Fluid) (float64, error) {
 		return 0, err
 	}
 	target := fraction * volTotal
+	if math.IsInf(target, 0) || math.IsNaN(target) {
+		return 0, errors.New("buoyant mass overflow")
+	}
 	lo := 0.0
 	hi := obj.Height
 	for iter := 0; iter < 80; iter++ {
 		mid := (lo + hi) * 0.5
 		v := obj.submergedVolumeAtDepth(mid)
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return 0, errors.New("submerged volume overflow")
+		}
 		if v < target {
 			lo = mid
 		} else {
@@ -681,10 +733,13 @@ func EquilibriumDepthStratified(obj Object, fluid StratifiedFluid) (float64, err
 		return 0, err
 	}
 	bmFull := buoyantMassPrismaticStratified(obj, fluid, obj.Height)
-	if bmFull <= 0 {
+	if bmFull <= 0 || math.IsNaN(bmFull) || math.IsInf(bmFull, 0) {
 		return 0, errors.New("buoyant mass must be positive")
 	}
 	avgFluid := bmFull / obj.Volume
+	if math.IsNaN(avgFluid) || math.IsInf(avgFluid, 0) {
+		return 0, errors.New("buoyant mass overflow")
+	}
 	state, err := CheckBuoyancyByDensity(density, avgFluid)
 	if err != nil {
 		return 0, err
@@ -697,6 +752,9 @@ func EquilibriumDepthStratified(obj Object, fluid StratifiedFluid) (float64, err
 	for i := 0; i < 100; i++ {
 		mid := (lo + hi) * 0.5
 		bm := buoyantMassPrismaticStratified(obj, fluid, mid)
+		if math.IsNaN(bm) || math.IsInf(bm, 0) {
+			return 0, errors.New("buoyant mass overflow")
+		}
 		if bm < obj.Mass {
 			lo = mid
 		} else {
@@ -725,10 +783,13 @@ func EquilibriumDepthConicalStratified(obj Object, fluid StratifiedFluid) (float
 		return 0, err
 	}
 	bmFull := buoyantMassConicalStratified(obj, fluid, obj.Height)
-	if bmFull <= 0 {
+	if bmFull <= 0 || math.IsNaN(bmFull) || math.IsInf(bmFull, 0) {
 		return 0, errors.New("buoyant mass must be positive")
 	}
 	avgFluid := bmFull / obj.Volume
+	if math.IsNaN(avgFluid) || math.IsInf(avgFluid, 0) {
+		return 0, errors.New("buoyant mass overflow")
+	}
 	state, err := CheckBuoyancyByDensity(density, avgFluid)
 	if err != nil {
 		return 0, err
@@ -741,6 +802,9 @@ func EquilibriumDepthConicalStratified(obj Object, fluid StratifiedFluid) (float
 	for i := 0; i < 100; i++ {
 		mid := (lo + hi) * 0.5
 		bm := buoyantMassConicalStratified(obj, fluid, mid)
+		if math.IsNaN(bm) || math.IsInf(bm, 0) {
+			return 0, errors.New("buoyant mass overflow")
+		}
 		if bm < obj.Mass {
 			lo = mid
 		} else {
@@ -769,7 +833,7 @@ func EquilibriumDepthFrustumStratified(obj FrustumObject, fluid StratifiedFluid)
 		return 0, err
 	}
 	bmFull := obj.buoyantMassAtDepthStratified(fluid, obj.Height)
-	if bmFull <= 0 {
+	if bmFull <= 0 || math.IsNaN(bmFull) || math.IsInf(bmFull, 0) {
 		return 0, errors.New("buoyant mass must be positive")
 	}
 	vol, err := obj.Volume()
@@ -777,6 +841,9 @@ func EquilibriumDepthFrustumStratified(obj FrustumObject, fluid StratifiedFluid)
 		return 0, err
 	}
 	avgFluid := bmFull / vol
+	if math.IsNaN(avgFluid) || math.IsInf(avgFluid, 0) {
+		return 0, errors.New("buoyant mass overflow")
+	}
 	state, err := CheckBuoyancyByDensity(density, avgFluid)
 	if err != nil {
 		return 0, err
@@ -789,6 +856,9 @@ func EquilibriumDepthFrustumStratified(obj FrustumObject, fluid StratifiedFluid)
 	for i := 0; i < 100; i++ {
 		mid := (lo + hi) * 0.5
 		bm := obj.buoyantMassAtDepthStratified(fluid, mid)
+		if math.IsNaN(bm) || math.IsInf(bm, 0) {
+			return 0, errors.New("buoyant mass overflow")
+		}
 		if bm < obj.Mass {
 			lo = mid
 		} else {
@@ -817,10 +887,13 @@ func AnalyzeStratifiedObject(obj Object, fluid StratifiedFluid) (SubmersionResul
 		return SubmersionResult{}, err
 	}
 	bmFull := buoyantMassPrismaticStratified(obj, fluid, obj.Height)
-	if bmFull <= 0 {
+	if bmFull <= 0 || math.IsNaN(bmFull) || math.IsInf(bmFull, 0) {
 		return SubmersionResult{}, errors.New("buoyant mass must be positive")
 	}
 	avgFluid := bmFull / obj.Volume
+	if math.IsNaN(avgFluid) || math.IsInf(avgFluid, 0) {
+		return SubmersionResult{}, errors.New("buoyant mass overflow")
+	}
 	state, err := CheckBuoyancyByDensity(density, avgFluid)
 	if err != nil {
 		return SubmersionResult{}, err
@@ -851,10 +924,13 @@ func AnalyzeConicalStratifiedObject(obj Object, fluid StratifiedFluid) (Submersi
 		return SubmersionResult{}, err
 	}
 	bmFull := buoyantMassConicalStratified(obj, fluid, obj.Height)
-	if bmFull <= 0 {
+	if bmFull <= 0 || math.IsNaN(bmFull) || math.IsInf(bmFull, 0) {
 		return SubmersionResult{}, errors.New("buoyant mass must be positive")
 	}
 	avgFluid := bmFull / obj.Volume
+	if math.IsNaN(avgFluid) || math.IsInf(avgFluid, 0) {
+		return SubmersionResult{}, errors.New("buoyant mass overflow")
+	}
 	state, err := CheckBuoyancyByDensity(density, avgFluid)
 	if err != nil {
 		return SubmersionResult{}, err
@@ -885,7 +961,7 @@ func AnalyzeFrustumStratifiedObject(obj FrustumObject, fluid StratifiedFluid) (S
 		return SubmersionResult{}, err
 	}
 	bmFull := obj.buoyantMassAtDepthStratified(fluid, obj.Height)
-	if bmFull <= 0 {
+	if bmFull <= 0 || math.IsNaN(bmFull) || math.IsInf(bmFull, 0) {
 		return SubmersionResult{}, errors.New("buoyant mass must be positive")
 	}
 	vol, err := obj.Volume()
@@ -893,6 +969,9 @@ func AnalyzeFrustumStratifiedObject(obj FrustumObject, fluid StratifiedFluid) (S
 		return SubmersionResult{}, err
 	}
 	avgFluid := bmFull / vol
+	if math.IsNaN(avgFluid) || math.IsInf(avgFluid, 0) {
+		return SubmersionResult{}, errors.New("buoyant mass overflow")
+	}
 	state, err := CheckBuoyancyByDensity(density, avgFluid)
 	if err != nil {
 		return SubmersionResult{}, err

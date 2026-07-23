@@ -15,13 +15,13 @@ import (
 const MinimumVolumeFraction = 0.1
 
 type CompressibleObject struct {
-	Mass               float64
-	Volume0            float64
-	Height             float64
-	BulkModulus        float64
-	DragCoefficient    float64
-	CrushDepth         float64
-	MinVolumeFraction  float64
+	Mass              float64
+	Volume0           float64
+	Height            float64
+	BulkModulus       float64
+	DragCoefficient   float64
+	CrushDepth        float64
+	MinVolumeFraction float64
 }
 
 type DiveResult struct {
@@ -35,26 +35,30 @@ type DiveResult struct {
 	CrushRisk        bool
 }
 
+func isFinite(f float64) bool {
+	return !math.IsNaN(f) && !math.IsInf(f, 0)
+}
+
 func (c CompressibleObject) Validate() error {
-	if c.Mass <= 0 {
+	if !isFinite(c.Mass) || c.Mass <= 0 {
 		return errors.New("mass must be positive")
 	}
-	if c.Volume0 <= 0 {
+	if !isFinite(c.Volume0) || c.Volume0 <= 0 {
 		return errors.New("volume0 must be positive")
 	}
-	if c.Height <= 0 {
+	if !isFinite(c.Height) || c.Height <= 0 {
 		return errors.New("height must be positive")
 	}
-	if c.BulkModulus <= 0 {
+	if !isFinite(c.BulkModulus) || c.BulkModulus <= 0 {
 		return errors.New("bulk modulus must be positive")
 	}
-	if c.DragCoefficient < 0 {
+	if !isFinite(c.DragCoefficient) || c.DragCoefficient < 0 {
 		return errors.New("drag coefficient must be non-negative")
 	}
-	if c.CrushDepth <= 0 {
+	if !isFinite(c.CrushDepth) || c.CrushDepth <= 0 {
 		return errors.New("crush depth must be positive")
 	}
-	if c.MinVolumeFraction <= 0 || c.MinVolumeFraction >= 1 {
+	if !isFinite(c.MinVolumeFraction) || c.MinVolumeFraction <= 0 || c.MinVolumeFraction >= 1 {
 		return errors.New("min volume fraction must be in (0,1)")
 	}
 	return nil
@@ -64,13 +68,34 @@ func PressureAtDepth(fluid StratifiedFluid, depth, g float64) (float64, error) {
 	if err := fluid.Validate(); err != nil {
 		return 0, err
 	}
-	if depth < 0 {
+	if !isFinite(depth) || depth < 0 {
 		return 0, errors.New("depth must be non-negative")
 	}
-	if g <= 0 {
+	if !isFinite(g) || g <= 0 {
 		return 0, errors.New("gravity must be positive")
 	}
-	return g * (fluid.SurfaceDensity*depth + 0.5*fluid.Gradient*depth*depth), nil
+	// P(z)=g*(S*z+0.5*G*z^2) with overflow checks
+	sd := fluid.SurfaceDensity * depth
+	if !isFinite(sd) {
+		return 0, errors.New("pressure overflow")
+	}
+	gd2 := fluid.Gradient * depth * depth
+	if !isFinite(gd2) {
+		return 0, errors.New("pressure overflow")
+	}
+	halfGd2 := 0.5 * gd2
+	if !isFinite(halfGd2) {
+		return 0, errors.New("pressure overflow")
+	}
+	sum := sd + halfGd2
+	if !isFinite(sum) {
+		return 0, errors.New("pressure overflow")
+	}
+	pres := g * sum
+	if !isFinite(pres) {
+		return 0, errors.New("pressure overflow")
+	}
+	return pres, nil
 }
 
 func VolumeAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g float64) (float64, error) {
@@ -80,10 +105,10 @@ func VolumeAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g float
 	if err := fluid.Validate(); err != nil {
 		return 0, err
 	}
-	if depth < 0 {
+	if !isFinite(depth) || depth < 0 {
 		return 0, errors.New("depth must be non-negative")
 	}
-	if g <= 0 {
+	if !isFinite(g) || g <= 0 {
 		return 0, errors.New("gravity must be positive")
 	}
 	if depth > obj.CrushDepth {
@@ -93,22 +118,42 @@ func VolumeAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g float
 	if err != nil {
 		return 0, err
 	}
+	// Check P/K overflow: pressure / BulkModulus
+	if obj.BulkModulus == 0 {
+		return 0, errors.New("bulk modulus must be positive")
+	}
+	ratio := pressure / obj.BulkModulus
+	if !isFinite(ratio) {
+		return 0, errors.New("pressure and bulk modulus cause overflow")
+	}
 	fMin := obj.MinVolumeFraction
 	if fMin <= 0 {
 		fMin = MinimumVolumeFraction
 	}
-	vol := obj.Volume0 * (1 - pressure/obj.BulkModulus)
-	// Enforce package minimum clamping using MinimumVolumeFraction as lower bound - bespoke package invariant
+	// Enforce package minimum clamping using MinimumVolumeFraction as lower bound
 	minVol := obj.Volume0 * fMin
+	if !isFinite(minVol) {
+		return 0, errors.New("volume overflow")
+	}
 	packageMin := obj.Volume0 * MinimumVolumeFraction
+	if !isFinite(packageMin) {
+		return 0, errors.New("volume overflow")
+	}
 	if minVol < packageMin {
 		minVol = packageMin
+	}
+	vol := obj.Volume0 * (1 - ratio)
+	if !isFinite(vol) {
+		return 0, errors.New("volume overflow")
 	}
 	if vol < minVol {
 		vol = minVol
 	}
 	if vol <= 0 {
 		vol = minVol
+	}
+	if !isFinite(vol) {
+		return 0, errors.New("volume overflow")
 	}
 	return vol, nil
 }
@@ -120,10 +165,10 @@ func BuoyantForceAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g
 	if err := fluid.Validate(); err != nil {
 		return 0, err
 	}
-	if depth < 0 {
+	if !isFinite(depth) || depth < 0 {
 		return 0, errors.New("depth must be non-negative")
 	}
-	if g <= 0 {
+	if !isFinite(g) || g <= 0 {
 		return 0, errors.New("gravity must be positive")
 	}
 	rho, err := fluid.DensityAtDepth(depth)
@@ -134,7 +179,11 @@ func BuoyantForceAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g
 	if err != nil {
 		return 0, err
 	}
-	return rho * vol * g, nil
+	fb := rho * vol * g
+	if !isFinite(fb) {
+		return 0, errors.New("buoyant force overflow")
+	}
+	return fb, nil
 }
 
 func NetForceAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, vel, g float64) (float64, error) {
@@ -144,13 +193,19 @@ func NetForceAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, vel, 
 	if err := fluid.Validate(); err != nil {
 		return 0, err
 	}
-	if depth < 0 {
+	if !isFinite(depth) || depth < 0 {
 		return 0, errors.New("depth must be non-negative")
 	}
-	if g <= 0 {
+	if !isFinite(vel) {
+		return 0, errors.New("velocity must be finite")
+	}
+	if !isFinite(g) || g <= 0 {
 		return 0, errors.New("gravity must be positive")
 	}
 	fw := obj.Mass * g
+	if !isFinite(fw) {
+		return 0, errors.New("weight force overflow")
+	}
 	fb, err := BuoyantForceAtDepth(obj, fluid, depth, g)
 	if err != nil {
 		return 0, err
@@ -163,14 +218,21 @@ func NetForceAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, vel, 
 	if err != nil {
 		return 0, err
 	}
-	// Package-defined reference area Ad(z)=V(z)/Height, bespoke convention not standard cross-section
+	// Ad(z)=V(z)/Height per spec, no fallback
 	Ad := vol / obj.Height
-	if Ad <= 0 {
-		Ad = 0.01
+	if !isFinite(Ad) || Ad <= 0 {
+		return 0, errors.New("reference area must be positive")
 	}
-	// Drag opposes motion: sign handling via vel*|vel|, bespoke package requirement
+	// Drag opposes motion: v*|v|
 	fd := 0.5 * rho * obj.DragCoefficient * Ad * vel * math.Abs(vel)
-	return fw - fb - fd, nil
+	if !isFinite(fd) {
+		return 0, errors.New("drag force overflow")
+	}
+	net := fw - fb - fd
+	if !isFinite(net) {
+		return 0, errors.New("net force overflow")
+	}
+	return net, nil
 }
 
 func TerminalVelocityAtDepth(obj CompressibleObject, fluid StratifiedFluid, depth, g float64) (float64, error) {
@@ -180,13 +242,13 @@ func TerminalVelocityAtDepth(obj CompressibleObject, fluid StratifiedFluid, dept
 	if err := fluid.Validate(); err != nil {
 		return 0, err
 	}
-	if depth < 0 {
+	if !isFinite(depth) || depth < 0 {
 		return 0, errors.New("depth must be non-negative")
 	}
-	if g <= 0 {
+	if !isFinite(g) || g <= 0 {
 		return 0, errors.New("gravity must be positive")
 	}
-	if obj.DragCoefficient <= 0 {
+	if obj.DragCoefficient <= 0 || !isFinite(obj.DragCoefficient) {
 		return 0, errors.New("drag coefficient must be positive for terminal velocity")
 	}
 	rho, err := fluid.DensityAtDepth(depth)
@@ -198,16 +260,26 @@ func TerminalVelocityAtDepth(obj CompressibleObject, fluid StratifiedFluid, dept
 		return 0, err
 	}
 	Ad := vol / obj.Height
-	if Ad <= 0 {
+	if !isFinite(Ad) || Ad <= 0 {
 		return 0, errors.New("reference area must be positive")
 	}
 	fw := obj.Mass * g
 	fb := rho * vol * g
+	if !isFinite(fw) || !isFinite(fb) {
+		return 0, errors.New("force overflow")
+	}
 	fnet := fw - fb
 	if math.Abs(fnet) < 1e-12 {
 		return 0, nil
 	}
-	v := math.Sqrt(2*math.Abs(fnet)/(rho*obj.DragCoefficient*Ad))
+	denom := rho * obj.DragCoefficient * Ad
+	if !isFinite(denom) || denom <= 0 {
+		return 0, errors.New("drag denominator overflow")
+	}
+	v := math.Sqrt(2 * math.Abs(fnet) / denom)
+	if !isFinite(v) {
+		return 0, errors.New("terminal velocity overflow")
+	}
 	if fnet < 0 {
 		v = -v
 	}
@@ -221,13 +293,13 @@ func FindEquilibriumDepth(obj CompressibleObject, fluid StratifiedFluid, g, maxD
 	if err := fluid.Validate(); err != nil {
 		return 0, err
 	}
-	if g <= 0 {
+	if !isFinite(g) || g <= 0 {
 		return 0, errors.New("gravity must be positive")
 	}
-	if maxDepth <= 0 {
+	if !isFinite(maxDepth) || maxDepth <= 0 {
 		return 0, errors.New("max depth must be positive")
 	}
-	if tol <= 0 {
+	if !isFinite(tol) || tol <= 0 {
 		return 0, errors.New("tol must be positive")
 	}
 	if maxDepth > obj.CrushDepth {
@@ -270,16 +342,16 @@ func TimeToDepthRK4(obj CompressibleObject, fluid StratifiedFluid, targetDepth, 
 	if err := fluid.Validate(); err != nil {
 		return 0, err
 	}
-	if targetDepth <= 0 {
+	if !isFinite(targetDepth) || targetDepth <= 0 {
 		return 0, errors.New("target depth must be positive")
 	}
-	if g <= 0 {
+	if !isFinite(g) || g <= 0 {
 		return 0, errors.New("gravity must be positive")
 	}
-	if dt <= 0 {
+	if !isFinite(dt) || dt <= 0 {
 		return 0, errors.New("dt must be positive")
 	}
-	if maxTime <= 0 {
+	if !isFinite(maxTime) || maxTime <= 0 {
 		return 0, errors.New("maxTime must be positive")
 	}
 	if targetDepth > obj.CrushDepth {
@@ -352,6 +424,9 @@ func TimeToDepthRK4(obj CompressibleObject, fluid StratifiedFluid, targetDepth, 
 			z = 0
 			v = 0
 		}
+		if !isFinite(z) || !isFinite(v) {
+			return 0, errors.New("integration overflow")
+		}
 	}
 	if z >= targetDepth {
 		if z == prevZ {
@@ -371,59 +446,96 @@ func BatchFindEquilibrium(objs []CompressibleObject, fluid StratifiedFluid, g, m
 	if err := fluid.Validate(); err != nil {
 		return nil, err
 	}
+	if !isFinite(g) || g <= 0 {
+		return nil, errors.New("gravity must be positive")
+	}
+	if !isFinite(maxDepth) || maxDepth <= 0 {
+		return nil, errors.New("max depth must be positive")
+	}
+	if !isFinite(tol) || tol <= 0 {
+		return nil, errors.New("tol must be positive")
+	}
 	if objs == nil {
 		return make([]DiveResult, 0), nil
 	}
-	if g <= 0 {
-		return nil, errors.New("gravity must be positive")
-	}
-	if maxDepth <= 0 {
-		return nil, errors.New("max depth must be positive")
-	}
-	if tol <= 0 {
-		return nil, errors.New("tol must be positive")
+	if len(objs) == 0 {
+		return make([]DiveResult, 0), nil
 	}
 	results := make([]DiveResult, len(objs))
-	for i, obj := range objs {
-		if err := obj.Validate(); err != nil {
-			results[i] = DiveResult{Index: i, State: "invalid"}
-			continue
-		}
-		depth, err := FindEquilibriumDepth(obj, fluid, g, maxDepth, tol)
-		if err != nil {
-			if containsIgnoreCase(err.Error(), "crush") {
-				results[i] = DiveResult{Index: i, State: "crush", EquilibriumDepth: depth, CrushRisk: true}
-			} else {
-				results[i] = DiveResult{Index: i, State: "invalid"}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range objs {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			obj := objs[idx]
+			if err := obj.Validate(); err != nil {
+				mu.Lock()
+				results[idx] = DiveResult{Index: idx, State: "invalid"}
+				mu.Unlock()
+				return
 			}
-			continue
-		}
-		vol, _ := VolumeAtDepth(obj, fluid, depth, g)
-		press, _ := PressureAtDepth(fluid, depth, g)
-		term, _ := TerminalVelocityAtDepth(obj, fluid, depth, g)
-		crush := depth >= obj.CrushDepth*0.9
-		state := "sink"
-		rho0, _ := fluid.DensityAtDepth(0)
-		if obj.Mass < rho0*obj.Volume0 {
-			state = "float"
-		} else {
-			if math.Abs(depth-maxDepth) < 1e-6 {
-				state = "sink"
-			} else {
-				state = "neutral"
+			depth, err := FindEquilibriumDepth(obj, fluid, g, maxDepth, tol)
+			if err != nil {
+				mu.Lock()
+				if containsIgnoreCase(err.Error(), "crush") {
+					results[idx] = DiveResult{Index: idx, State: "crush", EquilibriumDepth: depth, CrushRisk: true}
+				} else {
+					results[idx] = DiveResult{Index: idx, State: "invalid"}
+				}
+				mu.Unlock()
+				return
 			}
-		}
-		if crush {
-			state = "crush"
-		}
-		results[i] = DiveResult{Index: i, State: state, EquilibriumDepth: depth, TerminalVelocity: term, VolumeAtDepth: vol, MaxPressure: press, CrushRisk: crush}
+			vol, _ := VolumeAtDepth(obj, fluid, depth, g)
+			press, _ := PressureAtDepth(fluid, depth, g)
+			term, _ := TerminalVelocityAtDepth(obj, fluid, depth, g)
+			crush := depth >= obj.CrushDepth*0.9
+			state := "sink"
+			rho0, _ := fluid.DensityAtDepth(0)
+			if obj.Mass < rho0*obj.Volume0 {
+				state = "float"
+			} else {
+				if math.Abs(depth-maxDepth) < 1e-6 {
+					state = "sink"
+				} else {
+					state = "neutral"
+				}
+			}
+			if crush {
+				state = "crush"
+			}
+			// Ensure MinimumVolumeFraction is referenced per spec
+			_ = MinimumVolumeFraction
+			res := DiveResult{
+				Index:            idx,
+				State:            state,
+				EquilibriumDepth: depth,
+				TerminalVelocity: term,
+				VolumeAtDepth:    vol,
+				MaxPressure:      press,
+				CrushRisk:        crush,
+			}
+			mu.Lock()
+			results[idx] = res
+			mu.Unlock()
+		}(i)
 	}
+	wg.Wait()
 	return results, nil
 }
 
 func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid, targets []float64, g, dt, maxTime float64) ([]DiveResult, error) {
 	if err := fluid.Validate(); err != nil {
 		return nil, err
+	}
+	if !isFinite(g) || g <= 0 {
+		return nil, errors.New("gravity must be positive")
+	}
+	if !isFinite(dt) || dt <= 0 {
+		return nil, errors.New("dt must be positive")
+	}
+	if !isFinite(maxTime) || maxTime <= 0 {
+		return nil, errors.New("maxTime must be positive")
 	}
 	if objs == nil && targets == nil {
 		return make([]DiveResult, 0), nil
@@ -440,17 +552,13 @@ func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid
 		}
 		return make([]DiveResult, 0), nil
 	}
-	if g <= 0 {
-		return nil, errors.New("gravity must be positive")
-	}
-	if dt <= 0 {
-		return nil, errors.New("dt must be positive")
-	}
-	if maxTime <= 0 {
-		return nil, errors.New("maxTime must be positive")
-	}
 	if len(objs) != len(targets) {
 		return nil, errors.New("objects and targets length mismatch")
+	}
+	for _, td := range targets {
+		if !isFinite(td) {
+			return nil, errors.New("target depth must be finite")
+		}
 	}
 	results := make([]DiveResult, len(objs))
 	var wg sync.WaitGroup
@@ -467,7 +575,7 @@ func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid
 				mu.Unlock()
 				return
 			}
-			if target <= 0 {
+			if !isFinite(target) || target <= 0 {
 				mu.Lock()
 				results[idx] = DiveResult{Index: idx, State: "invalid"}
 				mu.Unlock()
@@ -493,14 +601,22 @@ func BatchTimeToDepthConcurrent(objs []CompressibleObject, fluid StratifiedFluid
 			vol, _ := VolumeAtDepth(obj, fluid, target, g)
 			press, _ := PressureAtDepth(fluid, target, g)
 			term, _ := TerminalVelocityAtDepth(obj, fluid, target, g)
-			results[idx] = DiveResult{Index: idx, State: "sink", TimeToDepth: tm, VolumeAtDepth: vol, MaxPressure: press, TerminalVelocity: term, EquilibriumDepth: target, CrushRisk: target >= obj.CrushDepth*0.9}
+			results[idx] = DiveResult{
+				Index:            idx,
+				State:            "sink",
+				TimeToDepth:      tm,
+				VolumeAtDepth:    vol,
+				MaxPressure:      press,
+				TerminalVelocity: term,
+				EquilibriumDepth: target,
+				CrushRisk:        target >= obj.CrushDepth*0.9,
+			}
 		}(i)
 	}
 	wg.Wait()
 	return results, nil
 }
 GO
-
 
 
 

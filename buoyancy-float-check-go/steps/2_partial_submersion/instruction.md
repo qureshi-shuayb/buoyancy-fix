@@ -17,12 +17,12 @@ type StratifiedFluid struct { SurfaceDensity, Gradient float64 }
 
 ## Validation Rules
 
-- `Object`: Mass>0, Volume>0, Height>0 finite.
+- `Object`: Mass>0, Volume>0, Height>0 finite (must reject NaN/Inf).
 - `Fluid`: Density>0 finite.
-- `FrustumObject`: Mass>0, Height>0, BaseRadius>=0, TopRadius>=0, not both 0.
-- `StratifiedFluid`: SurfaceDensity>0, Gradient>=0.
-- `FrustumObject.Volume()`: validates radii and Height only.
-- `StratifiedFluid.DensityAtDepth(z)`: validates fluid, z>=0.
+- `FrustumObject`: Mass>0, Height>0, BaseRadius>=0, TopRadius>=0, not both 0, all finite.
+- `StratifiedFluid`: SurfaceDensity>0 finite, Gradient>=0 finite.
+- `FrustumObject.Volume()`: validates radii and Height only (geometry-only), NOT Mass. Must allow Mass=0, Mass negative, Mass=NaN still returning volume if radii/height finite. Height>0 finite, BaseRadius>=0 finite, TopRadius>=0 finite, not both zero. Must reject NaN/Inf for radii/height and overflow to Inf.
+- `StratifiedFluid.DensityAtDepth(z)`: validates fluid finite, z>=0 finite.
 
 ## Functions
 ```go
@@ -60,13 +60,13 @@ func BatchAnalyzeFrustumStratified(objects []FrustumObject, fluid StratifiedFlui
 
 ## Behavior
 
-- `FrustumObject.Volume()`: `π*H/3*(R1²+R1*R2+R2²)` via `math.Pi`.
+- `FrustumObject.Volume()`: `π*H/3*(R1²+R1*R2+R2²)` via `math.Pi`. Geometry-only — must NOT check Mass. Overflow to Inf/NaN must error.
 - `SubmergedVolumeAtDepthFrustum`: `V_sub(d)=π*d/3*(R1²+R1*rd+rd²)`, `rd=R1+(R2-R1)*d/H`, within 1e-9.
 - `WaterlineAreaAtDepthFrustum`: `A(d)=π*r(d)²`, `r(d)=R1+(R2-R1)*d/H`, within 1e-9.
-- Uniform: `Mass=rho*V_sub`. Prismatic `A=Vol/H`, `V_sub=A*d`, `Fraction=density/fluidDensity`, `Depth=Fraction*H` else H. Conical `d=H*cbrt(Fraction)`. Frustum bisection [0,H] 80 iters.
+- Uniform: `Mass=rho*V_sub`. Prismatic `A=Vol/H`, `V_sub=A*d`, `Fraction=clamp(density/fluidDensity,0,1)`, `Depth=Fraction*H` else H. **Clarification:** For sinking objects (density ratio >1, e.g., raw ratio 1.2), `Fraction` must be clamped to `1.0` (not 1.2). The raw ratio 1.2 is not valid; grader expects `1.0`. Conical `d=H*cbrt(Fraction)` where Fraction clamped. Frustum bisection [0,H] 80 iters.
 - Reductions: `R1==R2` linear 1e-9, `R1==0` cone 1e-9.
 - Stratified: `rho(z)=S+G*z`. `BM(d)=∫rho(z)A(z)dz`. Prismatic `A(Sd+0.5Gd²)`, conical `πR²/H²(Sd³/3+Gd⁴/4)`, frustum `π[SR1²d+(S2R1ΔR/H+GR1²)d²/2+(SΔR²/H²+G2R1ΔR/H)d³/3+GΔR²/H² d⁴/4]`.
-- `BuoyantMass` returns `BM(d)` within **1e-12 absolute** (super hard) and must be closed-form polynomial not numeric loop.
+- `BuoyantMass` returns `BM(d)` within **1e-12 absolute** (super hard) and must be closed-form polynomial not numeric loop. Must error on overflow.
 - `EquilibriumDepthStratifiedWithTol`: same as `EquilibriumDepthStratified` but uses passed `tol` for bisection termination, must use tol param.
 - Stratified state: `rho_avg=BM(H)/Vol`, state via `CheckBuoyancyByDensity` with Tolerance. Float → bisection [0,H] 100 iters. Fraction=Mass/BM(H) clamped [0,1]. `G=0`→uniform 1e-9.
 - Batch: validate fluid else nil,error; if `objects==nil`→`make(...,0),nil`; order via `Index=i`; invalid→State="invalid" continue; concurrent with `WaitGroup`+`Mutex`, race-free.

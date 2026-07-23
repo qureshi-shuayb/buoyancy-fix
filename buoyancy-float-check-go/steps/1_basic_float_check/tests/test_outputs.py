@@ -26,6 +26,18 @@ def run(cmd):
 
 
 def write_step1_tests():
+    # Cleanup stale verifier test files to prevent leakage (BAD_LEAKAGE) and Go redeclaration (approx collision)
+    for p in APP_DIR.glob("*_test.go"):
+        try:
+            p.unlink(missing_ok=True)
+        except Exception:
+            pass
+    for p in APP_DIR.glob("*_test.go.bak"):
+        try:
+            p.unlink(missing_ok=True)
+        except Exception:
+            pass
+
     TEST_FILE.write_text(
         textwrap.dedent(
             r"""
@@ -38,7 +50,7 @@ import (
     "testing"
 )
 
-func closeEnough(got, want float64) bool {
+func closeEnoughStep1(got, want float64) bool {
     return math.Abs(got-want) <= 1e-6
 }
 
@@ -88,12 +100,12 @@ func TestConstantsAndDensity(t *testing.T) {
 
     tinyObj := Object{Mass: 1e-9, Volume: 1e-9, Height: 1}
     td, err := tinyObj.Density()
-    if err != nil || !closeEnough(td, 1) {
+    if err != nil || !closeEnoughStep1(td, 1) {
         t.Fatalf("Density tiny 1e-9/1e-9 should be 1, got %g err %v", td, err)
     }
     smallDensityObj := Object{Mass: 1e-12, Volume: 1e-6, Height: 1}
     sd, err := smallDensityObj.Density()
-    if err != nil || !closeEnough(sd, 1e-6) {
+    if err != nil || !closeEnoughStep1(sd, 1e-6) {
         t.Fatalf("Density small 1e-12/1e-6 should be 1e-6, got %g err %v", sd, err)
     }
 }
@@ -192,7 +204,7 @@ func TestForces(t *testing.T) {
     if err != nil {
         t.Fatalf("BuoyantForce returned error: %v", err)
     }
-    if !closeEnough(fb, 24525) {
+    if !closeEnoughStep1(fb, 24525) {
         t.Fatalf("BuoyantForce = %g, want 24525", fb)
     }
 
@@ -200,7 +212,7 @@ func TestForces(t *testing.T) {
     if err != nil {
         t.Fatalf("WeightForce returned error: %v", err)
     }
-    if !closeEnough(fw, 122.625) {
+    if !closeEnoughStep1(fw, 122.625) {
         t.Fatalf("WeightForce = %g, want 122.625", fw)
     }
 
@@ -234,14 +246,14 @@ func TestForces(t *testing.T) {
     if err != nil {
         t.Fatalf("BuoyantForce with g=3.7 error: %v", err)
     }
-    if !closeEnough(fbMars, 9250) {
+    if !closeEnoughStep1(fbMars, 9250) {
         t.Fatalf("BuoyantForce with g=3.7 = %g, want 9250 (must use passed g, not hardcoded 9.81)", fbMars)
     }
     fwMars, err := WeightForce(12.5, 3.7)
     if err != nil {
         t.Fatalf("WeightForce with g=3.7 error: %v", err)
     }
-    if !closeEnough(fwMars, 46.25) {
+    if !closeEnoughStep1(fwMars, 46.25) {
         t.Fatalf("WeightForce with g=3.7 = %g, want 46.25 (must use passed g)", fwMars)
     }
 
@@ -249,7 +261,7 @@ func TestForces(t *testing.T) {
     if err != nil {
         t.Fatalf("BuoyantForce large volume small g error %v", err)
     }
-    if !closeEnough(fbSmallG, 500*1e6*0.1) {
+    if !closeEnoughStep1(fbSmallG, 500*1e6*0.1) {
         t.Fatalf("BuoyantForce large volume calc wrong")
     }
 }
@@ -456,14 +468,14 @@ func TestVerySmallGandLargeVolume(t *testing.T) {
         t.Fatalf("BuoyantForce small values error %v", err)
     }
     want := 1e-9 * 1e9 * 1e-9
-    if !closeEnough(fb, want) {
+    if !closeEnoughStep1(fb, want) {
         t.Fatalf("BuoyantForce small values = %g want %g", fb, want)
     }
     fw, err := WeightForce(1e9, 1e-9)
     if err != nil {
         t.Fatalf("WeightForce large mass small g error %v", err)
     }
-    if !closeEnough(fw, 1) {
+    if !closeEnoughStep1(fw, 1) {
         t.Fatalf("WeightForce 1e9*1e-9 = %g want 1", fw)
     }
     tinyH := Object{Mass: 1, Volume: 1, Height: 1e-12}
@@ -525,7 +537,7 @@ func TestCylinderVolumePiFactor(t *testing.T) {
         t.Fatalf("Cylinder Volume R=1 H=1 error: %v", err)
     }
     want := math.Pi * 1 * 1 * 1
-    if !closeEnough(vol, want) {
+    if !closeEnoughStep1(vol, want) {
         t.Fatalf("Cylinder volume Pi trap R=1,H=1 = %g want %g (missing Pi?)", vol, want)
     }
     c2 := CylinderObject{Mass: 100, Radius: 0.5, Height: 2}
@@ -534,13 +546,13 @@ func TestCylinderVolumePiFactor(t *testing.T) {
         t.Fatalf("Cylinder Volume R=0.5 H=2 error: %v", err)
     }
     want2 := math.Pi * 0.25 * 2
-    if !closeEnough(vol2, want2) {
+    if !closeEnoughStep1(vol2, want2) {
         t.Fatalf("Cylinder volume R=0.5,H=2 = %g want %g (diameter confusion? should be pi*r^2*h)", vol2, want2)
     }
     c3 := CylinderObject{Mass: 100, Radius: 1, Height: 2}
     vol3, _ := c3.Volume()
     want3 := 2 * math.Pi
-    if !closeEnough(vol3, want3) {
+    if !closeEnoughStep1(vol3, want3) {
         t.Fatalf("Cylinder volume R=1,H=2 = %g want %g", vol3, want3)
     }
     // Invalid radius
@@ -560,7 +572,7 @@ func TestCylinderVolumePiFactor(t *testing.T) {
     if err != nil {
         t.Fatalf("Cylinder Volume() should NOT validate Mass, but got err %v for Mass=0 (inverse DRY trap)", err)
     }
-    if !closeEnough(vZeroMass, math.Pi) {
+    if !closeEnoughStep1(vZeroMass, math.Pi) {
         t.Fatalf("Cylinder Volume with Mass=0 should be Pi, got %g", vZeroMass)
     }
 }
@@ -572,13 +584,13 @@ func TestSphereVolume(t *testing.T) {
         t.Fatalf("Sphere Volume R=1 error: %v", err)
     }
     want := 4.0 / 3.0 * math.Pi * 1
-    if !closeEnough(vol, want) {
+    if !closeEnoughStep1(vol, want) {
         t.Fatalf("Sphere volume 4/3 trap R=1 = %g want %g (missing 4/3 or Pi?)", vol, want)
     }
     s2 := SphereObject{Mass: 100, Radius: 2}
     vol2, _ := s2.Volume()
     want2 := 4.0 / 3.0 * math.Pi * 8
-    if !closeEnough(vol2, want2) {
+    if !closeEnoughStep1(vol2, want2) {
         t.Fatalf("Sphere volume R=2 = %g want %g", vol2, want2)
     }
     bad := SphereObject{Mass: 1, Radius: 0}
@@ -592,7 +604,7 @@ func TestSphereVolume(t *testing.T) {
     if err != nil {
         t.Fatalf("Sphere Volume() should NOT validate Mass, but got err %v for Mass=0", err)
     }
-    if !closeEnough(vZeroMass, 4.0/3.0*math.Pi) {
+    if !closeEnoughStep1(vZeroMass, 4.0/3.0*math.Pi) {
         t.Fatalf("Sphere Volume with Mass=0 should be 4/3 Pi, got %g", vZeroMass)
     }
 }
@@ -605,7 +617,7 @@ func TestCylinderSphereDensity(t *testing.T) {
     }
     vol := math.Pi * 1 * 1 * 2
     want := 500 / vol
-    if !closeEnough(d, want) {
+    if !closeEnoughStep1(d, want) {
         t.Fatalf("Cylinder Density = %g want %g", d, want)
     }
     // Mass 0 should error
@@ -622,7 +634,7 @@ func TestCylinderSphereDensity(t *testing.T) {
     }
     svol := 4.0 / 3.0 * math.Pi
     swant := 500 / svol
-    if !closeEnough(sd, swant) {
+    if !closeEnoughStep1(sd, swant) {
         t.Fatalf("Sphere Density = %g want %g", sd, swant)
     }
 }
@@ -635,7 +647,7 @@ func TestApparentWeight(t *testing.T) {
         t.Fatalf("ApparentWeight float error: %v", err)
     }
     want := (500 - 1000*1) * StandardGravity // -4905
-    if !closeEnough(aw, want) {
+    if !closeEnoughStep1(aw, want) {
         t.Fatalf("ApparentWeight float = %g want %g", aw, want)
     }
     objSink := Object{Mass: 1200, Volume: 1, Height: 1}
@@ -644,7 +656,7 @@ func TestApparentWeight(t *testing.T) {
         t.Fatalf("ApparentWeight sink error: %v", err)
     }
     want = (1200 - 1000) * 9.81
-    if !closeEnough(aw, want) {
+    if !closeEnoughStep1(aw, want) {
         t.Fatalf("ApparentWeight sink = %g want %g", aw, want)
     }
     // Neutral exact → 0
@@ -680,7 +692,7 @@ func TestApparentWeight(t *testing.T) {
         t.Fatalf("ApparentWeight g=3.7 error: %v", err)
     }
     wantMars := (500 - 1000) * 3.7
-    if !closeEnough(awMars, wantMars) {
+    if !closeEnoughStep1(awMars, wantMars) {
         t.Fatalf("ApparentWeight g=3.7 = %g want %g must use passed g", awMars, wantMars)
     }
     // Invalid
@@ -703,7 +715,7 @@ func TestRequiredBallastMass(t *testing.T) {
     if err != nil {
         t.Fatalf("RequiredBallastMass float error: %v", err)
     }
-    if !closeEnough(b, 500) {
+    if !closeEnoughStep1(b, 500) {
         t.Fatalf("RequiredBallastMass float 500kg in 1000kg/m3 vol1 should need 500, got %g", b)
     }
     // Sink needs negative ballast (remove)
@@ -712,7 +724,7 @@ func TestRequiredBallastMass(t *testing.T) {
     if err != nil {
         t.Fatalf("RequiredBallastMass sink error: %v", err)
     }
-    if !closeEnough(b, -200) {
+    if !closeEnoughStep1(b, -200) {
         t.Fatalf("RequiredBallastMass sink 1200 should need -200, got %g", b)
     }
     // Neutral exact → 0
@@ -816,10 +828,10 @@ func TestBatchCheckBuoyancy(t *testing.T) {
     }
     wantBuoyant := 1000.0 * 1 * 3.7
     wantWeight := 500.0 * 3.7
-    if !closeEnough(res[0].BuoyantForce, wantBuoyant) {
+    if !closeEnoughStep1(res[0].BuoyantForce, wantBuoyant) {
         t.Fatalf("Batch g=3.7 Buoyant=%g want %g must use g param", res[0].BuoyantForce, wantBuoyant)
     }
-    if !closeEnough(res[0].WeightForce, wantWeight) {
+    if !closeEnoughStep1(res[0].WeightForce, wantWeight) {
         t.Fatalf("Batch g=3.7 Weight=%g want %g", res[0].WeightForce, wantWeight)
     }
 }
@@ -868,7 +880,7 @@ func TestVolumeNoMassCheck(t *testing.T) {
     if err != nil {
         t.Fatalf("Cylinder Volume Mass=0 should NOT error (must NOT validate Mass), got %v", err)
     }
-    if !closeEnough(vol, math.Pi) {
+    if !closeEnoughStep1(vol, math.Pi) {
         t.Fatalf("Cylinder Volume Mass=0 should be Pi, got %g", vol)
     }
     s := SphereObject{Mass: 0, Radius: 1}
@@ -876,7 +888,7 @@ func TestVolumeNoMassCheck(t *testing.T) {
     if err != nil {
         t.Fatalf("Sphere Volume Mass=0 should NOT error, got %v", err)
     }
-    if !closeEnough(vol, 4.0/3.0*math.Pi) {
+    if !closeEnoughStep1(vol, 4.0/3.0*math.Pi) {
         t.Fatalf("Sphere Volume Mass=0 should be 4/3 Pi, got %g", vol)
     }
     // Object Density Height trap already tested
@@ -918,7 +930,7 @@ func TestRandomFuzzForces(t *testing.T) {
             t.Fatalf("Random BuoyantForce error %v", err)
         }
         want := density * vol * g
-        if !closeEnough(fb, want) {
+        if !closeEnoughStep1(fb, want) {
             t.Fatalf("Random BuoyantForce: got %g want %g", fb, want)
         }
     }
@@ -942,7 +954,7 @@ func TestRandomFuzzApparentWeight(t *testing.T) {
         } else {
             want = (mass - 1000*vol) * g
         }
-        if !closeEnough(aw, want) {
+        if !closeEnoughStep1(aw, want) {
             t.Fatalf("Random ApparentWeight: got %g want %g", aw, want)
         }
     }
@@ -1153,19 +1165,33 @@ func TestIsNeutrallyBuoyantToleranceUsed(t *testing.T) {
 }
 
 
-func TestIsNaNInfUsage(t *testing.T) {
-    data, err := os.ReadFile("buoyancy.go")
-    if err != nil {
-        t.Fatalf("Could not read buoyancy.go: %v", err)
+func TestNonFiniteBehavioral(t *testing.T) {
+    // Behavioral replacement for brittle IsNaN/IsInf token count — accepts shared isFinite helper
+    // Verifies finite handling via behavior, not source spelling
+    if _, err := WeightForce(math.NaN(), 9.81); err == nil {
+        t.Fatalf("WeightForce NaN should error (finite handling required)")
     }
-    src := string(data)
-    countNaN := strings.Count(src, "IsNaN")
-    countInf := strings.Count(src, "IsInf")
-    if countNaN < 2 {
-        t.Fatalf("buoyancy.go should use math.IsNaN at least 2 times for proper non-finite handling, found %d", countNaN)
+    if _, err := WeightForce(math.Inf(1), 9.81); err == nil {
+        t.Fatalf("WeightForce +Inf should error")
     }
-    if countInf < 2 {
-        t.Fatalf("buoyancy.go should use math.IsInf at least 2 times, found %d", countInf)
+    if _, err := WeightForce(math.Inf(-1), 9.81); err == nil {
+        t.Fatalf("WeightForce -Inf should error")
+    }
+    if _, err := (Object{Mass: math.NaN(), Volume: 1, Height: 1}).Density(); err == nil {
+        t.Fatalf("Density NaN mass should error")
+    }
+    if _, err := (Object{Mass: math.Inf(1), Volume: 1, Height: 1}).Density(); err == nil {
+        t.Fatalf("Density Inf mass should error")
+    }
+    if _, err := BuoyantForce(Fluid{Density: math.NaN()}, 1, 9.81); err == nil {
+        t.Fatalf("BuoyantForce NaN fluid should error")
+    }
+    if _, err := BuoyantForce(Fluid{Density: 1000}, math.NaN(), 9.81); err == nil {
+        t.Fatalf("BuoyantForce NaN volume should error")
+    }
+    // Ensure tiny valid still passes (not over-rejecting)
+    if _, err := BuoyantForce(Fluid{Density: 1e-9}, 1e-9, 1e-9); err != nil {
+        t.Fatalf("BuoyantForce tiny should succeed, got %v", err)
     }
 }
 
@@ -1185,12 +1211,19 @@ def test_go_file_exists_and_uses_expected_package():
 
 def test_step1_go_behavior_and_vet():
     write_step1_tests()
-    result = run(["go", "test", "-run", "Test", "-v"])
-    assert result.returncode == 0, result.stdout
+    try:
+        result = run(["go", "test", "-run", "Test", "-v"])
+        assert result.returncode == 0, result.stdout
 
-    vet = run(["go", "vet", "."])
-    assert vet.returncode == 0, vet.stdout
+        vet = run(["go", "vet", "."])
+        assert vet.returncode == 0, vet.stdout
 
-    # Super hard: race detector for concurrent batch
-    race = run(["go", "test", "-run", "TestBatchCheckBuoyancy", "-race", "-count=1"])
-    assert race.returncode == 0, race.stdout
+        # Super hard: race detector for concurrent batch
+        race = run(["go", "test", "-run", "TestBatchCheckBuoyancy", "-race", "-count=1"])
+        assert race.returncode == 0, race.stdout
+    finally:
+        # Cleanup to prevent leakage to next inherited step (BAD_LEAKAGE fix)
+        try:
+            TEST_FILE.unlink(missing_ok=True)
+        except Exception:
+            pass
