@@ -194,14 +194,14 @@ def write_step3_tests():
                     t.Fatalf("TimeToDepthRK4 error: %v", err)
                 }
                 tmRef, _ := TimeToDepthRK4(comp, sf, 10, 9.81, 0.01, 100)
-                if math.Abs(tm-tmRef)/tmRef > 0.15 {
-                    t.Fatalf("TimeToDepth %g vs ref %g diff >15%%, need RK4 with interpolation and depth clamp (Euler fails)", tm, tmRef)
+                if math.Abs(tm-tmRef)/tmRef > 0.10 {
+                    t.Fatalf("TimeToDepth %g vs ref %g diff >10%%, need RK4 with interpolation and depth clamp (Euler fails)", tm, tmRef)
                 }
                 // Large dt without interpolation should fail, RK4 with interpolation passes
                 tmLarge, _ := TimeToDepthRK4(comp, sf, 10, 9.81, 1.0, 100)
                 tmRefSmall, _ := TimeToDepthRK4(comp, sf, 10, 9.81, 0.05, 100)
-                if math.Abs(tmLarge-tmRefSmall)/tmRefSmall > 0.20 {
-                    t.Fatalf("TimeToDepth large dt 1.0 vs ref 0.05 diff >20%%, need interpolation frac=(target-prevZ)/(z-prevZ)")
+                if math.Abs(tmLarge-tmRefSmall)/tmRefSmall > 0.15 {
+                    t.Fatalf("TimeToDepth large dt 1.0 vs ref 0.05 diff >15%%, need interpolation frac=(target-prevZ)/(z-prevZ)")
                 }
                 // Negative depth clamp: if rising, depth should clamp >=0
                 compLight := CompressibleObject{Mass: 800, Volume0: 1, Height: 2, BulkModulus: 1e12, DragCoefficient: 0.8, CrushDepth: 500, MinVolumeFraction: 0.1}
