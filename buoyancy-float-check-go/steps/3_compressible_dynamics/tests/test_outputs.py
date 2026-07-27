@@ -56,6 +56,8 @@ def write_step3_tests():
                 return math.Abs(got-want) <= 1e-6 || math.Abs(got-want) <= math.Abs(want)*1e-4
             }
 
+            func finiteForTest(x float64) bool { return !math.IsNaN(x) && !math.IsInf(x, 0) }
+
             func refPressure(S,G,depth,g float64) float64 {
                 return g * (S*depth + 0.5*G*depth*depth)
             }
@@ -429,13 +431,13 @@ def write_step3_tests():
                     if r.State == "invalid" {
                         continue
                     }
-                    if !isFinite(r.VolumeAtDepth) || r.VolumeAtDepth <=0 {
+                    if !finiteForTest(r.VolumeAtDepth) || r.VolumeAtDepth <=0 {
                         t.Fatalf("Batch VolumeAtDepth must be finite positive at equilibrium, got %g", r.VolumeAtDepth)
                     }
-                    if !isFinite(r.MaxPressure) || r.MaxPressure <0 {
+                    if !finiteForTest(r.MaxPressure) || r.MaxPressure <0 {
                         t.Fatalf("Batch MaxPressure must be finite >=0, got %g", r.MaxPressure)
                     }
-                    if !isFinite(r.TerminalVelocity) {
+                    if !finiteForTest(r.TerminalVelocity) {
                         t.Fatalf("Batch TerminalVelocity must be finite, got %g", r.TerminalVelocity)
                     }
                 }

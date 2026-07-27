@@ -262,7 +262,7 @@ def write_step2_tests():
             }
 
             func TestBuoyantMassPolynomial(t *testing.T) {
-                // Super hard: directly test BM(d) polynomial coefficients
+                // Super hard: directly test BM(d) polynomial coefficients at 1e-12 absolute
                 sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 2}
                 // d=10, S=1000,G=2 → BM/A = S*d+0.5*G*d^2 = 1000*10+0.5*2*100=10100, missing 0.5 gives 10200 (1% error)
                 d := 10.0
@@ -274,9 +274,9 @@ def write_step2_tests():
                     t.Fatalf("BuoyantMass error: %v", err)
                 }
                 want := refBuoyantMassPrismatic(A2, sf.SurfaceDensity, sf.Gradient, d)
-                // Use tighter tolerance for direct BM check
-                if math.Abs(bm-want) > 1e-9 {
-                    t.Fatalf("BuoyantMass prismatic = %g want %g (0.5 factor missing?)", bm, want)
+                // Super hard: 1e-12 absolute tolerance
+                if math.Abs(bm-want) > 1e-12 {
+                    t.Fatalf("BuoyantMass prismatic = %g want %g (0.5 factor missing? need 1e-12)", bm, want)
                 }
                 // Conical
                 bmCon, err := BuoyantMassConical(obj2, sf, 5)
@@ -284,8 +284,8 @@ def write_step2_tests():
                     t.Fatalf("BuoyantMassConical error: %v", err)
                 }
                 wantCon := refBuoyantMassConical(obj2.Volume, obj2.Height, sf.SurfaceDensity, sf.Gradient, 5)
-                if math.Abs(bmCon-wantCon) > 1e-9 {
-                    t.Fatalf("BuoyantMass conical = %g want %g", bmCon, wantCon)
+                if math.Abs(bmCon-wantCon) > 1e-12 {
+                    t.Fatalf("BuoyantMass conical = %g want %g (need 1e-12)", bmCon, wantCon)
                 }
                 // Frustum
                 frustum := FrustumObject{Mass: 100, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
@@ -294,8 +294,8 @@ def write_step2_tests():
                     t.Fatalf("Frustum BuoyantMass error: %v", err)
                 }
                 wantFru := refBuoyantMassFrustum(0.5, 1.5, 2, sf.SurfaceDensity, sf.Gradient, 1.5)
-                if math.Abs(bmFru-wantFru) > 1e-9 {
-                    t.Fatalf("BuoyantMass frustum = %g want %g (R1*R2 or Pi missing?)", bmFru, wantFru)
+                if math.Abs(bmFru-wantFru) > 1e-12 {
+                    t.Fatalf("BuoyantMass frustum = %g want %g (R1*R2 or Pi missing? need 1e-12)", bmFru, wantFru)
                 }
             }
 
@@ -630,6 +630,80 @@ def write_step2_tests():
                 }
             }
 
+            func TestBatchStressLargeN(t *testing.T) {
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.5}
+                n := 500
+                objs := make([]FrustumObject, n)
+                for i := 0; i < n; i++ {
+                    if i%3 == 1 {
+                        objs[i] = FrustumObject{Mass: 0, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                    } else {
+                        objs[i] = FrustumObject{Mass: 600 * refFrustumVolume(0.5, 1.5, 2), BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                    }
+                }
+                res, err := BatchAnalyzeFrustumStratified(objs, sf)
+                if err != nil {
+                    t.Fatalf("Batch stress N=500 error %v", err)
+                }
+                if len(res) != n {
+                    t.Fatalf("Batch stress len=%d want %d", len(res), n)
+                }
+                for i := 0; i < n; i++ {
+                    if res[i].Index != i {
+                        t.Fatalf("Batch stress Index %d != %d", res[i].Index, i)
+                    }
+                    if i%3 == 1 && res[i].State != "invalid" {
+                        t.Fatalf("Batch stress invalid expected at %d", i)
+                    }
+                }
+                // Also test prismatic batch large N
+                n2 := 500
+                objs2 := make([]Object, n2)
+                for i := 0; i < n2; i++ {
+                    if i%3 == 1 {
+                        objs2[i] = Object{Mass: 0, Volume: 1, Height: 1}
+                    } else {
+                        objs2[i] = Object{Mass: 600, Volume: 1, Height: 2}
+                    }
+                }
+                fluid := Fluid{Density: 1000}
+                res2, err := BatchAnalyze(objs2, fluid)
+                if err != nil || len(res2) != n2 {
+                    t.Fatalf("BatchAnalyze large N=500 failed")
+                }
+                for i := 0; i < n2; i++ {
+                    if res2[i].Index != i {
+                        t.Fatalf("BatchAnalyze large order broken at %d", i)
+                    }
+                }
+            }
+
+            func TestBuoyantMassFiniteAndNaN(t *testing.T) {
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.5}
+                obj := Object{Mass: 600, Volume: 1, Height: 2}
+                // NaN/Inf depth must error
+                if _, err := BuoyantMass(obj, sf, math.NaN()); err == nil {
+                    t.Fatalf("BuoyantMass NaN depth should error")
+                }
+                if _, err := BuoyantMass(obj, sf, math.Inf(1)); err == nil {
+                    t.Fatalf("BuoyantMass Inf depth should error")
+                }
+                // NaN fluid must error
+                sfNaN := StratifiedFluid{SurfaceDensity: math.NaN(), Gradient: 0}
+                if _, err := BuoyantMass(obj, sfNaN, 1); err == nil {
+                    t.Fatalf("BuoyantMass NaN fluid should error")
+                }
+                // Frustum NaN radius must error via Validate
+                fNaN := FrustumObject{Mass: 100, BaseRadius: math.NaN(), TopRadius: 1, Height: 2}
+                if _, err := fNaN.BuoyantMass(sf, 1); err == nil {
+                    t.Fatalf("Frustum BuoyantMass NaN radius should error")
+                }
+                // Conical NaN
+                if _, err := BuoyantMassConical(obj, sfNaN, 1); err == nil {
+                    t.Fatalf("BuoyantMassConical NaN fluid should error")
+                }
+            }
+
 '''
         )
     )
@@ -652,26 +726,15 @@ def test_partial_go_does_not_redefine_step1_symbols():
     ]
     for pattern in forbidden:
         assert not re.search(pattern, source), f"partial.go must not redefine {pattern}"
-    # Super hard: check concurrent batch uses WaitGroup+Mutex - allow helper via call-graph
-    # Find all concurrent helpers (functions containing WaitGroup+Mutex+go)
-    concurrent_helpers = set()
-    for hm in re.finditer(r"func (\w+).*?\{", source, re.S):
-        h_name = hm.group(1)
-        h_body = source[hm.end():hm.end()+5000]
-        if "WaitGroup" in h_body and ("Mutex" in h_body or "RWMutex" in h_body) and ("go " in h_body or "go\t" in h_body or "go func" in h_body):
-            concurrent_helpers.add(h_name)
-
-    # For each Batch* check either direct concurrency or call to concurrent helper
+    # Super hard: each Batch* must be directly concurrent with WaitGroup+Mutex+go (no helper delegation to make it harder)
     for fn in ["BatchAnalyze", "BatchAnalyzeConical", "BatchAnalyzeFrustum", "BatchAnalyzeStratified", "BatchAnalyzeConicalStratified", "BatchAnalyzeFrustumStratified"]:
         m = re.search(rf"func {fn}.*?{{", source, re.S)
-        if m:
-            body = source[m.end():m.end()+5000]
-            direct = "WaitGroup" in body and ("Mutex" in body or "RWMutex" in body) and ("go " in body or "go\t" in body or "go func" in body)
-            via_helper = any(h in body for h in concurrent_helpers)
-            assert direct or via_helper, f"{fn} must be concurrent (direct WaitGroup+Mutex+go or via shared helper like runBatch) — found via: {concurrent_helpers}"
-    # Whole file must still import sync and have at least one concurrent implementation
-    assert "sync" in source, "Must import sync"
-    assert len(concurrent_helpers) > 0 or ("WaitGroup" in source and "Mutex" in source), "Must have concurrent implementation with WaitGroup+Mutex"
+        assert m, f"{fn} must exist"
+        body = source[m.end():m.end()+6000]
+        assert "WaitGroup" in body, f"{fn} must use sync.WaitGroup directly (no helper delegation)"
+        assert "Mutex" in body or "RWMutex" in body, f"{fn} must use sync.Mutex directly"
+        assert "go " in body or "go\t" in body or "go func" in body, f"{fn} must launch goroutine directly"
+    assert "sync" in source, "Must import sync for concurrent batch"
 
 
 def test_step2_go_behavior_and_vet():
