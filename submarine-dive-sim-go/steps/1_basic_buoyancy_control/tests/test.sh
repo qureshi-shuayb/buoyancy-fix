@@ -1,8 +1,10 @@
 #!/bin/bash
 set -u
 mkdir -p /logs/verifier
-# Hygiene: remove any leftover Go test files from previous steps or prior runs to ensure /tests isolation (R05)
-rm -f /app/*_test.go /app/ast_check_concurrency.go 2>/dev/null || true
+# R05: remove leftover Go test files from previous steps or prior runs to avoid leaking /tests content
+rm -f /app/*_test.go /app/ast_check*.go 2>/dev/null || true
+# also clear previous json/txt except reward (will be overwritten)
+rm -f /logs/verifier/ctrf.json 2>/dev/null || true
 
 set +e
 python3 -m pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA
@@ -14,4 +16,6 @@ if [ "$TEST_EXIT" -eq 0 ]; then
 else
  echo 0 > /logs/verifier/reward.txt
 fi
+# R05 FIX: clean up verifier-generated Go files BEFORE next agent step inherits workspace
+rm -f /app/*_test.go /app/ast_check*.go 2>/dev/null || true
 cat /logs/verifier/reward.txt

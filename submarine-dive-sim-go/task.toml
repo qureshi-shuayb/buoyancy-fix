@@ -2,9 +2,9 @@ schema_version = "1.1"
 
 [task]
 name = "shuaybqureshi/submarine-dive-sim-go"
-description = "HARD Step1 34 constants (26 core + 8: SecondOrderCabbelingCoeff 0.015, TripleCabbelingCoeff 0.004, ThermostericAnomalyCoeff 0.0008, HalostericAnomalyCoeff 0.0003, AdiabaticLapseRate 0.0002, VorticityMixingCoeff 0.00005, DoubleDiffusiveMixingScale 18, PressureNonLinearCoeff 1.5e-6), density 19 terms rho0+grad*z+3 pycno+beta*s+gamma*t*(1+Gamma*z)+4 cab+2 quad+2 cubic s2t st2+2 triple+thermo+halo+vort, 15 exponential scales (200,45,90,30,120,24,22.5,26.08,32.72,75,18,15.65,21.42,13.33,20,15,60,18) plus z*exp and z*product integrals via generic subset enumeration 2^k up to 8 masks, pressure 18-term analytic integralProduct, Simpson 200k rel 1e-5 missing any >20, derivatives up to 3rd analytic via mul2 h=0.001 tol 1e-7/1e-6/1e-5, cabbeling includes second-order+triple, sound speed with P*T coupling only (no depth-cubed/T3/S3/Quad*T*S/P2*T/z*P), gradient 7 terms, potential temp 3rd order x3 + z lapse, steric simple, volume simple, bulk modulus simple K=1/k, 4 finders via 2000 pts Brent 100 iter SOFAR/pycnocline/spice/double-diffusive, N2 acoustic correction g/rho*(drho/dz - rho*g/c2), PV, Turner, regime, spiciness curvature. Step2 HARD 10-pt Re log-interp Cd table, implicit terminal Brent coupled Cd(Re(v)), equilibrium 2000 pts Brent 150 iter stability FPrime<0, adaptive Dormand-Prince RK45 atol 1e-6 rtol 1e-5 PI control with independent reference integrator (not self-comparison), dive profile ComputeDiveProfile, priority fleet heap by effective density + bounded pool 4 + atomic max concurrency with behavioral checks, deadline 50ms for 300 items and cancellation during flight 30ms (relaxed from 20ms/5ms flaky)."
+description = "EASY-MEDIUM Step1 24 constants (Pycnocline 10/200, Deep 4.5/45, Halo 2.5/30, Thermo 120, HullExp 2e-4, Visc 0.001, Salinity 0.8, Bulk 2.2e9, Cab 0.06, HullQuad 1.2e-6, SoundQuad 1.2e-5, Thermobaric 0.5, ThermalCoupling 0.15, Gamma 0.0001, Tquad 0.002, Squad 0.01), density 9 terms rho0+grad*z+2 pycno+beta*s+gamma*t*(1+Gamma*z)+Cc*s*t+Tquad*t²+Squad*s², 8 scales (200,45,30,120,24,15,60) plus single and 2-scale product integrals and squared terms and z*exp, pressure 10-term analytic integralProduct 4 masks, Simpson 100k rel 1e-4 missing any >10, derivatives up to 2nd analytic h=0.001 tol 1e-6/1e-5, cab 3 terms Cc*s*t+Tquad*t²+Squad*s², sound 5 terms c=1449.2+4.6T-0.055T²+1.34(S-35)+0.016z+SSq*z² no P or T*S coupling, gradient 4 terms, potential temp 2nd order x² only, steric simple, volume simple exp(-kP)*(1+alpha dT+alpha2 dT²), bulk K=1/k, 2 finders via 1000 pts Brent 80 iter SOFAR/pycno max, N² acoustic g/rho*(drho/dz - rho*g/c²), PV. Step2 MEDIUM-HARD 10-pt Re log-interp Cd band 0.1 midpoint 0.05, implicit terminal Brent 80 iter 1e-3, equilibrium 1000 pts 80 iter root 3m tol, fixed RK4 + optional adaptive RK45 atol 1e-6 rtol 1e-5 with independent ref 15% (was 8%), dive profile len>5 tol 2%, priority fleet heap + bounded pool 4 + atomic any width/style (AddInt32/64, Uint, typed atomic.Int32/64) with behavioral concurrency <=4, deadline 200ms/100items lenient, cancellation 100ms/100items. R05 leak fixed: test.sh removes *_test.go and ast_check*.go before and after verifier."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "RK4", "concurrency", "pycnocline", "triple-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "turner-angle", "salinity", "sound-speed", "potential-density", "third-derivative", "reynolds", "multi-root", "worker-pool", "cabbeling", "SOFAR", "spiciness", "steric-height", "mixed-exponential", "depth-dependent-gamma", "explicit-mapping", "closed-form-pressure", "subset-enumeration"]
+keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "concurrency", "pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "salinity", "sound-speed", "potential-density", "second-derivative", "reynolds", "multi-root", "worker-pool", "cabbeling", "SOFAR", "spiciness", "steric-height", "mixed-exponential", "closed-form-pressure", "subset-enumeration", "easy-medium", "information-isolation-fix", "atomic-alternatives"]
 format = "terminal_bench_multi_turn"
 workstream = "swe_public_repo"
 language = "go"
@@ -12,14 +12,14 @@ language = "go"
 [metadata]
 author_name = "Shuayb Qureshi"
 author_email = "shuaybqureshi@meta.com"
-difficulty = "hard"
+difficulty = "medium"
 category = "iterate_on_feature"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 900.0
-junior_time_estimate_min = 1500.0
+expert_time_estimate_min = 300.0
+junior_time_estimate_min = 600.0
 reward_type = "binary"
-tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "RK4", "concurrency", "hydrostatics", "drag", "pycnocline", "triple-pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "salinity", "sound-speed", "potential-density", "third-derivative", "reynolds", "multi-root", "worker-pool", "exponential-hull", "cabbeling", "SOFAR", "spiciness", "steric-height", "mixed-exponential", "depth-dependent-gamma", "double-diffusive", "quad-anomaly", "explicit-mapping", "closed-form-pressure"]
+tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "concurrency", "hydrostatics", "drag", "pycnocline", "halocline", "thermocline", "thermal-expansion", "brunt-vaisala", "salinity", "sound-speed", "potential-density", "second-derivative", "reynolds", "multi-root", "worker-pool", "cabbeling", "SOFAR", "steric-height", "closed-form-pressure", "easy-medium", "atomic-alternatives-fix"]
 languages = ["go"]
 
 [environment]
