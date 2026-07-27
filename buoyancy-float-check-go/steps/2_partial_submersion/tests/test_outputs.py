@@ -704,6 +704,149 @@ def write_step2_tests():
                 }
             }
 
+            func TestBuoyantMassOverflowHuge(t *testing.T) {
+                // Super hard: huge S/G/d must overflow and error, not return Inf
+                // Need Height >= d to avoid clamping
+                sfHuge := StratifiedFluid{SurfaceDensity: 1e200, Gradient: 1e200}
+                objHuge := Object{Mass: 600, Volume: 1, Height: 1e100}
+                _, err := BuoyantMass(objHuge, sfHuge, 1e100)
+                if err == nil {
+                    t.Fatalf("BuoyantMass overflow S=1e200 G=1e200 d=1e100 should error")
+                }
+                // Also test with S=1e308 to overflow even with small Height
+                sfMax := StratifiedFluid{SurfaceDensity: 1e308, Gradient: 0}
+                objSmall := Object{Mass: 600, Volume: 1, Height: 10}
+                _, err = BuoyantMass(objSmall, sfMax, 10)
+                if err == nil {
+                    t.Fatalf("BuoyantMass overflow S=1e308 d=10 should error")
+                }
+                // Tiny values must succeed
+                sfTiny := StratifiedFluid{SurfaceDensity: 1e-9, Gradient: 1e-9}
+                obj := Object{Mass: 600, Volume: 1, Height: 2}
+                _, err = BuoyantMass(obj, sfTiny, 1e-9)
+                if err != nil {
+                    t.Fatalf("BuoyantMass tiny should succeed, got %v", err)
+                }
+            }
+
+            func TestWaterlineAreaFrustumDynamic(t *testing.T) {
+                // Super hard: waterline area must use r(d)=R1+(R2-R1)*d/H, not static
+                frustum := FrustumObject{Mass: 100, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                // At d=1, r = 0.5 + (1.0)*0.5 = 1.0 -> area = pi*1
+                area, err := WaterlineAreaAtDepthFrustum(frustum, 1.0)
+                if err != nil {
+                    t.Fatalf("WaterlineAreaAtDepth error %v", err)
+                }
+                want := math.Pi * 1.0 * 1.0
+                if !approxStep2(area, want) {
+                    t.Fatalf("WaterlineArea dynamic r(d) failed: got %g want %g (must interpolate R1->R2)", area, want)
+                }
+                // Static BaseRadius would give pi*0.25, static Top would give pi*2.25
+                if approxStep2(area, math.Pi*0.25) {
+                    t.Fatalf("WaterlineArea using static base radius, should be dynamic")
+                }
+                if approxStep2(area, math.Pi*2.25) {
+                    t.Fatalf("WaterlineArea using static top radius, should be dynamic")
+                }
+            }
+
+            func TestEquilibriumMonotonicAndTol(t *testing.T) {
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.5}
+                // Monotonic: heavier mass -> deeper equilibrium
+                obj1 := Object{Mass: 600, Volume: 1, Height: 2}
+                d1, err := EquilibriumDepthStratified(obj1, sf)
+                if err != nil {
+                    t.Fatalf("EquilibriumDepth 600 error %v", err)
+                }
+                obj2 := Object{Mass: 800, Volume: 1, Height: 2}
+                d2, err := EquilibriumDepthStratified(obj2, sf)
+                if err != nil {
+                    t.Fatalf("EquilibriumDepth 800 error %v", err)
+                }
+                obj3 := Object{Mass: 1000, Volume: 1, Height: 2}
+                d3, err := EquilibriumDepthStratified(obj3, sf)
+                if err != nil {
+                    t.Fatalf("EquilibriumDepth 1000 error %v", err)
+                }
+                if !(d1 < d2 && d2 < d3) {
+                    t.Fatalf("Equilibrium must be monotonic with mass: d1=%g d2=%g d3=%g", d1, d2, d3)
+                }
+                // Tol param must be used
+                depthTolLoose, err := EquilibriumDepthStratifiedWithTol(obj2, sf, 1e-1)
+                if err != nil {
+                    t.Fatalf("WithTol loose error %v", err)
+                }
+                depthTolTight, err := EquilibriumDepthStratifiedWithTol(obj2, sf, 1e-9)
+                if err != nil {
+                    t.Fatalf("WithTol tight error %v", err)
+                }
+                // Loose tol result should still be within loose tol of tight
+                if math.Abs(depthTolLoose-depthTolTight) > 1e-1+1e-6 {
+                    t.Fatalf("WithTol must respect tol param: loose %g vs tight %g diff > tol", depthTolLoose, depthTolTight)
+                }
+            }
+
+            func TestBatchAllInvalidAndLargeN1000(t *testing.T) {
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.5}
+                // All invalid N=1000
+                n := 1000
+                objs := make([]FrustumObject, n)
+                for i := range objs {
+                    objs[i] = FrustumObject{Mass: 0, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                }
+                res, err := BatchAnalyzeFrustumStratified(objs, sf)
+                if err != nil {
+                    t.Fatalf("Batch all invalid N=1000 should not error: %v", err)
+                }
+                if len(res) != n {
+                    t.Fatalf("Batch all invalid len %d want %d", len(res), n)
+                }
+                for i := 0; i < n; i++ {
+                    if res[i].Index != i || res[i].State != "invalid" {
+                        t.Fatalf("Batch all invalid broken at %d: Index %d State %q", i, res[i].Index, res[i].State)
+                    }
+                }
+                // Interleaved 1 valid 1 invalid
+                objs2 := make([]FrustumObject, n)
+                for i := 0; i < n; i++ {
+                    if i%2 == 0 {
+                        objs2[i] = FrustumObject{Mass: 600 * refFrustumVolume(0.5, 1.5, 2), BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                    } else {
+                        objs2[i] = FrustumObject{Mass: 0, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                    }
+                }
+                res2, err := BatchAnalyzeFrustumStratified(objs2, sf)
+                if err != nil || len(res2) != n {
+                    t.Fatalf("Batch interleaved N=1000 failed")
+                }
+                for i := 0; i < n; i++ {
+                    if res2[i].Index != i {
+                        t.Fatalf("Batch interleaved order broken at %d", i)
+                    }
+                }
+            }
+
+            func TestSubmergedVolumeFrustumBeyondHeight(t *testing.T) {
+                frustum := FrustumObject{Mass: 100, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                volFull, err := frustum.Volume()
+                if err != nil {
+                    t.Fatalf("Volume error %v", err)
+                }
+                // Depth > Height should clamp to full volume, not extrapolate
+                volBeyond, err := SubmergedVolumeAtDepthFrustum(frustum, 10)
+                if err != nil {
+                    t.Fatalf("Submerged beyond Height error %v", err)
+                }
+                if !approxStep2(volBeyond, volFull) {
+                    t.Fatalf("Submerged beyond Height should be full volume %g, got %g", volFull, volBeyond)
+                }
+                // Also exactly at Height
+                volAt, _ := SubmergedVolumeAtDepthFrustum(frustum, 2)
+                if !approxStep2(volAt, volFull) {
+                    t.Fatalf("Submerged at Height should be full volume")
+                }
+            }
+
 '''
         )
     )
