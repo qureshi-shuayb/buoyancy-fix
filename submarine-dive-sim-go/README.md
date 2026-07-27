@@ -1,50 +1,43 @@
-## Description – EASY-MEDIUM (v3 – 24 consts, R05 leak fix, R08 atomic alternatives, target 2/10 fails step1)
+## Description – EASY v4 (15 consts, 5-term density, 1 finder, target 2/10 fails) + R05/R08 fixes
 
-**Step1 EASY-MEDIUM – 24 constants, 9-term density, 10-term pressure, 2nd derivative, 2 finders, 400-600 lines, target 2/10 fails:**
+**Step1 EASY – 15 constants, 5-term density, 5-term pressure, 1st derivative, 1 finder, ~250-400 lines, target 2/10 fails (8/10 pass):**
 
-**Fixes from previous BAD_GRADING_WRONG:**
-- Removed `Vorticity*0.01*z²*(1-expDm)` second-order vort term (rho 30m delta 0.000365) – spec now = tests = golden.
-- Simplified sound: previously hidden `Quad*20*T*(S-35)+ThermoSecond*1e4*T²+HaloSecond*1e4*S²+T³+S³+P²*T+z*P` removed; now `c=1449.2+4.6T-0.055T²+1.34(S-35)+0.016z+SSq*z²` (5 terms) – displayed = tested.
+Previous v3 was 24 consts 9-term density 10-term pressure 2nd derivative 2 finders but still 10/10 non-oracle failed. This v4 is ultra-easy:
 
-**Why much easier than 34-const HARD (which still got 9/10 fails):**
-- **24 consts** (vs 34, vs 44 ultra-ultra): `Tolerance, StandardGravity, StandardSeawaterDensity, DepthDensityGradient, MinimumVolumeFraction, PycnoclineDelta/Scale 10/200, Deep 4.5/45, Halo 2.5/30, Thermo 120, HullExp 2e-4, Visc 0.001, Salinity 0.8, Bulk 2.2e9, Cab 0.06, HullQuad 1.2e-6, SoundQuad 1.2e-5, Thermobaric 0.5, ThermalCoupling 0.15, Gamma 0.0001, Tquad 0.002, Squad 0.01`. Removed `MidPycnoclineDelta/Scale, SecondOrderCabbelingCoeff, TripleCabbelingCoeff, ThermostericAnomalyCoeff, HalostericAnomalyCoeff, AdiabaticLapseRate, VorticityMixingCoeff, DoubleDiffusiveMixingScale, PressureNonLinearCoeff`.
-- **Density 9 terms** (vs 19, vs 26): `rho0 + grad*z + pyc1+pyc2 + beta*s + gamma*t*(1+Gamma*z) + Cc*s*t + Tquad*t² + Squad*s²`. Removed `pyc3, s²t, st², triple s*t*pyc, thermo 0.01*t*z, halo 0.01*s*z, vort z*(1-expDm)`. Monotonic, diff at 60m without cab/quad >=0.8 (was 1.0) looser.
-- **Pressure 10 terms** (vs 18): `rho0*z + 0.5*grad*z² + pyc1+pyc2 + beta + gamma + gamma*z + cab s*t + quad t² + quad s²`. Helpers: `∫(1-exp)=z+S*exp-S`, `∫(1-expH)(1-expT)=z - S1(1-exp1)-S2(1-exp2)+Smix(1-expMix)` (4 masks only, k=2), `∫z(1-exp)=0.5z²+S*z*exp+S²*exp-S²`, `∫(1-exp)²=z+2S*exp-2S+S/2*(1-exp2)`. No 3-scale products, no z*exp for thermo/halo/vort. Simpson **100k rel 1e-4 missing >10** (was 200k 1e-5 >20, was 500k 1e-6 >30) much looser.
-- **Derivatives 2nd only** (vs 3rd/5th): Gradient h=0.001 tol **1e-6** (was 1e-7), Second tol **1e-5** (was 1e-6). No third/fourth/fifth – removes Leibniz heavy.
-- **Cab 3 terms** (vs 10): `Cc*s*t + Tquad*t² + Squad*s²`, zero at surface.
-- **Sound 5 terms** (vs 7 with P*T, vs 12 with cubes): `1449.2+4.6T-0.055T²+1.34(S-35)+0.016z+SSq*z²` no `0.01T(S-35)` nor `Pn*P*T`. Gradient `4.6dT-0.11T dT+1.34dS+0.016+2SSq z` (4 terms). No PressureAtDepth needed.
-- **Potential temp 2nd order** (vs 3rd + z lapse): `theta=T*(1 - x - Thermo*x²)` where `x=P/Bulk*1e-3`, surface 15, <=T.
-- **Finders 2** (vs 4, vs 7): only `SOFAR` (min sound) and `PycnoclineMaxGradient` (max grad). Removed spiciness max and double-diffusive layer (which needed Turner angle). Scan **1000 pts** (was 2000) + Brent **80 iter** (was 100), brute 1m within 3m (was 0.5m within 2m).
-- **Methods ~20** (vs 26): removed `DensityThirdDerivative, SpicinessCurvature, TurnerAngle, DoubleDiffusiveRegime, FindSpicinessMaximum, FindDoubleDiffusiveLayer`.
-- **Expected lines 400-600** (was 800-1100).
+- **15 consts** (vs 24, vs 34, vs 44): `Tolerance 1e-9, StandardGravity 9.81, StandardSeawaterDensity 1025, DepthDensityGradient 0.02, MinimumVolumeFraction 0.1, PycnoclineDelta 10/Scale 200, HaloclineDelta 2.5/Scale 30, ThermoclineScale 120, HullThermalExpansionCoeff 2e-4, SeawaterViscosity 0.001, SalinityDensityCoeff 0.8, BulkModulus 2.2e9, ThermalCouplingCoeff 0.15`. Removed `DeepPycnoclineDelta/Scale 4.5/45, MidPycnoclineDelta/Scale, CabbelingCoeff, HullThermalExpansionQuadCoeff, SoundSpeedPressureQuadCoeff, ThermobaricCoeff, GammaDepthFactor, TAnomQuadCoeff, SAnomQuadCoeff, SecondOrder, Triple, Thermosteric, Halosteric, Adiabatic, Vorticity, DoubleDiff, PressureNonLinear, Quadruple, Compensated, etc.`
+- **Density 5 terms** (vs 9): `rho0 + grad*z + pyc1 + beta*sAnom + gamma*tAnom` where `pyc1=10*(1-exp(-z/200)), sAnom=2.5*(1-exp(-z/30)), tAnom=12*(1-exp(-z/120))`, beta=0.8, gamma=0.15. No deep pycno, no mid pycno, no `Gamma*z`, no cab `s*t`, no quad `t²/s²`, no thermo/halo/vort. Monotonic inc.
+- **Pressure 5 terms** (vs 10): `g*(rho0*z + 0.5*grad*z² + PycDelta*(z+S*exp-S) + beta*Hd*(z+Hs*expH-Hs) + gamma*12*(z+Ts*expT-Ts))` only `integralOneMinusExp(S,z)=z+S*exp(-z/S)-S` needed, no product, no squared, no z*exp. Simpson **50k rel 1e-3 missing >5** (was 100k 1e-4 >10, 200k 1e-5 >20) very loose/fast.
+- **Derivatives 1st only** (vs 2nd): `DensityGradientAtDepth` matches central diff h=0.001 within 1e-6. No second/third.
+- **Sound 4 terms** (vs 5): `c=1449.2+4.6*T+1.34*(S-35)+0.016*z` no `-0.055T²` nor `SSq*z²` nor `0.01T(S-35)`. Checks c0>c200 and c1500>c200 still holds (minimum exists). Gradient `4.6dT+1.34dS+0.016` (3 terms). No pressure dependency.
+- **Potential temperature 1st order** vs 2nd: `theta=T*(1 - x)` where `x=P/Bulk*1e-3`, surface 15 <=T.
+- **BuoyancyFrequency simple** vs acoustic: `N²=g/rho*grad` (no `rho*g/c²` correction) positive.
+- **Finders 1 vs 2**: only `FindSOFARAxis` (min sound). Removed `FindPycnoclineMaxGradient` (which needed gradient). Scan **500 pts** (was 1000) + **50 iter** (was 80) ternary, brute 2m within 5m (was 1m within 3m).
+- **Methods ~14 vs 20**: keep SalinityAtDepth, TemperatureAtDepth, DensityAtDepth, DensityGradient, SoundSpeed, SoundSpeedGradient, FindSOFARAxis, PotentialDensity, PotentialTemperature, BuoyancyFrequencySquared, PressureAtDepth, StericHeight, VolumeAtDepth, EffectiveDensityAtDepth, Validate, EffectiveMass, EffectiveDensity.
 
-**Step2 MEDIUM-HARD – eased slightly (still hard) + R08 fix:**
+**Step2 MEDIUM – eased slightly (from MEDIUM-HARD):**
 
-**R05 Information Isolation FIX:** `steps/*/tests/test.sh` now does `rm -f /app/*_test.go /app/ast_check*.go` **both before and after** verifier, plus clears ctrf.json, so `/app/sub_step1_test.go` cannot leak into Step2 inherited session. `test_outputs.py` also unlinks TEST_GO after go test.
+- **R05 leak fix**: `test.sh` removes `*_test.go` + `ast_check*.go` before AND after verifier in both steps.
+- **R08 atomic alternatives fix**: AST accepts any `Add/AddInt32/AddInt64/AddUint32/64, Load*, Store*, CompareAndSwap*, Swap*` + typed `atomic.Int32/Int64/Uint32/Uint64` with `Add/Load/Store/CompareAndSwap`. Instruction explicitly says "any valid style". Validated with `atomic.Int64` alternative golden → PASS (previously 6 rollouts failed at `atomicC`).
+- **Cd table:** 10-pt → **5-pt** `[1e3,1e4,1e5,1e6,5e6]` Cd `[1.44,1.2,0.7,0.2,0.12]` log-interp band 0.1 midpoint 0.05 (was 10-pt band 0.05 midpoint 0.02).
+- **Terminal:** 80 iter 1e-3 → **50 iter 1e-2** looser.
+- **Equilibrium:** 1000 pts 80 iter → **500 pts 50 iter**, root tol 5m (was 3m), crush check.
+- **TimeToDepth:** fixed RK4 `k1..k4` only + optional adaptive `atol/rtol/errorEstimate` also accepted, reference RK4 dt=0.001 **25% rel** (was 15%, was 8%).
+- **DiveProfile:** len>3 (was 5) depth tol 5% (was 2%) pressure monotonic.
+- **Fleet:** many=20 order preserved, deadline **200ms/100 → 500ms/50 lenient** with fallback log, cancellation **100ms/100 → 200ms/50 lenient**, max concurrency behavioral <=4 (checked via timing <10s + source `make(chan struct{},4)` + `WaitGroup` + `go` + `heap` + `atomic` any width).
 
-**R08 Accepts Alternatives FIX + R06/R07 coverage:**
-- Previously required `AddInt32, LoadInt32, CompareAndSwapInt32` – valid alternatives `AddInt64, AddUint32/64, LoadInt64, Store, Swap, typed atomic.Int32/Int64/Uint32/Uint64` with `Add/Load/Store/CompareAndSwap` were rejected (seen in 6 rollouts: D2pM29n, GVw9QGd, 4Uy9gWN, ze5kc6h, QZnVES7).
-- Now AST checker accepts any: `Add, AddInt32, AddInt64, AddUint32, AddUint64, Load, LoadInt32/64, Store, StoreInt32/64, CompareAndSwap, CompareAndSwapInt32/64, Swap` plus typed `atomic.Int32/Int64` detection via `SelectorExpr` where X=atomic and Sel=Int32/64.
-- Instruction.md explicitly says: "must use sync/atomic but accepts any valid style: AddInt32/LoadInt32/CompareAndSwapInt32 OR AddInt64, Uint, typed atomic.Int32/Int64 with Add/Load/Store/CompareAndSwap".
-- `TestReuseCheck` no longer pins `AddInt32` only – it references both Int32 and Int64.
-- **Behavioral concurrency:** `TestMaxConcurrencyBehavioral` measures batch 20 time <10s and order preserved, plus source check max <=4 (not ==4). Priority verified via heap Less descending and heap import, final Index ordering preserved 20.
-- **Deadline/cancellation eased:** Deadline 50ms 300 items → **200ms 100 items** with lenient fallback (logs not fail on fast machine), Cancellation 30ms 300 → **100ms 100 items** with 10ms retry fallback. Reduces flakiness.
-- **Other easing:** Cd band 0.05→0.1, midpoint tol 0.02→0.05, equilibrium scan 2000→1000 pts, Brent 150→80 iter, zero check 10→20, TimeToDepth ref 8%→15%, DiveProfile len>10→>5, final depth tol 1%→2%.
+**Completion Rates (oracle after v4):**
+- Oracle step1: 100% (15 consts, 5-term density/pressure, 1st deriv, 1 finder)
+- Oracle step2: 100% (5-pt Cd, 500pts equilibrium, fixed RK4, heap+atomic any width)
 
-**Completion Rates (oracle after v3):**
-- Oracle step1: 100% (24 consts, 10-term pressure, 2nd derivative, 2 finders)
-- Oracle step2: 100% (log-interp band 0.1, equilibrium 1000 pts 80 iter, RK4 ref 15%, heap priority + atomic any width, deadline 200ms/100items)
+**Why v4 should hit 2/10 fails:**
+- Step1 eliminates all product integrals (`∫(1-expH)(1-expT)`) and squared terms and z*exp – only single-scale `∫(1-exp)` needed. Gradient only 1st order, sound 4 terms trivial. Broad models can implement simple sum.
+- Step2 fewer points (500 not 1000/2000) and 50 items not 300 reduces compute, looser tolerances reduce numerical misses.
 
-**Why v3 should hit targets:**
-- Step1: from 9/10 fails (34 consts) to expected 2/10 fails (24 consts) by removing Mid pycnocline, SecondOrder s²t/st², Triple, Thermo/Halo/Vort, PressureNonLinear, Third derivative, SOFAR? Actually SOFAR kept, double-diffusive removed. Only one 2-scale product integral remains – broad models can implement.
-- Step2: easing reduces compute (1000 pts not 2000, 100 items not 300 in heavy tests) and relaxes tolerances, plus atomic alternatives accepted → fewer false negatives from over-specific checker.
-
-## Anti-Cheating – v3 Hardened but Accepting Alternatives
-- Density exact at 8 depths 9-term, cab 3-term exact, gradient/second vs central diff h=0.001 tol 1e-6/1e-5 looser, sound 5-term exact + grad h=0.05 tol 1e-3, finders brute 1m within 3m 1000 pts, pressure Simpson 100k rel 1e-4 missing >10, steric simple, volume simple, bulk positive, PV positive, pot temp 2nd order exact.
-- Step2: Cd table 10-pt log-interp band 0.1, equilibrium multi-root sorted and f~0 within 20, stability FPrime<0, TimeToDepth vs independent RK4 ref 15%, DiveProfile monotonic depth/time and pressure len>5 tol 2%, BatchFleet order preserved 20, empty, invalid handling, crushRisk, BatchWithTargets length mismatch and crush, BatchWithContext background and immediate cancel and many 20 order, cancellation during flight 100ms/100items lenient 10ms retry, deadline 200ms/100items lenient, MaxConcurrency behavioral <10s ordering, ReuseCheck accepts any atomic.
-- AST: go/ast counts GoStmt>=1, WaitGroup>=1, make4>=1 (chan 4), heap>=1 (Push/Pop/Init + heap import), atomic>=1 (any Add/Load/Store/CompareAndSwap/Swap width + typed atomic detection + atomic import), context/sync/heap/atomic imports.
-- R05: test.sh removes /app/*_test.go and ast_check*.go before and after verifier.
-- Empty test_no_hardcode kept as pass placeholder but not used for cheating.
+## Anti-Cheating – v4
+- Density exact at 6 depths 5-term, gradient vs central diff h=0.001 tol 1e-6, sound 4-term exact + grad h=0.05 tol 1e-3, SOFAR brute 2m within 5m 500pts, pressure Simpson 50k rel 1e-3 missing >5, steric simple, volume simple `exp(-kP)*(1+alpha*dT)` clamped 0.1, pot temp 1st order exact.
+- Step2: Cd 5-pt log-interp band 0.1, equilibrium sorted f~0 within 20, TimeToDepth vs ref 25%, DiveProfile monotonic len>3 tol 5%, BatchFleet order 20, invalid handling, crushRisk, BatchWithTargets length mismatch, BatchWithContext background/cancel, cancellation lenient 200ms/50items, deadline lenient 500ms/50items, MaxConcurrency behavioral <10s ordering, ReuseCheck accepts any atomic Int32/64.
+- AST: go/ast counts GoStmt>=1, WaitGroup>=1, make4>=1, heap>=1 (Push/Pop/Init + heap import), atomic>=1 (any Add/Load/Store/CompareAndSwap/Swap width + typed atomic detection + atomic import), context/sync/heap/atomic imports.
+- R05: test.sh removes `/app/*_test.go` and `ast_check*.go` before and after verifier.
 
 ## Notes
-v3 EASY-MEDIUM 24 consts, 9-term density, 10-term pressure via 4 masks + z*exp + squared terms, 2nd derivative, sound 5 terms, 2 finders 1000 pts 80 iter, pot temp 2nd order. Fixes R05 leak, R08 atomic alternatives, plus eases step1 to 2/10 fails target and step2 slightly easier.
+v4 EASY 15 consts, 5-term density/pressure single-scale only, 1st derivative, sound 4 terms, 1 finder 500pts 50iter, pot temp 1st order. Fixes R05 leak, R08 atomic alternatives, eases step1 from 9/10 fails to target 2/10 fails and step2 slightly easier.
