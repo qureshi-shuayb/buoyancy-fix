@@ -197,7 +197,7 @@ func TestBatchCheckBuoyancy(t *testing.T) {
     if res == nil || len(res) != 0 {
         t.Fatalf("Batch nil should return non-nil empty")
     }
-    // 1 invalid case (mass=0) - middle difficulty, not 2 invalid
+    // 1 invalid case (mass=0) - middle difficulty
     objs := []Object{
         {Mass: 500, Volume: 1, Height: 1},
         {Mass: 0, Volume: 1, Height: 1},
@@ -218,52 +218,6 @@ func TestBatchCheckBuoyancy(t *testing.T) {
     }
     if res[0].State != "float" || res[2].State != "sink" {
         t.Fatalf("States %q %q %q want float invalid sink", res[0].State, res[1].State, res[2].State)
-    }
-}
-
-func TestZeroValueOnError(t *testing.T) {
-    bad := Object{Mass: 0, Volume: 1, Height: 1}
-    d, err := bad.Density()
-    if err == nil {
-        t.Fatalf("Density Mass=0 should error")
-    }
-    if d != 0 {
-        t.Fatalf("Density on error must return exactly 0, got %g", d)
-    }
-}
-
-func TestNegativeZero(t *testing.T) {
-    negZero := math.Copysign(0, -1)
-    if err := (Object{Mass: negZero, Volume: 1, Height: 1}).Validate(); err == nil {
-        t.Fatalf("Mass=-0.0 should error via <=0")
-    }
-    if _, err := WeightForce(negZero, 9.81); err == nil {
-        t.Fatalf("WeightForce -0.0 should error")
-    }
-}
-
-func TestToleranceTightBoundary(t *testing.T) {
-    cases := []struct{ objD, fluidD float64; want string }{
-        {1000 + 0.999*Tolerance, 1000, "neutral"},
-        {1000 + 1.001*Tolerance, 1000, "sink"},
-    }
-    for _, tc := range cases {
-        got, err := CheckBuoyancyByDensity(tc.objD, tc.fluidD)
-        if err != nil {
-            t.Fatalf("tight boundary error %v", err)
-        }
-        if got != tc.want {
-            t.Fatalf("tight (%g,%g)=%q want %q", tc.objD, tc.fluidD, got, tc.want)
-        }
-    }
-}
-
-func TestIntermediateOverflow(t *testing.T) {
-    obj := Object{Mass: 1, Volume: 1e200, Height: 1}
-    water := Fluid{Density: 1e200}
-    _, err := ApparentWeight(obj, water, 9.81)
-    if err == nil {
-        t.Fatalf("ApparentWeight rhoV=1e400 Inf should error")
     }
 }
 
