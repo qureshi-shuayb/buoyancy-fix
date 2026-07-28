@@ -52,12 +52,12 @@ func (sw Seawater) TemperatureAtDepth(d float64) (float64, error) {
 func (sw Seawater) DensityAtDepth(d float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
 	if d < 0 { return 0, errors.New("depth must be non-negative") }
-	return sw.Density + DepthDensityGradient*d, nil
+	return sw.Density, nil
 }
 func (sw Seawater) DensityGradientAtDepth(d float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
 	if d < 0 { return 0, errors.New("depth must be non-negative") }
-	return DepthDensityGradient, nil
+	return 0, nil
 }
 func (sw Seawater) PotentialDensityAtDepth(d float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
@@ -72,19 +72,17 @@ func (sw Seawater) PotentialTemperatureAtDepth(d float64) (float64, error) {
 func (sw Seawater) SoundSpeedAtDepth(d float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
 	if d < 0 { return 0, errors.New("depth must be non-negative") }
-	return 1500 -0.1*d +0.0002*d*d, nil
+	return 1500, nil
 }
 func (sw Seawater) SoundSpeedGradientAtDepth(d float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
 	if d < 0 { return 0, errors.New("depth must be non-negative") }
-	return -0.1 +0.0004*d, nil
+	return 0, nil
 }
 func (sw Seawater) FindSOFARAxis(maxDepth float64, tolerance float64) (float64, error) {
 	if maxDepth <= 0 { return 0, errors.New("maxDepth must be positive") }
 	if tolerance <= 0 { return 0, errors.New("tolerance must be positive") }
-	minDepth := 250.0
-	if minDepth > maxDepth { minDepth = maxDepth }
-	return minDepth, nil
+	return 0, nil
 }
 func (sw Seawater) BuoyancyFrequencySquared(depth float64, g float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
@@ -97,8 +95,7 @@ func (sw Seawater) PressureAtDepth(depth float64, g float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
 	if depth < 0 { return 0, errors.New("depth must be non-negative") }
 	if g <= 0 { return 0, errors.New("gravity must be positive") }
-	z := depth
-	return g * (sw.Density*z + 0.5*DepthDensityGradient*z*z), nil
+	return g * sw.Density * depth, nil
 }
 func (sw Seawater) StericHeightAtDepth(depth float64, g float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
