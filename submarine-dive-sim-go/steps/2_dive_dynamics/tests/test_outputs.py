@@ -525,10 +525,11 @@ def check_no_redef():
     assert "type Submarine struct" not in stripped, "dive.go must NOT redefine Submarine"
     assert "type Seawater struct" not in stripped, "dive.go must NOT redefine Seawater"
     for const in ["Tolerance", "StandardGravity", "StandardSeawaterDensity", "DepthDensityGradient", "MinimumVolumeFraction",
-                  "BulkModulus", "PycnoclineDelta", "PycnoclineScale"]:
+                  "BulkModulus"]:
         assert f"const {const}" not in stripped, f"dive.go must NOT redefine {const}"
-    for const in ["DeepPycnoclineDelta", "DeepPycnoclineScale", "MidPycnoclineDelta", "MidPycnoclineScale",
-                  "HaloclineDelta", "HaloclineScale", "ThermoclineScale", "SalinityDensityCoeff",
+    for const in ["PycnoclineDelta", "PycnoclineScale", "DeepPycnoclineDelta", "DeepPycnoclineScale",
+                  "MidPycnoclineDelta", "MidPycnoclineScale", "HaloclineDelta", "HaloclineScale",
+                  "ThermoclineScale", "SalinityDensityCoeff",
                   "HullThermalExpansionCoeff", "SeawaterViscosity", "CabbelingCoeff", "HullThermalExpansionQuadCoeff",
                   "SoundSpeedPressureQuadCoeff", "ThermobaricCoeff", "ThermalCouplingCoeff", "GammaDepthFactor",
                   "TAnomQuadCoeff", "SAnomQuadCoeff", "SecondOrderCabbelingCoeff", "TripleCabbelingCoeff",
