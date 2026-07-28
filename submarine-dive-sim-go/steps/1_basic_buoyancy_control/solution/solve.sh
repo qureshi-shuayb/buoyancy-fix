@@ -39,44 +39,44 @@ func (s Submarine) EffectiveDensity() (float64, error) {
 	if err := s.Validate(); err != nil { return 0, err }
 	return s.EffectiveMass() / s.Volume, nil
 }
-func (sw Seawater) SalinityAtDepth(d float64) (float64, error) {
+func (sw Seawater) SalinityAtDepth(depth float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
-	if d < 0 { return 0, errors.New("depth must be non-negative") }
+	if depth < 0 { return 0, errors.New("depth must be non-negative") }
 	return 35.0, nil
 }
-func (sw Seawater) TemperatureAtDepth(d float64) (float64, error) {
+func (sw Seawater) TemperatureAtDepth(depth float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
-	if d < 0 { return 0, errors.New("depth must be non-negative") }
+	if depth < 0 { return 0, errors.New("depth must be non-negative") }
 	return 15.0, nil
 }
-func (sw Seawater) DensityAtDepth(d float64) (float64, error) {
+func (sw Seawater) DensityAtDepth(depth float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
-	if d < 0 { return 0, errors.New("depth must be non-negative") }
+	if depth < 0 { return 0, errors.New("depth must be non-negative") }
+	return sw.Density + DepthDensityGradient*depth, nil
+}
+func (sw Seawater) DensityGradientAtDepth(depth float64) (float64, error) {
+	if err := sw.Validate(); err != nil { return 0, err }
+	if depth < 0 { return 0, errors.New("depth must be non-negative") }
+	return DepthDensityGradient, nil
+}
+func (sw Seawater) PotentialDensityAtDepth(depth float64) (float64, error) {
+	if err := sw.Validate(); err != nil { return 0, err }
+	if depth < 0 { return 0, errors.New("depth must be non-negative") }
 	return sw.Density, nil
 }
-func (sw Seawater) DensityGradientAtDepth(d float64) (float64, error) {
+func (sw Seawater) PotentialTemperatureAtDepth(depth float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
-	if d < 0 { return 0, errors.New("depth must be non-negative") }
-	return 0, nil
-}
-func (sw Seawater) PotentialDensityAtDepth(d float64) (float64, error) {
-	if err := sw.Validate(); err != nil { return 0, err }
-	if d < 0 { return 0, errors.New("depth must be non-negative") }
-	return sw.Density, nil
-}
-func (sw Seawater) PotentialTemperatureAtDepth(d float64) (float64, error) {
-	if err := sw.Validate(); err != nil { return 0, err }
-	if d < 0 { return 0, errors.New("depth must be non-negative") }
+	if depth < 0 { return 0, errors.New("depth must be non-negative") }
 	return 15.0, nil
 }
-func (sw Seawater) SoundSpeedAtDepth(d float64) (float64, error) {
+func (sw Seawater) SoundSpeedAtDepth(depth float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
-	if d < 0 { return 0, errors.New("depth must be non-negative") }
+	if depth < 0 { return 0, errors.New("depth must be non-negative") }
 	return 1500, nil
 }
-func (sw Seawater) SoundSpeedGradientAtDepth(d float64) (float64, error) {
+func (sw Seawater) SoundSpeedGradientAtDepth(depth float64) (float64, error) {
 	if err := sw.Validate(); err != nil { return 0, err }
-	if d < 0 { return 0, errors.New("depth must be non-negative") }
+	if depth < 0 { return 0, errors.New("depth must be non-negative") }
 	return 0, nil
 }
 func (sw Seawater) FindSOFARAxis(maxDepth float64, tolerance float64) (float64, error) {
@@ -101,8 +101,7 @@ func (sw Seawater) StericHeightAtDepth(depth float64, g float64) (float64, error
 	if err := sw.Validate(); err != nil { return 0, err }
 	if depth < 0 { return 0, errors.New("depth must be non-negative") }
 	if g <= 0 { return 0, errors.New("gravity must be positive") }
-	P, _ := sw.PressureAtDepth(depth, g)
-	return (P/g - sw.Density*depth) / sw.Density, nil
+	return 0, nil
 }
 func (sub Submarine) VolumeAtDepth(depth float64, fluid Seawater, g float64) (float64, error) {
 	if err := sub.Validate(); err != nil { return 0, err }
