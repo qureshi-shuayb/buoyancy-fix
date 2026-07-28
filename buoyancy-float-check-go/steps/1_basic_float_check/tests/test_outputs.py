@@ -840,7 +840,7 @@ func TestBatchCheckBuoyancy(t *testing.T) {
 
 func TestBatchStressLargeN(t *testing.T) {
     water := Fluid{Density: 1000}
-    n := 500
+    n := 1000
     objs := make([]Object, n)
     for i := 0; i < n; i++ {
         if i%3 == 0 {
