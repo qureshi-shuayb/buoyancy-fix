@@ -2,9 +2,9 @@ schema_version = "1.1"
 
 [task]
 name = "shuaybqureshi/submarine-dive-sim-go"
-description = "EASY Step1 12 constants (Tolerance 1e-9, Gravity 9.81, SeawaterDensity 1025, DepthGrad 0.02, MinVol 0.1, PycDelta 10/Scale 200, Halo 2.5/30, ThermoScale 120, SalinityCoeff 0.8, Bulk 2.2e9), density 3 terms rho0+grad*z+pyc1 where pyc1=10*(1-exp(-z/200)), 1 scale (200) single-scale integral only, pressure 3-term analytic ∫(1-exp)=z+S*exp-S, Simpson 20k rel 1e-2 missing >2, derivatives 1st only h=0.001 tol 1e-4, sound 3 terms c=1449.2+4.6T+0.016z where T=15-12*(1-exp(-z/120)), gradient 2 terms, pot temp 1st order T*(1-x) where x=P/Bulk*1e-3, steric simple, volume simple exp(-kP) clamped 0.1 no thermal, bulk K=1/k, 1 finder SOFAR via 100pts 50iter brute 2m tol 10m, N² simple g/rho*grad. Step2 MEDIUM 5-pt Re Cd table [1e3,1e4,1e5,1e6,5e6] Cd [1.44,1.2,0.7,0.2,0.12] log-interp band 0.1 midpoint 0.05, terminal Brent 50iter 1e-2, equilibrium 500pts 50iter root 5m tol, fixed RK4 k1..k4 only + optional adaptive atol/rtol with independent ref 25%, dive profile len>3 depth tol 5%, priority heap + bounded pool 4 + atomic any width/style (AddInt32/64, Uint, typed) behavioral <=4, deadline 500ms/50items lenient, cancellation 200ms/50items lenient, R05 leak fixed: test.sh removes *_test.go before and after."
+description = "EASY Step1 8 constants (Tolerance 1e-9, Gravity 9.81, SeawaterDensity 1025, DepthGrad 0.02, MinVol 0.1, Bulk 2.2e9, PycDelta 10/Scale 200), density 2 terms rho0+grad*z linear no exp, 1 scale (200) for potential density only, pressure 2-term analytic g*(rho0*z+0.5*grad*z²) no exp, Simpson 20k rel 1e-2 missing >2, derivatives 1st only constant grad h=0.001 tol 1e-4, sound 3 terms quadratic c=1500-0.1z+0.0002z² minimum at 250m no T/S no exp, gradient 2 terms -0.1+0.0004z, pot temp 1st order T*(1-x) where T linear 15-0.02z and x=P/Bulk*1e-3, N² simple g/rho*grad, volume simple exp(-kP) clamped 0.1 no thermal, bulk K=1/k, 1 finder SOFAR quadratic via 100pts 50iter brute 2m tol 10m. Step2 EASY-MEDIUM 5-pt Re Cd table [1e3,1e4,1e5,1e6,5e6] Cd [1.44,1.2,0.7,0.2,0.12] log-interp band 0.1 midpoint 0.05, terminal Brent 50iter 1e-2, equilibrium 500pts 50iter root 5m tol, fixed RK4 k1..k4 only + optional adaptive atol/rtol with independent ref 25%, dive profile len>3 depth tol 5%, priority heap + bounded pool 4 + atomic any width/style (AddInt32/64, Uint, typed) behavioral <=4, deadline 500ms/50items lenient, cancellation 200ms/50items lenient, R05 leak fixed: test.sh removes *_test.go before and after."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "concurrency", "pycnocline", "halocline", "thermocline", "salinity", "sound-speed", "potential-density", "first-derivative", "reynolds", "multi-root", "worker-pool", "SOFAR", "steric-height", "closed-form-pressure", "easy", "information-isolation-fix", "atomic-alternatives"]
+keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "concurrency", "pycnocline", "salinity", "sound-speed", "potential-density", "first-derivative", "reynolds", "multi-root", "worker-pool", "SOFAR", "steric-height", "closed-form-pressure", "easy", "information-isolation-fix", "atomic-alternatives", "quadratic-sound"]
 format = "terminal_bench_multi_turn"
 workstream = "swe_public_repo"
 language = "go"
@@ -16,10 +16,10 @@ difficulty = "easy"
 category = "iterate_on_feature"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 120.0
-junior_time_estimate_min = 240.0
+expert_time_estimate_min = 90.0
+junior_time_estimate_min = 180.0
 reward_type = "binary"
-tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "concurrency", "hydrostatics", "drag", "pycnocline", "halocline", "thermocline", "brunt-vaisala", "salinity", "sound-speed", "potential-density", "first-derivative", "reynolds", "multi-root", "worker-pool", "SOFAR", "steric-height", "closed-form-pressure", "easy", "atomic-alternatives-fix"]
+tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "concurrency", "hydrostatics", "drag", "pycnocline", "salinity", "sound-speed", "potential-density", "first-derivative", "reynolds", "multi-root", "worker-pool", "SOFAR", "steric-height", "closed-form-pressure", "easy", "atomic-alternatives-fix", "quadratic-sound"]
 languages = ["go"]
 
 [environment]

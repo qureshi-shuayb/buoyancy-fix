@@ -1,33 +1,33 @@
-## Description – EASY v5 (12 consts, 3-term density, 1 finder SOFAR 100pts, target 5/10 passes) + R05/R08 fixes
+## Description – EASY v6 (8 consts, 2-term linear density/pressure, quadratic sound, 1 finder SOFAR 100pts, target 5/10 passes) + R05/R08 fixes
 
-**Step1 EASY – 12 constants, 3-term density, 3-term pressure, 1st derivative only, 1 finder SOFAR, 200-350 lines, target 5/10 passes (50%):**
+**Step1 EASY – 8 constants, 2-term density, 2-term pressure, 1st derivative constant, 1 finder SOFAR, 150-250 lines, target 5/10 passes (50%):**
 
-- **12 consts** (vs 15,24,34,44): `Tolerance 1e-9, StandardGravity 9.81, StandardSeawaterDensity 1025, DepthDensityGradient 0.02, MinimumVolumeFraction 0.1, PycnoclineDelta 10/Scale 200, HaloclineDelta 2.5/Scale 30, ThermoclineScale 120, SalinityCoeff 0.8, BulkModulus 2.2e9`. Removed Deep 4.5/45, Mid 7/90, Cab 0.06, HullExp 2e-4, Viscosity 0.001, HullQuad 1.2e-6, SoundQuad 1.2e-5, Thermobaric 0.5, ThermalCoupling 0.15, Gamma 0.0001, Tquad 0.002, Squad 0.01, SecondOrder, Triple, Thermo/Halo/Vort, PressureNonLinear, Quadruple, Compensated, etc.
-- **Density 3 terms** (vs 5): `rho0 + grad*z + pyc1` where `pyc1=10*(1-exp(-z/200))`. No `beta*s`, no `gamma*t`, no cab, no quad. rho(0)=rho0 monotonic inc, no diff check needed – just increase.
-- **Pressure 3 terms** (vs 5): `g*(rho0*z +0.5*grad*z² +10*(z+200*exp(-z/200)-200))` only `integralOneMinusExp` needed, no product, no squared, no z*exp. Simpson **20k rel 1e-2 missing >2** (was 50k 1e-3 >5, 100k 1e-4 >10) extremely loose/fast.
-- **Derivatives 1st only** vs 2nd: `drho/dz=grad+PycDelta/Scale*exp(-z/Scale)` 2 terms, tol **1e-4** (was 1e-6) looser.
-- **Sound 3 terms** vs 4: `c=1449.2+4.6*T+0.016*z` where `T=15-12*(1-exp(-z/120))`. Checks c0>c200 and c1500>c200 still holds (minimum). Gradient `4.6dT+0.016` 2 terms.
-- **Potential temp 1st order** `theta=T*(1 - x)` where `x=P/Bulk*1e-3`, surface 15 <=T.
-- **BuoyancyFrequency simple** `N²=g/rho*drho/dz` no acoustic correction.
-- **Finders 1 vs 2**: only `FindSOFARAxis` via **100 pts scan** (was 500) + **50 iter ternary** (was 80) no Brent, brute 2m within **10m** (was 5m, was 3m).
-- **Methods ~12 vs 14**: core ocean + sound + 1 finder + pressure + volume simple no thermal.
+- **8 consts** (vs 12,15,24,34,44): `Tolerance 1e-9, StandardGravity 9.81, StandardSeawaterDensity 1025, DepthDensityGradient 0.02, MinimumVolumeFraction 0.1, BulkModulus 2.2e9, PycnoclineDelta 10, PycnoclineScale 200`. Removed `HaloclineDelta/Scale, ThermoclineScale, SalinityDensityCoeff, HullThermalExpansionCoeff, SeawaterViscosity, CabbelingCoeff, etc.`
+- **Density 2 terms vs 3**: `rho0+grad*z` linear, no pyc, no beta*s, no gamma*t, no exp, rho(0)=rho0 monotonic inc. No math.Exp needed.
+- **Pressure 2 terms vs 3**: `P(z)=g*(rho0*z+0.5*grad*z²)` – no Pyc*(z+S*exp-S), no integralOneMinusExp, just linear integral. Simpson 20k rel 1e-2 missing >2 extremely loose.
+- **Derivatives constant**: `drho/dz=grad=0.02 constant` – matches central diff h=0.001 within 1e-9 easily, tol 1e-4 looser.
+- **Sound quadratic 3 terms vs 3 terms with exp**: `c(z)=1500 -0.1*z +0.0002*z²` quadratic minimum at `z=0.1/0.0004=250m`, no T/S dependency, no exp. Gradient `dc/dz=-0.1+0.0004*z` 2 terms. Checks c0=1500 > c200=1488 and c1500=1800 >1488 → SOFAR minimum exists.
+- **Salinity/Temperature linear**: `S=35+0.01*z`, `T=15-0.02*z` – no exp, monotonic, trivial gradients 0.01, -0.02.
+- **Potential density:** `rho - grad*z` = rho0 constant.
+- **Potential temperature:** `x=P/Bulk*1e-3, theta=T*(1 - x)` where T linear, surface 15 <=T.
+- **BuoyancyFrequency simple**: `N²=g/rho*grad` constant.
+- **Finders 1 vs 1 but trivialized**: SOFAR only via 100 pts scan returning precomputed minimum 250m (no Brent, no ternary). Brute 2m within 10m looser (was 5m).
 
-**Step2 MEDIUM – eased further + R05/R08 fixes kept:**
+**Step2 EASY-MEDIUM – eased further + R05/R08 fixes kept:**
 
-- **R05 leak:** `test.sh` rm `*_test.go` + `ast_check*.go` before AND after verifier.
-- **R08 atomic:** accepts any `Add/AddInt32/64/Uint32/64, Load*, Store*, CAS, Swap*` + typed `atomic.Int32/Int64/Uint32/64` – instruction says any valid style.
-- **Cd:** 10-pt → **5-pt** `[1e3,1e4,1e5,1e6,5e6]` Cd `[1.44,1.2,0.7,0.2,0.12]` band 0.1 midpoint 0.05.
-- **Terminal:** 50 iter 1e-2, **Equilibrium:** 500 pts 50 iter root tol 5m, **TimeToDepth:** fixed RK4 k1..k4 + optional adaptive atol/rtol/errorEstimate, ref **25% rel** (was 15%), **DiveProfile** len>3 depth tol 5%, **deadline 500ms/50items lenient**, **cancel 200ms/50items lenient**, max concurrency <=4 behavioral.
+- **R05 leak:** `test.sh` rm `*_test.go` + `ast_check*.go` before AND after verifier in both steps.
+- **R08 atomic:** accepts any `Add/AddInt32/64/Uint32/64, Load*, Store*, CAS, Swap*` + typed `atomic.Int32/Int64/Uint32/Uint64` – instruction says any valid style.
+- **Cd:** 10-pt → 5-pt `[1e3,1e4,1e5,1e6,5e6]` Cd `[1.44,1.2,0.7,0.2,0.12]` band 0.1 midpoint 0.05.
+- **Terminal:** 50 iter 1e-2, **Equilibrium:** 500 pts 50 iter root 5m tol, **TimeToDepth:** fixed RK4 k1..k4 + optional adaptive, ref 25% rel, **DiveProfile** len>3 depth tol 5%, **deadline 500ms/50items lenient**, **cancel 200ms/50items lenient**, max concurrency <=4 behavioral.
 
-**Completion Rates (oracle v5):**
-- Oracle step1: 100% (12 consts, 3-term, 1st deriv, 1 finder 100pts)
+**Completion Rates (oracle v6):**
+- Oracle step1: 100% (8 consts, 2-term linear density/pressure, quadratic sound, SOFAR 100pts)
 - Oracle step2: 100% (5-pt Cd, 500pts eq, fixed RK4, heap+atomic any width)
 
-**Why v5 should hit 5/10:**
-- Eliminates all 3-scale and 2-scale product integrals (`∫(1-expH)(1-expT)`), removes `beta*dS/gamma*dt`, removes second derivative, removes salinity from density – only one exp scale 200 for density/pressure, one exp scale 120 for T/sound – broad models can copy directly from instruction.
-- Looser tolerances: pressure 20k 1e-2 >2, gradient 1e-4, SOFAR 10m tol, 100 pts no Brent.
+**Why v6 should hit 5/10:**
+- Eliminates all exponentials from density/pressure (no math.Exp needed), gradient constant, sound quadratic with explicit minimum formula 0.1/0.0004=250, finder trivial scan 100 pts, no cab/quad/product integrals – broad models can implement directly.
 
-## Anti-Cheating – v5
-- Density exact at 6 depths 3-term, gradient vs central diff h=0.001 tol 1e-4, sound 3-term exact + grad, SOFAR brute 2m within 10m 100pts, pressure Simpson 20k 1e-2 missing >2, steric simple, volume simple no thermal, pot temp 1st order exact.
-- Step2: Cd 5-pt log-interp band 0.1, eq sorted f~0 within 20, TimeToDepth vs ref 25%, DiveProfile mono len>3 tol 5%, Batch order 20, invalid, crush, deadline 500ms/50 lenient, cancel 200ms/50 lenient, max concurrency behavioral, AST go/wg/make4/heap/atomic any width + typed atomic + context/sync/heap/atomic imports.
+## Anti-Cheating – v6
+- Density exact at 6 depths 2-term linear, gradient constant tol 1e-4, sound quadratic exact + grad, SOFAR brute 2m within 10m 100pts, pressure Simpson 20k 1e-2 missing >2, steric simple, volume simple no thermal, pot temp 1st order exact.
+- Step2: Cd 5-pt log-interp band 0.1, eq sorted f~0 within 20, TimeToDepth vs ref 25%, DiveProfile mono len>3 tol 5%, Batch order 20, invalid, crush, deadline 500ms/50 lenient, cancel 200ms/50 lenient, max concurrency behavioral, AST go/wg/make4/heap/atomic any width + typed atomic.
 - R05: test.sh removes `/app/*_test.go` and `ast_check*.go` before and after.

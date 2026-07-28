@@ -525,14 +525,15 @@ def check_no_redef():
     assert "type Submarine struct" not in stripped, "dive.go must NOT redefine Submarine"
     assert "type Seawater struct" not in stripped, "dive.go must NOT redefine Seawater"
     for const in ["Tolerance", "StandardGravity", "StandardSeawaterDensity", "DepthDensityGradient", "MinimumVolumeFraction",
-                  "PycnoclineDelta", "PycnoclineScale", "HaloclineDelta", "HaloclineScale", "ThermoclineScale",
-                  "SalinityDensityCoeff", "BulkModulus"]:
+                  "BulkModulus", "PycnoclineDelta", "PycnoclineScale"]:
         assert f"const {const}" not in stripped, f"dive.go must NOT redefine {const}"
     for const in ["DeepPycnoclineDelta", "DeepPycnoclineScale", "MidPycnoclineDelta", "MidPycnoclineScale",
-                  "CabbelingCoeff", "HullThermalExpansionCoeff", "HullThermalExpansionQuadCoeff", "SoundSpeedPressureQuadCoeff",
-                  "ThermobaricCoeff", "ThermalCouplingCoeff", "GammaDepthFactor", "TAnomQuadCoeff", "SAnomQuadCoeff",
-                  "SecondOrderCabbelingCoeff", "TripleCabbelingCoeff", "ThermostericAnomalyCoeff", "HalostericAnomalyCoeff",
-                  "AdiabaticLapseRate", "VorticityMixingCoeff", "DoubleDiffusiveMixingScale", "PressureNonLinearCoeff",
+                  "HaloclineDelta", "HaloclineScale", "ThermoclineScale", "SalinityDensityCoeff",
+                  "HullThermalExpansionCoeff", "SeawaterViscosity", "CabbelingCoeff", "HullThermalExpansionQuadCoeff",
+                  "SoundSpeedPressureQuadCoeff", "ThermobaricCoeff", "ThermalCouplingCoeff", "GammaDepthFactor",
+                  "TAnomQuadCoeff", "SAnomQuadCoeff", "SecondOrderCabbelingCoeff", "TripleCabbelingCoeff",
+                  "ThermostericAnomalyCoeff", "HalostericAnomalyCoeff", "AdiabaticLapseRate", "VorticityMixingCoeff",
+                  "DoubleDiffusiveMixingScale", "PressureNonLinearCoeff",
                   "QuadrupleCabbelingCoeff", "CompensatedLayerCoeff", "ThermohalineIntrusionScale", "BaroclinicShearCoeff",
                   "ThermostericSecondOrderCoeff", "HalostericSecondOrderCoeff", "SoundSpeedDepthCubeCoeff", "PressureCubicNonLinearCoeff",
                   "SoundSpeedThermoQuadCoeff", "SoundSpeedSalinityQuadCoeff", "SeawaterViscosity"]:
