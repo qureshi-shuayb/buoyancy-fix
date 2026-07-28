@@ -189,6 +189,35 @@ func TestIsNeutrallyBuoyant(t *testing.T) {
     }
 }
 
+func TestRequiredAPIsCoverage(t *testing.T) {
+    // Call every required public API at least once to fix R06 coverage
+    water := Fluid{Density: 1000}
+    obj := Object{Mass: 500, Volume: 1, Height: 1}
+    if _, err := CheckBuoyancy(obj, water); err != nil {
+        t.Fatalf("CheckBuoyancy error %v", err)
+    }
+    if _, err := RequiredBallastMass(obj, water); err != nil {
+        t.Fatalf("RequiredBallastMass error %v", err)
+    }
+    if _, err := WeightForce(500, 9.81); err != nil {
+        t.Fatalf("WeightForce error %v", err)
+    }
+    cyl := CylinderObject{Mass: 500, Radius: 1, Height: 1}
+    if _, err := cyl.Volume(); err != nil {
+        t.Fatalf("Cylinder Volume error %v", err)
+    }
+    if _, err := cyl.Density(); err != nil {
+        t.Fatalf("Cylinder Density error %v", err)
+    }
+    sph := SphereObject{Mass: 500, Radius: 1}
+    if _, err := sph.Volume(); err != nil {
+        t.Fatalf("Sphere Volume error %v", err)
+    }
+    if _, err := sph.Density(); err != nil {
+        t.Fatalf("Sphere Density error %v", err)
+    }
+}
+
 """
         )
     )

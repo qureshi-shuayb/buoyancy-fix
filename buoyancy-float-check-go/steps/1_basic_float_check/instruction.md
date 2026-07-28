@@ -59,7 +59,7 @@ func IsNeutrallyBuoyant(objDensity, fluidDensity float64) (bool, error)
 - `ApparentWeight`: returns neutral handling with exact zero when within tolerance, otherwise `(Mass-fluid.Density*Volume)*g`.
 - `RequiredBallastMass`: returns exact zero within tolerance, otherwise `fluid.Density*Volume-Mass`.
 - `IsNeutrallyBuoyant`: validates densities >0 finite, returns whether within Tolerance using Tolerance constant.
-- `BatchCheckBuoyancy`: order and invalid handling with concurrency, race-free with `WaitGroup`+`Mutex` (or via shared helper).
+- `BatchCheckBuoyancy`: validate fluid and gravity first as whole-call errors returning nil slice and error containing keywords `density` and `gravity`; for nil or empty objects slice, return non-nil empty slice (e.g., `make([]BuoyancyReport,0)`) and nil error; for invalid objects (Mass<=0, Volume<=0, Height<=0 or non-finite), preserve length `len(results)==len(objects)`, preserve `Index==i`, set `State` exactly to `"invalid"`, leave numeric fields zero, continue processing other objects, return nil error. Example: objs=[{500,1,1}, {0,1,1}, {1500,1,1}] with water 1000 → len 3, Index 0,1,2, State float, invalid, sink, err nil. Must be concurrent race-free with `WaitGroup`+`Mutex` (direct or via shared helper like `runBatch`) and pass `go test -race`.
 - All error returns must be zero-value (or nil,error) and error message contains relevant field name.
 
 ## Error Handling
