@@ -2,9 +2,9 @@ schema_version = "1.1"
 
 [task]
 name = "shuaybqureshi/submarine-dive-sim-go"
-description = "TRIVIAL Step1 6 constants (Tolerance 1e-9, Gravity 9.81, SeawaterDensity 1025, DepthGrad 0.02, MinVol 0.1, Bulk 2.2e9), density 1-term constant rho0, pressure 1-term g*rho0*z no 0.5 no exp, Simpson 20k rel 1e-2 >2 extremely loose, gradient constant 0 tol 1e-3, sound constant 1500 tol 1e-2, pot density constant rho0, pot temp constant 15, N² 0, volume simple exp(-kP) clamped 0.1 no thermal, bulk K=1/k, 1 finder SOFAR returns 0 via 10pts scan brute 10m tol. Previous 683b3c3 8 consts 2-term rho0+grad*z + quadratic sound still 0/10 Avocado (opus 0/10, gpt 0/10, oracle 3/3) BAD_GRADING_WEAK. This v8 trivial constant ocean with no math.Exp for density/pressure/gradient/sound should target 10-30% fail rate (70-90% pass). Step2 EASY 5-pt Cd [1e3,1e4,1e5,1e6,5e6] Cd [1.44,1.2,0.7,0.2,0.12] band 0.1 midpoint 0.05 log-interp, terminal 50iter 1e-2, equilibrium 500pts 50iter root 5m via compression (k>0) for constant density, fixed RK4 k1..k4 + optional adaptive atol/rtol ref 25%, DiveProfile len>3 depth 5%, heap+atomic any width/style (Int32/64, Uint, typed) behavioral <=4, deadline 500ms/50 lenient, cancel 200ms/50 lenient, R05 leak rm before+after, R08 atomic any width."
+description = "TRIVIAL 3-step split to hit 10-30% fail rate (was 0/10 at 683b3c3 8 consts 2-term). Step1a 1_ocean_constants_and_density: 4 required constants (Tolerance 1e-9, Gravity 9.81, SeawaterDensity 1025, MinVol 0.1) allow extras, density constant rho0=fluid.Density, gradient 0, salinity 35, temp 15 constant, validation, EffectiveMass/Density, 60-100 lines, tests: constants 4 exact allow extras, density constant 10% tol, gradient 0 tol 1e-2. Step1b 2_pressure_sound_finders: reuses 4 required, adds pressure 1-term g*rho0*z (explicit snippet), volume exp(-kP) clamped 0.1 no thermal, sound constant 1500 any 1400-1600 range, SOFAR any depth [0,maxDepth] via 10pts scan, 80-120 lines, tests: pressure 10k rel 10% loose, sound range, finder any depth. Step3 3_dive_dynamics: reuses 4 required, 5-pt Re Cd table [1e3,1e4,1e5,1e6,5e6] Cd [1.44,1.2,0.7,0.2,0.12] log-interp band 0.1 midpoint 0.05, terminal Brent 50iter 1e-2, equilibrium 500pts 50iter root 5m via compression (k>0) for constant density float->sink, fixed RK4 k1..k4 + optional adaptive atol/rtol ref 25%, DiveProfile len>3 depth 5%, priority heap + bounded pool 4 + atomic any width/style (AddInt32/64, Uint, typed Int32/64) behavioral <=4, deadline 500ms/50items lenient, cancel 200ms/50items lenient, R05 leak fixed rm before+after, R08 atomic any width."
 authors = [{name = "Shuayb Qureshi", email = "shuaybqureshi@meta.com"}]
-keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "concurrency", "salinity", "sound-speed", "potential-density", "first-derivative", "reynolds", "multi-root", "worker-pool", "SOFAR", "steric-height", "closed-form-pressure", "trivial", "information-isolation-fix", "atomic-alternatives"]
+keywords = ["go", "submarine", "buoyancy", "archimedes", "simulator", "physics", "scientific_computing", "numerical-methods", "root-finding", "concurrency", "salinity", "sound-speed", "potential-density", "first-derivative", "reynolds", "multi-root", "worker-pool", "SOFAR", "steric-height", "closed-form-pressure", "trivial", "3-step-split", "information-isolation-fix", "atomic-alternatives"]
 format = "terminal_bench_multi_turn"
 workstream = "swe_public_repo"
 language = "go"
@@ -16,10 +16,10 @@ difficulty = "easy"
 category = "iterate_on_feature"
 category_usecase = "compute_result"
 category_subdomain = "scientific_computing"
-expert_time_estimate_min = 30.0
-junior_time_estimate_min = 60.0
+expert_time_estimate_min = 60.0
+junior_time_estimate_min = 120.0
 reward_type = "binary"
-tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "concurrency", "hydrostatics", "drag", "salinity", "sound-speed", "potential-density", "first-derivative", "reynolds", "multi-root", "worker-pool", "SOFAR", "steric-height", "closed-form-pressure", "trivial", "atomic-alternatives-fix"]
+tags = ["multi-turn", "context-following", "submarine", "physics", "go", "simulator", "numerical-methods", "root-finding", "concurrency", "hydrostatics", "drag", "salinity", "sound-speed", "potential-density", "first-derivative", "reynolds", "multi-root", "worker-pool", "SOFAR", "steric-height", "closed-form-pressure", "trivial", "3-step-split", "atomic-alternatives-fix"]
 languages = ["go"]
 
 [environment]
@@ -35,7 +35,7 @@ mcp_servers = []
 [solution.env]
 
 [[steps]]
-name = "1_basic_buoyancy_control"
+name = "1_ocean_constants_and_density"
 dependencies = []
 min_reward = 1.0
 
@@ -46,8 +46,20 @@ timeout_sec = 600.0
 timeout_sec = 1200.0
 
 [[steps]]
-name = "2_dive_dynamics"
-dependencies = ["1_basic_buoyancy_control"]
+name = "2_pressure_sound_finders"
+dependencies = ["1_ocean_constants_and_density"]
+min_reward = 1.0
+inherit_prior_session = true
+
+[steps.verifier]
+timeout_sec = 600.0
+
+[steps.agent]
+timeout_sec = 1200.0
+
+[[steps]]
+name = "3_dive_dynamics"
+dependencies = ["1_ocean_constants_and_density", "2_pressure_sound_finders"]
 min_reward = 1.0
 inherit_prior_session = true
 
