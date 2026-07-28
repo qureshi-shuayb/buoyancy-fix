@@ -847,6 +847,94 @@ def write_step2_tests():
                 }
             }
 
+            func TestStratifiedGradientZeroUniform(t *testing.T) {
+                // G=0 should reduce to uniform: BM = S*d*A
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0}
+                obj := Object{Mass: 600, Volume: 1, Height: 2}
+                A := obj.Volume / obj.Height
+                bm, err := BuoyantMass(obj, sf, 1.5)
+                if err != nil {
+                    t.Fatalf("BM G=0 error %v", err)
+                }
+                want := A * (1000 * 1.5)
+                if math.Abs(bm-want) > 1e-12 {
+                    t.Fatalf("BM G=0 should be S*d*A: got %g want %g", bm, want)
+                }
+                // Conical with G=0
+                bmCon, _ := BuoyantMassConical(obj, sf, 1)
+                R2 := 3.0 * obj.Volume / (math.Pi * obj.Height)
+                wantCon := math.Pi * R2 / (obj.Height * obj.Height) * (1000 * 1 * 1 * 1 / 3.0)
+                if math.Abs(bmCon-wantCon) > 1e-12 {
+                    t.Fatalf("BM conical G=0 got %g want %g", bmCon, wantCon)
+                }
+            }
+
+            func TestFrustumR1R2ZeroEdge(t *testing.T) {
+                // Cone: R1=0
+                cone := FrustumObject{Mass: 100, BaseRadius: 0, TopRadius: 1, Height: 2}
+                vol, err := cone.Volume()
+                if err != nil {
+                    t.Fatalf("cone Volume error %v", err)
+                }
+                wantCone := math.Pi * 2 / 3.0 * (1 * 1)
+                if !approxStep2(vol, wantCone) {
+                    t.Fatalf("cone R1=0 volume got %g want %g", vol, wantCone)
+                }
+                // Cylinder: R1==R2
+                cyl := FrustumObject{Mass: 100, BaseRadius: 1, TopRadius: 1, Height: 2}
+                volCyl, err := cyl.Volume()
+                if err != nil {
+                    t.Fatalf("cylinder Volume error %v", err)
+                }
+                wantCyl := math.Pi * 1 * 1 * 2
+                if !approxStep2(volCyl, wantCyl) {
+                    t.Fatalf("cylinder R1==R2 volume got %g want %g", volCyl, wantCyl)
+                }
+            }
+
+            func TestBatchMixedInvalidHeightAndMass(t *testing.T) {
+                sf := StratifiedFluid{SurfaceDensity: 1000, Gradient: 0.5}
+                n := 200
+                objs := make([]FrustumObject, n)
+                for i := 0; i < n; i++ {
+                    if i%3 == 0 {
+                        objs[i] = FrustumObject{Mass: 0, BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                    } else if i%3 == 1 {
+                        objs[i] = FrustumObject{Mass: 100, BaseRadius: 0.5, TopRadius: 1.5, Height: 0}
+                    } else {
+                        objs[i] = FrustumObject{Mass: 600 * refFrustumVolume(0.5, 1.5, 2), BaseRadius: 0.5, TopRadius: 1.5, Height: 2}
+                    }
+                }
+                res, err := BatchAnalyzeFrustumStratified(objs, sf)
+                if err != nil {
+                    t.Fatalf("Batch mixed invalid should not error: %v", err)
+                }
+                if len(res) != n {
+                    t.Fatalf("len %d want %d", len(res), n)
+                }
+                for i := 0; i < n; i++ {
+                    if res[i].Index != i {
+                        t.Fatalf("Index broken at %d", i)
+                    }
+                    if i%3 != 2 && res[i].State != "invalid" {
+                        t.Fatalf("mixed invalid expected invalid at %d got %q", i, res[i].State)
+                    }
+                }
+            }
+
+            func TestEquilibriumNoSolutionSink(t *testing.T) {
+                // Tiny surface density, huge mass -> avg fluid < obj density -> should sink to full Height
+                sfTiny := StratifiedFluid{SurfaceDensity: 1e-6, Gradient: 0}
+                objHuge := Object{Mass: 1e6, Volume: 1, Height: 10}
+                d, err := EquilibriumDepthStratified(objHuge, sfTiny)
+                if err != nil {
+                    t.Fatalf("Equilibrium tiny fluid error %v", err)
+                }
+                if !approxStep2(d, 10) {
+                    t.Fatalf("Equilibrium should be full Height for sinking, got %g want 10", d)
+                }
+            }
+
 '''
         )
     )
