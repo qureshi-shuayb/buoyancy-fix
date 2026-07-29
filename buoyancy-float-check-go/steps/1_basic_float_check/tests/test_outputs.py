@@ -840,7 +840,7 @@ func TestBatchCheckBuoyancy(t *testing.T) {
 
 func TestBatchStressLargeN(t *testing.T) {
     water := Fluid{Density: 1000}
-    n := 2000
+    n := 5000
     objs := make([]Object, n)
     for i := 0; i < n; i++ {
         if i%3 == 0 {
@@ -853,7 +853,7 @@ func TestBatchStressLargeN(t *testing.T) {
     }
     res, err := BatchCheckBuoyancy(objs, water, 9.81)
     if err != nil {
-        t.Fatalf("Batch stress N=2000 error %v", err)
+        t.Fatalf("Batch stress N=5000 error %v", err)
     }
     if len(res) != n {
         t.Fatalf("Batch stress len=%d want %d", len(res), n)
@@ -872,44 +872,43 @@ func TestBatchStressLargeN(t *testing.T) {
 }
 
 func TestOverflowDetection(t *testing.T) {
-    // BuoyantForce overflow: 1e200 * 1e200 * 1e10 = 1e410 > 1e308 -> Inf -> must error not return Inf
+    // BuoyantForce overflow: 1e200 * 1e200 * 1e10 = 1e410 > 1e308 -> Inf -> must error containing overflow
     _, err := BuoyantForce(Fluid{Density: 1e200}, 1e200, 1e10)
-    if err == nil {
-        t.Fatalf("BuoyantForce overflow should error, got nil (must detect post-op Inf)")
+    if err == nil || !strings.Contains(strings.ToLower(err.Error()), "overflow") {
+        t.Fatalf("BuoyantForce overflow should error containing overflow, got %v", err)
     }
     // WeightForce overflow
     _, err = WeightForce(1e308, 10)
-    if err == nil {
-        t.Fatalf("WeightForce overflow 1e308*10 should error")
+    if err == nil || !strings.Contains(strings.ToLower(err.Error()), "overflow") {
+        t.Fatalf("WeightForce overflow 1e308*10 should error containing overflow, got %v", err)
     }
     // Cylinder volume overflow
     _, err = (CylinderObject{Mass: 1, Radius: 1e150, Height: 1e150}).Volume()
-    if err == nil {
-        t.Fatalf("Cylinder Volume overflow 1e150 radius/height should error")
+    if err == nil || !strings.Contains(strings.ToLower(err.Error()), "overflow") {
+        t.Fatalf("Cylinder Volume overflow 1e150 should error containing overflow, got %v", err)
     }
     // Sphere volume overflow
     _, err = (SphereObject{Mass: 1, Radius: 1e200}).Volume()
-    if err == nil {
-        t.Fatalf("Sphere Volume overflow 1e200 radius should error")
+    if err == nil || !strings.Contains(strings.ToLower(err.Error()), "overflow") {
+        t.Fatalf("Sphere Volume overflow 1e200 should error containing overflow, got %v", err)
     }
     // Density overflow via division? Mass 1e308 Volume 1e-308 => 1e616 Inf
     _, err = (Object{Mass: 1e308, Volume: 1e-308, Height: 1}).Density()
-    if err == nil {
-        t.Fatalf("Object Density overflow 1e308/1e-308 should error")
+    if err == nil || !strings.Contains(strings.ToLower(err.Error()), "overflow") {
+        t.Fatalf("Object Density overflow 1e308/1e-308 should error containing overflow, got %v", err)
     }
     // Tiny values must still succeed
     _, err = BuoyantForce(Fluid{Density: 1e-9}, 1e-9, 1e-9)
     if err != nil {
-        t.Fatalf("BuoyantForce tiny values should succeed, got err %v", err)
+        t.Fatalf("BuoyantForce tiny should succeed, got %v", err)
     }
     _, err = (CylinderObject{Mass: 1, Radius: 1e-12, Height: 1e-12}).Volume()
     if err != nil {
-        t.Fatalf("Cylinder tiny volume should succeed, got %v", err)
+        t.Fatalf("Cylinder tiny should succeed, got %v", err)
     }
 }
 
 func TestVolumeNoMassCheck(t *testing.T) {
-    // Volume() must NOT check Mass - DRY trap
     c := CylinderObject{Mass: 0, Radius: 1, Height: 1}
     vol, err := c.Volume()
     if err != nil {
@@ -926,11 +925,52 @@ func TestVolumeNoMassCheck(t *testing.T) {
     if !closeEnoughStep1(vol, 4.0/3.0*math.Pi) {
         t.Fatalf("Sphere Volume Mass=0 should be 4/3 Pi, got %g", vol)
     }
-    // Object Density Height trap already tested
+}
+
+func TestBatchMixedInvalidAllTypes(t *testing.T) {
+    water := Fluid{Density: 1000}
+    // 15 types invalid: Mass=0, Volume=0, Height=0, NaN, Inf, -0.0 interleaved
+    objs := []Object{
+        {Mass: 0, Volume: 1, Height: 1},
+        {Mass: 1, Volume: 0, Height: 1},
+        {Mass: 1, Volume: 1, Height: 0},
+        {Mass: math.NaN(), Volume: 1, Height: 1},
+        {Mass: 1, Volume: math.NaN(), Height: 1},
+        {Mass: 1, Volume: 1, Height: math.NaN()},
+        {Mass: math.Inf(1), Volume: 1, Height: 1},
+        {Mass: 1, Volume: math.Inf(1), Height: 1},
+        {Mass: 1, Volume: 1, Height: math.Inf(1)},
+        {Mass: math.Copysign(0, -1), Volume: 1, Height: 1},
+        {Mass: 1, Volume: math.Copysign(0, -1), Height: 1},
+        {Mass: 1, Volume: 1, Height: math.Copysign(0, -1)},
+        {Mass: 500, Volume: 1, Height: 1},
+        {Mass: 0, Volume: 0, Height: 1},
+        {Mass: 1, Volume: 0, Height: 0},
+    }
+    res, err := BatchCheckBuoyancy(objs, water, 9.81)
+    if err != nil {
+        t.Fatalf("Batch mixed all types should not error, got %v", err)
+    }
+    if len(res) != len(objs) {
+        t.Fatalf("Batch len %d want %d", len(res), len(objs))
+    }
+    for i, r := range res {
+        if r.Index != i {
+            t.Fatalf("Index %d != %d", r.Index, i)
+        }
+        if i < 12 || i >= 13 {
+            if r.State != "invalid" {
+                t.Fatalf("Batch mixed invalid at %d should be invalid, got %q", i, r.State)
+            }
+            if r.Density != 0 || r.BuoyantForce != 0 || r.WeightForce != 0 {
+                t.Fatalf("Invalid at %d must have numeric zero, got Density=%g Buoyant=%g Weight=%g", i, r.Density, r.BuoyantForce, r.WeightForce)
+            }
+        }
+    }
 }
 
 func TestRandomFuzzCheckBuoyancyByDensity(t *testing.T) {
-    for i := 0; i < 100; i++ {
+    for i := 0; i < 500; i++ {
         fluid := 500 + float64(i%100)*10 + 0.123
         diff := (float64(i%7) - 3.0) * 0.002
         obj := fluid + diff
@@ -956,7 +996,7 @@ func TestRandomFuzzCheckBuoyancyByDensity(t *testing.T) {
 }
 
 func TestRandomFuzzForces(t *testing.T) {
-    for i := 0; i < 50; i++ {
+    for i := 0; i < 200; i++ {
         density := 100 + float64(i)*10
         vol := 0.1 + float64(i)*0.1
         g := 1 + float64(i%10)
@@ -973,7 +1013,7 @@ func TestRandomFuzzForces(t *testing.T) {
 
 func TestRandomFuzzApparentWeight(t *testing.T) {
     water := Fluid{Density: 1000}
-    for i := 0; i < 50; i++ {
+    for i := 0; i < 200; i++ {
         mass := 100 + float64(i)*20
         vol := 0.1 + float64(i)*0.05
         g := 1 + float64(i%5)
