@@ -840,7 +840,7 @@ func TestBatchCheckBuoyancy(t *testing.T) {
 
 func TestBatchStressLargeN(t *testing.T) {
     water := Fluid{Density: 1000}
-    n := 1000
+    n := 2000
     objs := make([]Object, n)
     for i := 0; i < n; i++ {
         if i%3 == 0 {
@@ -853,7 +853,7 @@ func TestBatchStressLargeN(t *testing.T) {
     }
     res, err := BatchCheckBuoyancy(objs, water, 9.81)
     if err != nil {
-        t.Fatalf("Batch stress N=1000 error %v", err)
+        t.Fatalf("Batch stress N=2000 error %v", err)
     }
     if len(res) != n {
         t.Fatalf("Batch stress len=%d want %d", len(res), n)
@@ -864,6 +864,9 @@ func TestBatchStressLargeN(t *testing.T) {
         }
         if i%3 == 1 && res[i].State != "invalid" {
             t.Fatalf("Batch stress invalid expected at %d", i)
+        }
+        if res[i].State == "invalid" && (res[i].Density != 0 || res[i].BuoyantForce != 0 || res[i].WeightForce != 0) {
+            t.Fatalf("Batch stress invalid at %d must have numeric fields zero, got Density=%g Buoyant=%g Weight=%g", i, res[i].Density, res[i].BuoyantForce, res[i].WeightForce)
         }
     }
 }
